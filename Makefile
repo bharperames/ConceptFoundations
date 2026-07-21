@@ -1,6 +1,6 @@
 PORT ?= 8743
 
-.PHONY: serve test test-setup
+.PHONY: serve test test-setup sync-clips
 
 # one-time: install the test runner and headless browsers (Chromium + WebKit)
 test-setup:
@@ -10,6 +10,11 @@ test-setup:
 # run the full suite headlessly against both engines (WebKit ≈ iPad Safari)
 test:
 	npx playwright test
+
+# re-copy mapped audio clips from the companion DB, replacing stale ones
+# (matched by stable UID + sha256). CLIP_SOURCE overrides the source path.
+sync-clips:
+	python3 scripts/sync_clips.py
 
 serve:
 	@lsof -ti tcp:$(PORT) | xargs kill 2>/dev/null || true

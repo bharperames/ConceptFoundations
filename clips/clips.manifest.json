@@ -1,0 +1,55 @@
+{
+  "source_project": "~/Code/MR_AudioClips",
+  "note": "Synced by scripts/sync_clips.py via stable UID + sha256. Run `make sync-clips` after the companion clip DB is refined.",
+  "clips": [
+    {
+      "dest": "great_job.mp3",
+      "phrase": "great job",
+      "uid": "clip_57f891574005",
+      "sha256": "1ab30881418b51016e0eb091f10bcd76c83084125b5724ab7e243229fd1b63d5",
+      "source_file": "clips/clip_57f891574005__great_job.mp3"
+    },
+    {
+      "dest": "yay.mp3",
+      "phrase": "yay",
+      "uid": "clip_0d4a4464a206",
+      "sha256": "b131ae228e3b9d41b5c37f6c01a4da6b255f8d6628880c919d3f972bf8080832",
+      "source_file": "clips/clip_0d4a4464a206__yay.mp3"
+    },
+    {
+      "dest": "hooray.mp3",
+      "phrase": "hooray",
+      "uid": "clip_9940ecf63caf",
+      "sha256": "3d133ea9116ea0b125e4db4509492c3e2b5091af6e7f8dfa39890379406b9bf1",
+      "source_file": "clips/clip_9940ecf63caf__hooray.mp3"
+    },
+    {
+      "dest": "we_did_it.mp3",
+      "phrase": "we did it",
+      "uid": "clip_ed372817a473",
+      "sha256": "ba8d6418e22dd73c95409548bfd5b759747eddd575ecf1d2b5c9e52304c9d827",
+      "source_file": "clips/clip_ed372817a473__we_did_it.mp3"
+    },
+    {
+      "dest": "peekaboo.mp3",
+      "phrase": "peekaboo",
+      "uid": "clip_1fd439c9eacd",
+      "sha256": "19d97a9e906ca757d4423aae33a0665615085e209f3ed8f32bc86240802fbeba",
+      "source_file": "clips/clip_1fd439c9eacd__peek_a_boo.mp3"
+    },
+    {
+      "dest": "lets_play_hide_and_seek.mp3",
+      "phrase": "lets play hide and seek",
+      "uid": "clip_61b926deafa3",
+      "sha256": "52f7a671ee824fe86be7cc52a5086fb987021a5d88531a8103a3ab06e358adbe",
+      "source_file": "clips/clip_61b926deafa3__let_s_play_hide_and_seek.mp3"
+    },
+    {
+      "dest": "uh_oh.mp3",
+      "phrase": "uh oh",
+      "uid": "clip_e298bfd34a3f",
+      "sha256": "971a766da12a3564176de76ef5ab11448dd61cb46d433d9288d13c591ef59823",
+      "source_file": "clips/clip_e298bfd34a3f__uh_oh.mp3"
+    }
+  ]
+}
