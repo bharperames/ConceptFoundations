@@ -32,6 +32,7 @@ Five nodes, seventeen micro-levels, each run as E→C→T(×3):
 | 3 · Quantity (More & Less) | 3.1–3.3 | tap (side clusters) | Identity |
 | 4 · Spatial (In & Out) | 4.1–4.4 | drag & drop, physics | Magnitude |
 | 5 · Composition (Build It) | 5.1–5.4 | drag / assembly / physics | Spatial |
+| 6 · Peekaboo | 6.1–6.3 | tap (object permanence) | Identity |
 
 Two levels use the block-physics engine. Spatial 4.2 ("On top") teaches the
 spatial *relation* — one block onto one other block. Composition 5.3 ("Tower")
@@ -81,6 +82,18 @@ coordinates, `hitElementId`, `isCorrectIntent`, `timeSincePromptMs`, plus
 - **Generalization transfer** — success on generalize levels vs standard tests
 
 Open the dashboard with the "Hold for grown-ups" button (2.2s press-and-hold).
+
+## Audio & assets
+
+Spoken lines play recorded audio clips when the phrase is mapped
+(`CLIP_MAP` → `clips/*.mp3`, decoded via Web Audio); everything unmapped falls
+back to the device's speech synthesis. Add a clip by dropping the mp3 in
+`clips/` and adding one map entry. `?noclips=1` forces TTS everywhere; captions
+(`?cc=1`) and mute (`?mute=1`) are unaffected.
+
+The Peekaboo game's picture cards in `assets/cards/*.webp` (36 named subjects)
+were extracted from a photo of a physical toddler memory-card set: the cards
+were segmented off the felt background, cornered, and saved with transparency.
 
 ## Automated tests
 
