@@ -653,7 +653,6 @@ const SIL = {
     <path ${H} d="M80 36 L94 41 L80 46 Z"/>
     <path ${H} d="M28 52 L8 42 L14 60 Z"/>
     <ellipse ${H} cx="46" cy="52" rx="13" ry="8" transform="rotate(-18 46 52)" fill="#2E6FCE"/></g>`),
-  nestBack: () => wrap(`<ellipse cx="50" cy="46" rx="39" ry="11" fill="#7E6040"/>`),
   nest: c => wrap(`<g>
     <path d="M10 44 A40 34 0 0 0 90 44 Z" fill="${c}"/>
     <ellipse cx="50" cy="44" rx="40" ry="10" fill="none" stroke="#8A6A45" stroke-width="7"/>
@@ -934,31 +933,29 @@ const NODES = [
     { id:'4.4', name:'Generalization', focus:'Bird into nest', isGen:true, fallback:'muteOther',
       make(rng){
         const startRight = rng() < .5;
-        const nestPair = (x, y) => [
-          elShape('nest', SIL.nestBack(), x, y, 26, {scenery:true}),
-          elShape('nestf', SIL.nest('#B98B5E'), x, y, 26, {scenery:true, decor:true}),
-        ];
+        // bird sits IN the nest by resting fully opaque ON TOP of the bowl —
+        // the resting position (nest y − 5) tucks it into the opening. Expose
+        // shows exactly the finished state.
+        const restY = ny => ny - 5;
         const mkTest = i => {
           const nestRight = (i % 2 === 0) === startRight;
           const nx = (nestRight?68:32) + [0,-6,5][i];
           const ny = [58,52,62][i] || 58;
-          const pair = nestPair(nx, ny);
           return dragTrial({ state:'GENERALIZE', prompt:'Put the bird in the nest', say:'Put the bird in the nest!',
             elements:[
-              pair[0],
+              elShape('nest', SIL.nest('#B98B5E'), nx, ny, 26, {scenery:true}),
               elShape('tree', SHAPES.circle('#8FCF9F'), nestRight?30:70, 34, 22, {scenery:true, decor:true}),
-              pair[1],
               elShape('bird', SIL.bird(C.sea), nestRight?16:84, [24,40,18][i]||24, 15, {piece:true}),
             ],
-            pieces:[{ el:'bird', slot:'nest', snap: 11, slotDy:-4, sinkBehind:'nestf' }]});
+            pieces:[{ el:'bird', slot:'nest', snap: 11, slotDy:-5 }]});
         };
-        const ep = nestPair(50, 58);
-        const cp = nestPair(62, 62);
         return {
           expose: watchTrial({ state:'EXPOSE', prompt:'In the nest', say:'The bird is in its nest.',
-            elements:[ ep[0], elShape('bird', SIL.bird(C.sea), 50, 53, 14), ep[1] ]}),
+            elements:[ elShape('nest', SIL.nest('#B98B5E'), 50, 58, 26, {scenery:true}),
+                       elShape('bird', SIL.bird(C.sea), 50, restY(58), 14) ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'Out of the nest', say:'Now the bird flew out!',
-            elements:[ cp[0], cp[1], elShape('bird', SIL.bird(C.sea), 24, 28, 14) ]}),
+            elements:[ elShape('nest', SIL.nest('#B98B5E'), 62, 62, 26, {scenery:true}),
+                       elShape('bird', SIL.bird(C.sea), 24, 28, 14) ]}),
           tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
@@ -1660,10 +1657,6 @@ const Engine = {
     if (ok){
       // snap into place (or fall in, for a release above an open container)
       d.el.classList.add(fellIn ? 'fall-in' : 'snapping', 'placed');
-      if (spec.sinkBehind){
-        const front = this.stage().querySelector(`[data-el="${spec.sinkBehind}"]`);
-        if (front){ d.el.style.zIndex = '1'; front.style.zIndex = '2'; }
-      }
       d.el.style.left = ((scx - sr.left)/sr.width*100)+'%';
       d.el.style.top = ((scy - sr.top)/sr.height*100)+'%';
       const finish = () => {
