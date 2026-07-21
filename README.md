@@ -5,14 +5,14 @@ A web app that teaches foundational cognitive primitives to toddlers through the
 telemetry, a parent dashboard, dynamic difficulty adjustment (DDA), and a built-in
 usage-simulation test harness.
 
-Everything lives in a single self-contained file: **`concept-foundations.html`**
+Everything lives in a single self-contained file: **`index.html`**
 (no build step, no dependencies, no network calls).
 
 ## Run it
 
-- Published (running) instance: https://claude.ai/code/artifact/78146f24-b306-411b-8630-ebf7080f10f9
+- GitHub Pages: https://bharperames.github.io/ConceptFoundations/
 - Locally: `python3 -m http.server 8742` in this directory, then open
-  `http://127.0.0.1:8742/concept-foundations.html`
+  `http://127.0.0.1:8742/`
 - Append `?mute=1` to silence speech/tones during testing (prompt timing — and
   therefore TTFT telemetry — is preserved).
 
