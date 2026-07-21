@@ -182,6 +182,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .el.dragging{z-index:40;transition:none !important;filter:drop-shadow(0 10px 16px rgba(34,56,74,.25)) scale(1.04)}
 .el.returning{transition:left .5s cubic-bezier(.3,1.2,.4,1), top .5s cubic-bezier(.3,1.2,.4,1)}
 .el.snapping{transition:left .18s ease-out, top .18s ease-out}
+.el.fall-in{transition:top .32s cubic-bezier(.55,0,.85,.4), left .2s ease-out}
 .el.demo-move{transition:left 1s ease-in-out, top 1s ease-in-out}
 .el.placed{filter:none}
 .zone-card{
@@ -597,10 +598,12 @@ const HOUSE = {
 
 const CHEVRON = () => wrap(`<path d="M28 30 L50 62 L72 30" fill="none" stroke="#A9C6E0" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>`);
 /* 2-inch wood cubes for the stacking level */
+/* Drawn flush to the 100×100 box — physics stacks the element boxes edge to
+   edge, so any inset here would read as a gap between "touching" blocks. */
 const WOOD_BLOCK = tone => wrap(`<g class="hit">
-  <rect ${H} x="6" y="6" width="88" height="88" rx="8" fill="${tone}"/>
-  <rect x="6" y="6" width="88" height="14" rx="7" fill="#ffffff" opacity=".2"/>
-  <path d="M18 42 Q38 36 58 42 T86 44 M22 68 Q44 62 68 68" fill="none" stroke="#8A5A2B" stroke-width="4" stroke-linecap="round" opacity=".3"/></g>`);
+  <rect ${H} x="0" y="0" width="100" height="100" rx="6" fill="${tone}"/>
+  <rect x="0" y="0" width="100" height="15" rx="6" fill="#ffffff" opacity=".2"/>
+  <path d="M14 44 Q36 38 58 44 T94 46 M18 72 Q42 66 68 72" fill="none" stroke="#8A5A2B" stroke-width="4" stroke-linecap="round" opacity=".3"/></g>`);
 const GROUND = () => wrap(`<rect x="0" y="86" width="100" height="12" rx="5" fill="#C9DAE9"/>`);
 const BOX = () => wrap(`<g>
   <rect x="6" y="16" width="88" height="74" rx="10" fill="#E5EFF8" stroke="#A9C6E0" stroke-width="5"/>
@@ -763,7 +766,7 @@ const NODES = [
             elShape('box', BOX(), 63, 50, 44, {scenery:true}),
             elShape('ball', BALL(C[bc]), 16, 62, 15, {piece:true}),
           ],
-          pieces:[{ el:'ball', slot:'box', snap: 16 }]});
+          pieces:[{ el:'ball', slot:'box', snap: 16, dropIn:true }]});
         return {
           expose: watchTrial({ state:'EXPOSE', prompt:'In', say:'The ball is in the box.',
             elements:[ elShape('box', BOX(), 50, 50, 44, {scenery:true}), elShape('ball', BALL(C[bc]), 50, 56, 15) ]}),
@@ -1412,28 +1415,43 @@ const Engine = {
     const scy = slr.top + slr.height/2 + (spec.slotDy||0)*sr.height/100;
     const dist = Math.hypot(pcx-scx, pcy-scy);
     const snapPx = (spec.snapBoost || spec.snap) * Math.min(window.innerWidth, window.innerHeight) / 100;
-    const ok = dist <= snapPx;
+    let ok = dist <= snapPx;
+    // open-topped containers: releasing above the mouth counts — the piece
+    // then visibly drops in, like letting a ball go over a jar
+    let fellIn = false;
+    if (!ok && spec.dropIn){
+      const slotSpec = this.cur.elements.find(el => el.id === spec.slot);
+      const slotPx = ((slotSpec||{}).s || 0) * Math.min(window.innerWidth, window.innerHeight) / 100;
+      const mouthHalf = Math.max(slr.width, slotPx) * 0.38;
+      const above = scy - pcy;
+      if (Math.abs(pcx - scx) <= mouthHalf && above > 0 && above < Math.max(slr.height, slotPx) * 2.2){
+        ok = true; fellIn = true;
+      }
+    }
 
     Telemetry.event({
       trialId: this.curRecord.id, timestamp: now, type:'DRAG_END',
       coordinateX: Math.round(pcx - sr.left), coordinateY: Math.round(pcy - sr.top),
       hitElementId: ok ? spec.slot : null, isCorrectIntent: ok,
       timeSincePromptMs: this.promptEndAt ? now - this.promptEndAt : null,
-      missDistancePx: Math.max(0, Math.round(dist - snapPx)),
+      missDistancePx: ok ? 0 : Math.max(0, Math.round(dist - snapPx)),
     });
 
     if (this.curRecord.firstAttemptCorrect === null)
       this.curRecord.firstAttemptCorrect = ok;
 
     if (ok){
-      // snap into place
-      d.el.classList.add('snapping','placed');
+      // snap into place (or fall in, for a release above an open container)
+      d.el.classList.add(fellIn ? 'fall-in' : 'snapping', 'placed');
       d.el.style.left = ((scx - sr.left)/sr.width*100)+'%';
       d.el.style.top = ((scy - sr.top)/sr.height*100)+'%';
-      Audio2.snapSnd();
-      const allPlaced = this.cur.pieces.every(p =>
-        this.stage().querySelector(`[data-el="${p.el}"]`).classList.contains('placed'));
-      if (allPlaced) this.completeTrial(true, {at:[scx, scy]});
+      const finish = () => {
+        Audio2.snapSnd();
+        const allPlaced = this.cur.pieces.every(p =>
+          this.stage().querySelector(`[data-el="${p.el}"]`).classList.contains('placed'));
+        if (allPlaced) this.completeTrial(true, {at:[scx, scy]});
+      };
+      if (fellIn) setTimeout(finish, 330); else finish();
     } else {
       Audio2.wrong();
       this.wrongCount++;
