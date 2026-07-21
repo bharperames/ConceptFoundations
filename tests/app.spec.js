@@ -84,6 +84,23 @@ test('peekaboo 6.1: watch a card hide, then find it under the right cover', asyn
   expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
 });
 
+test('peekaboo 6.3 shell game: covers shuffle, tapping the moved target still wins', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'peekaboo', 2);
+  await page.waitForFunction(() =>
+    CF.Engine.cur && CF.Engine.cur.kind === 'hideseek' && CF.Engine.cur.shuffle, null, { timeout: 30000 });
+  // input unlocks only after the hide + full shuffle completes
+  await page.waitForFunction(() => !CF.Engine.locked, null, { timeout: 25000 });
+  await page.waitForTimeout(200);
+  const target = await page.evaluate(() => CF.Engine.cur.hideInto);
+  const box = await page.locator(`[data-el="${target}"]`).boundingBox();
+  await page.evaluate(([x, y]) => {
+    document.elementFromPoint(x, y).dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
+  }, [box.x + box.width/2, box.y + box.height/2]);
+  expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
+});
+
 test('identity 1.1: three correct taps master the level and advance', async ({ page }) => {
   await boot(page);
   await startLevel(page, 'identity', 0);

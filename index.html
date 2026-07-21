@@ -239,6 +239,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .el.snapping{transition:left .18s ease-out, top .18s ease-out}
 .el .cardimg{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 3px 5px rgba(20,40,60,.28));pointer-events:none}
 .el.hs-move{transition:left .62s cubic-bezier(.3,.9,.4,1), top .62s cubic-bezier(.3,.9,.4,1);pointer-events:none}
+.el.hs-slide{transition:left .54s cubic-bezier(.45,0,.4,1)}
 .el.hs-hidden{opacity:0;transform:translate(-50%,-50%) scale(.5);transition:opacity .4s ease, transform .4s ease}
 .zone-card.hs-lift,.el.hs-lift{transition:transform .3s cubic-bezier(.2,1.3,.4,1);transform:translate(-50%,-50%) translateY(-14%) rotate(-6deg)}
 .el.peek{animation:peekwob 1.1s ease infinite}
@@ -1136,7 +1137,9 @@ const NODES = [
       make(rng){ return hideSeekLevel(rng, {n:2, objs:shuffle(rng,['duck','dog','ball','cat'])}); }},
     { id:'6.2', name:'Three hiding spots', focus:'One more spot to track', fallback:'pulseTarget',
       make(rng){ return hideSeekLevel(rng, {n:3, objs:shuffle(rng,['banana','apple','bear','frog'])}); }},
-    { id:'6.3', name:'Generalization', focus:'New things to find', isGen:true, fallback:'glowTarget',
+    { id:'6.3', name:'Shell game', focus:'Watch the covers shuffle, then find it', fallback:'pulseTarget',
+      make(rng){ return hideSeekLevel(rng, {n:3, shuffle:true, objs:shuffle(rng,['duck','cat','ball','dog'])}); }},
+    { id:'6.4', name:'Generalization', focus:'New things to find', isGen:true, fallback:'glowTarget',
       make(rng){ return hideSeekLevel(rng, {n:3, isGen:true, objs:shuffle(rng,['elephant','fish','flower','sun'])}); }},
   ],
 },
@@ -1195,7 +1198,7 @@ function sizeLevel(rng, {big, small, ask}){
 /* Hide-and-seek (object permanence): the child watches a picture card hide
    under one of several identical covers, then finds it. Reuses the tap path;
    the engine plays the hide sequence before input and reveals on a correct tap. */
-function hideSeekLevel(rng, {n, objs, isGen}){
+function hideSeekLevel(rng, {n, objs, isGen, shuffle: mix}){
   const coverY = 64, coverS = 26, objS = 20;
   const order = shuffle(rng, Array.from({length:n}, (_,k)=>k));
   const mkTest = t => {
@@ -1209,6 +1212,7 @@ function hideSeekLevel(rng, {n, objs, isGen}){
       prompt:'Find the ' + name, say:'Where is the ' + name + '? Find it!',
       introSay:'Watch! The ' + name + ' is hiding.',
       hideInto:'cover'+ti, timeoutMs: 11000,
+      shuffle: !!mix, shuffles: mix ? 2 + t : 0,
       elements:[ ...covers,
         elShape('obj', CARD_IMG(name), 50, 28, objS, {scenery:true}) ],
     };
@@ -1483,9 +1487,36 @@ const Engine = {
       Audio2.snapSnd();
       setTimeout(() => {
         obj.classList.add('hs-hidden'); obj.style.zIndex = '0';
-        setTimeout(() => { if (this.active){ this.locked = false; this.speakPrompt(); } }, 500);
+        setTimeout(() => {
+          if (!this.active) return;
+          if (this.cur.shuffle) this.shuffleCovers();
+          else { this.locked = false; this.speakPrompt(); }
+        }, 500);
       }, 620);
     }, 1000);
+  },
+
+  // shell game: swap cover positions while the child watches; the target
+  // cover keeps its data-target through the moves, so tapping it stays correct
+  shuffleCovers(){
+    const stage = this.stage();
+    const covers = [...stage.querySelectorAll('[data-el^="cover"]')];
+    let left = this.cur.shuffles || 3;
+    const xOf = el => parseFloat(el.style.left);
+    const step = () => {
+      if (!this.active) return;
+      if (left-- <= 0){ this.locked = false; this.speakPrompt(); return; }
+      const i = Math.floor(Math.random()*covers.length);
+      let j = Math.floor(Math.random()*covers.length);
+      while (j === i) j = Math.floor(Math.random()*covers.length);
+      const a = covers[i], b = covers[j], ax = xOf(a), bx = xOf(b);
+      a.classList.add('hs-slide'); b.classList.add('hs-slide');
+      // lift one over the other so the swap reads as a shell sliding past
+      a.style.zIndex = '4'; b.style.zIndex = '3';
+      a.style.left = bx + '%'; b.style.left = ax + '%';
+      setTimeout(step, 560);
+    };
+    setTimeout(step, 350);
   },
 
   // reveal the card under the tapped cover, peekaboo-style
@@ -1495,7 +1526,8 @@ const Engine = {
     if (coverEl) coverEl.classList.add('hs-lift');
     if (obj){
       obj.classList.remove('hs-hidden'); obj.style.zIndex = '6';
-      obj.style.top = (parseFloat(obj.style.top) - 12) + '%';
+      if (coverEl){ obj.style.left = coverEl.style.left; obj.style.top = (parseFloat(coverEl.style.top) - 14) + '%'; }
+      else obj.style.top = (parseFloat(obj.style.top) - 12) + '%';
     }
     Audio2.speak('Peekaboo!');
   },
@@ -1646,7 +1678,13 @@ const Engine = {
       this.frustration(now, true);
       this.wrongCount++;
       Audio2.wrong();
-      if (hit) { hit.classList.remove('wobble'); void hit.offsetWidth; hit.classList.add('wobble'); }
+      if (this.cur.kind === 'hideseek' && hit && hit.dataset.el && hit.dataset.el.startsWith('cover')){
+        // lift the wrong cover to show it's empty underneath, then set it back
+        hit.classList.add('hs-lift');
+        setTimeout(() => hit.classList.remove('hs-lift'), 750);
+      } else if (hit) {
+        hit.classList.remove('wobble'); void hit.offsetWidth; hit.classList.add('wobble');
+      }
       this.trackIsoMiss(hitId);
       if (this.wrongCount >= 2 && !this.usedFallback) this.applyFallback();
     }
