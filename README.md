@@ -11,8 +11,9 @@ Everything lives in a single self-contained file: **`index.html`**
 ## Run it
 
 - GitHub Pages: https://bharperames.github.io/ConceptFoundations/
-- Locally: `python3 -m http.server 8742` in this directory, then open
-  `http://127.0.0.1:8742/`
+- Locally: `make serve`, then open `http://127.0.0.1:8743/` — the target always
+  uses port 8743 (override with `make serve PORT=...`), freeing it first if a
+  stale server holds it.
 - Append `?mute=1` to silence speech/tones during testing (prompt timing — and
   therefore TTFT telemetry — is preserved).
 - Captions (CC): toggle in the grown-ups dashboard, or append `?cc=1`, to show
