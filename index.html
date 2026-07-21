@@ -1462,7 +1462,7 @@ const Celebrate = {
     document.body.appendChild(layer);
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!reduce) this.fireworks(layer.querySelector('canvas'));
-    setTimeout(() => { this.active = false; cancelAnimationFrame(this.raf); layer.remove(); }, 3600);
+    setTimeout(() => { this.active = false; cancelAnimationFrame(this.raf); layer.remove(); }, 4700);
   },
   fireworks(canvas){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1504,7 +1504,7 @@ const Celebrate = {
       if (!this.active) return;
       const dt = Math.min((t-last)/1000, 0.05); last = t;
       sinceLaunch += dt;
-      if (launched < 9 && sinceLaunch > 0.32){ sinceLaunch = 0; launch(); launched++; if(launched<3){launch();launched++;} }
+      if (launched < 13 && sinceLaunch > 0.34){ sinceLaunch = 0; launch(); launched++; if(launched<3){launch();launched++;} }
       // dark night-sky backdrop + motion trails
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(12,18,32,0.30)'; ctx.fillRect(0,0,W,H);
@@ -2376,14 +2376,41 @@ const Engine = {
   finishRun(){
     this.active = false;
     const outcome = applyRunOutcome(this.node, this.level, this.results);
-    const msg = outcome === 'complete' ? this.node.title + ' — done!' : 'You did it!';
     Telemetry.end(true, outcome);
 
     Audio2.fanfare();
     Audio2.speak('Hooray!');
     Celebrate.run(outcome === 'complete' ? 'trophy' : 'ribbon',
                   outcome === 'complete' ? 'You won!' : 'You did it!');
-    setTimeout(() => { showView('home'); renderHome(); }, 3600);
+    // keep the child in flow: roll straight into the next level. On node
+    // completion, hop to the next unlocked, unfinished node; when the whole
+    // curriculum is done, fall back to home.
+    const next = this.pickNextLevel(this.node, outcome);
+    setTimeout(() => {
+      if (next) this.startLevel(next.node, next.level);
+      else { showView('home'); renderHome(); }
+    }, 4700);
+  },
+
+  pickNextLevel(node, outcome){
+    const currentAt = (nd) => {
+      const np = nodeProgress(nd.key);
+      return nd.levels[clamp(np.levelIdx, 0, nd.levels.length - 1)];
+    };
+    if (outcome !== 'complete'){
+      // same node: advanced (up), repeated (stay), or repair (down)
+      return { node, level: currentAt(node) };
+    }
+    // node finished — continue with the next unlocked, unfinished node,
+    // searching from the current node forward then wrapping around
+    const i0 = NODES.indexOf(node);
+    for (let k = 1; k <= NODES.length; k++){
+      const nx = NODES[(i0 + k) % NODES.length];
+      if (nx === node) continue;
+      if (nodeUnlocked(nx) && nodeProgress(nx.key).mastered.length < nx.levels.length)
+        return { node: nx, level: currentAt(nx) };
+    }
+    return null;   // whole curriculum complete → home
   },
 
   abort(){

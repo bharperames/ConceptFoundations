@@ -101,17 +101,19 @@ test('peekaboo 6.3 shell game: covers shuffle, tapping the moved target still wi
   expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
 });
 
-test('identity 1.1: three correct taps master the level and advance', async ({ page }) => {
+test('identity 1.1: mastering it auto-advances to the next level', async ({ page }) => {
   await boot(page);
   await startLevel(page, 'identity', 0);
   for (let i = 0; i < 3; i++){
     await waitForInteractive(page, 'tap');
     await page.locator('[data-target]').click();
   }
-  await expect(page.locator('#view-home')).toBeVisible({ timeout: 15000 });
   const prog = await page.evaluate(() => CF.Store.progress().identity);
   expect(prog.mastered).toContain('1.1');
   expect(prog.levelIdx).toBe(1);
+  // after the celebration it rolls straight into 1.2 (no trip back home)
+  await page.waitForFunction(() => CF.Engine.level && CF.Engine.level.id === '1.2', null, { timeout: 15000 });
+  await expect(page.locator('#view-play')).toBeVisible();
 });
 
 test('4.1: a ball released above the open box drops in', async ({ page }) => {
