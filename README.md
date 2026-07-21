@@ -17,6 +17,8 @@ Everything lives in a single self-contained file: **`index.html`**
   therefore TTFT telemetry — is preserved).
 - Captions (CC): toggle in the grown-ups dashboard, or append `?cc=1`, to show
   every spoken prompt as on-screen text — handy for testing with the volume off.
+- Dark mode: follows the device setting by default; the dashboard switch
+  overrides it (child surface becomes a night sky, dashboard uses dark chrome).
 
 ## Curriculum
 
