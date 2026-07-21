@@ -29,8 +29,17 @@ Five nodes, seventeen micro-levels, each run as E→C→T(×3):
 | 1 · Identity (Same & Different) | 1.1–1.5 | tap | — |
 | 2 · Magnitude (Big & Small) | 2.1–2.3 | tap | Identity |
 | 3 · Quantity (More & Less) | 3.1–3.3 | tap (side clusters) | Identity |
-| 4 · Spatial (In & Out) | 4.1–4.3 | drag & drop | Magnitude |
+| 4 · Spatial (In & Out) | 4.1–4.4 | drag & drop, physics | Magnitude |
 | 5 · Composition (Build It) | 5.1–5.3 | drag / assembly | Spatial |
+
+Level 4.2 (Stacking — "on top of") simulates a real 2-inch (5.08 cm) wood cube:
+gravity at true scale (px-per-meter derived from the rendered block size),
+wood-on-wood restitution (0.32 — a clack, barely a bounce), and the rigid-body
+support rule: a block whose center of mass lands past the support edge topples
+about that edge (α = 3g·sinθ / 2√2·a) and tumbles off. Release velocity comes
+from the drag gesture, so flinging the block sideways behaves like flinging a
+real block. The sim advances by real elapsed time in collision-safe substeps,
+so outcomes are identical at 60fps or under browser timer throttling.
 
 Each level has its own failure fallback (pulse target, reduce field to 1v1,
 expand snap radius, auto-demo the drag, magnetic snap, flash the completed
