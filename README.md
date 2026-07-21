@@ -31,9 +31,13 @@ Five nodes, seventeen micro-levels, each run as E→C→T(×3):
 | 2 · Magnitude (Big & Small) | 2.1–2.3 | tap | Identity |
 | 3 · Quantity (More & Less) | 3.1–3.3 | tap (side clusters) | Identity |
 | 4 · Spatial (In & Out) | 4.1–4.4 | drag & drop, physics | Magnitude |
-| 5 · Composition (Build It) | 5.1–5.3 | drag / assembly | Spatial |
+| 5 · Composition (Build It) | 5.1–5.4 | drag / assembly / physics | Spatial |
 
-Level 4.2 (Stacking — "on top of") simulates a real 2-inch (5.08 cm) wood cube:
+Two levels use the block-physics engine. Spatial 4.2 ("On top") teaches the
+spatial *relation* — one block onto one other block. Composition 5.3 ("Tower")
+is the *construction* exercise: stack three blocks tall, with the landing
+surface rising to the top of the tower as each block is placed. Both simulate
+a real 2-inch (5.08 cm) wood cube:
 gravity at true scale (px-per-meter derived from the rendered block size),
 wood-on-wood restitution (0.32 — a clack, barely a bounce), and the rigid-body
 support rule: a block whose center of mass lands past the support edge topples

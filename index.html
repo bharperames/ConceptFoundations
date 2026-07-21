@@ -851,7 +851,7 @@ const NODES = [
           tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
-    { id:'4.2', name:'Stacking', focus:'On top of — 2-inch wood cube physics', fallback:'demoDrag',
+    { id:'4.2', name:'On top', focus:'The "on top of" relation — 2-inch wood cube physics', fallback:'demoDrag',
       make(rng){
         const scene = rest => ({ rest });
         const mkTest = () => {
@@ -966,7 +966,46 @@ const NODES = [
           tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
-    { id:'5.3', name:'Generalization', focus:'Build a house from 3 parts', isGen:true, fallback:'lockMost',
+    { id:'5.3', name:'Tower', focus:'Stack three blocks tall — the support rises with the tower', fallback:'demoDrag',
+      make(rng){
+        const scene = rest => ({ rest });
+        const mkTest = i => {
+          const baseLeft = rng() < .5;
+          return Object.assign({
+            kind:'stack', state:'TEST', prompt:'Build a tower',
+            say:'Stack the blocks! Build a tall tower!', timeoutMs: 20000,
+            elements:[
+              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('base', WOOD_BLOCK('#C08847'), baseLeft?42:58, 68, 14, {scenery:true, target:true}),
+              elShape('blockA', WOOD_BLOCK('#DFA75F'), baseLeft?76:24, 66, 14, {piece:true}),
+              elShape('blockB', WOOD_BLOCK('#E8B36B'), baseLeft?[88,16][i%2]:[12,84][i%2], 66, 14, {piece:true}),
+            ],
+            pieces:[
+              { el:'blockA', slot:'base', snap:0, slotDy:-12 },
+              { el:'blockB', slot:'base', snap:0, slotDy:-24 },
+            ],
+            stackScene: scene({ base:'floor', blockA:'floor', blockB:'floor' }),
+          });
+        };
+        return {
+          expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'A tower!', say:'Look! A tower of blocks!',
+            elements:[
+              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('base', WOOD_BLOCK('#C08847'), 50, 68, 14, {scenery:true}),
+              elShape('blockA', WOOD_BLOCK('#DFA75F'), 50, 52, 14, {scenery:true}),
+              elShape('blockB', WOOD_BLOCK('#E8B36B'), 50, 36, 14, {scenery:true}),
+            ]}), { stackScene: scene({ base:'floor', blockA:'base', blockB:'blockA' }) }),
+          contrast: Object.assign(watchTrial({ state:'CONTRAST', prompt:'All fallen down', say:'Oh no, the tower fell down! The blocks are all apart.',
+            elements:[
+              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('base', WOOD_BLOCK('#C08847'), 30, 68, 14, {scenery:true}),
+              elShape('blockA', WOOD_BLOCK('#DFA75F'), 54, 66, 14, {scenery:true}),
+              elShape('blockB', WOOD_BLOCK('#E8B36B'), 74, 66, 14, {scenery:true}),
+            ]}), { stackScene: scene({ base:'floor', blockA:'floor', blockB:'floor' }) }),
+          tests:[mkTest(0), mkTest(1)],
+        };
+      }},
+    { id:'5.4', name:'Generalization', focus:'Build a house from 3 parts', isGen:true, fallback:'lockMost',
       make(rng){
         const mkTest = i => dragTrial({ state:'GENERALIZE', prompt:'Build the house', say:'Build the house! Put every piece in its place.',
           elements:[
@@ -1246,6 +1285,9 @@ const Engine = {
     this.locked = false; this.wrongCount = 0; this.usedFallback = false;
     this.hintCount = 0;
     this.drag = null;
+    // stacking trials: the landing surface starts as the base and rises with
+    // each placed block (towers)
+    if (this.cur.kind === 'stack') this.stackSupport = 'base';
     const st = $('#stones').children[idx]; if (st) st.classList.add('cur');
 
     // trial record per spec
@@ -1335,14 +1377,19 @@ const Engine = {
       const gh = px('ground');
       g.style.top = (floorRel - gh*0.86 + gh/2) + 'px';
     }
+    // rest map: id → 'floor' or the id of the element it sits on (towers chain)
     const rest = this.cur.stackScene.rest;
-    const baseH = px('base');
-    for (const id of ['base','block']){
+    const centers = {};
+    for (const id of Object.keys(rest)){
       const el = stage.querySelector(`[data-el="${id}"]`);
-      if (!el || !rest[id]) continue;
+      if (!el) continue;
       const h = px(id);
-      const bottom = rest[id] === 'base' ? floorRel - baseH : floorRel;
-      el.style.top = (bottom - h/2) + 'px';
+      const on = rest[id];
+      const bottom = (on !== 'floor' && centers[on] !== undefined)
+        ? centers[on] - px(on)/2
+        : floorRel;
+      centers[id] = bottom - h/2;
+      el.style.top = centers[id] + 'px';
     }
   },
 
@@ -1564,9 +1611,9 @@ const Engine = {
     const G = 9.81 * PX_M;             // gravity in px/s²
     const REST = 0.32;                 // wood-on-wood restitution: a clack, barely a bounce
     const V_SETTLE = 0.35 * PX_M;      // below ~0.35 m/s an impact just settles
-    const baseEl = stage.querySelector('[data-el="base"]');
+    const baseEl = stage.querySelector(`[data-el="${this.stackSupport}"]`);
     const br0 = baseEl.getBoundingClientRect();
-    const baseSize = ((specOf('base')||{}).s * vmin) || br0.width;
+    const baseSize = ((specOf(this.stackSupport)||{}).s * vmin) || br0.width;
     const baseCx = br0.left + br0.width/2;
     const br = { left: baseCx - baseSize/2, right: baseCx + baseSize/2,
                  top: (br0.top + br0.height/2) - baseSize/2, width: baseSize };
@@ -1604,13 +1651,26 @@ const Engine = {
       Telemetry.event({
         trialId: this.curRecord.id, timestamp: now, type:'DRAG_END',
         coordinateX: Math.round(st.x - sr.left), coordinateY: Math.round(st.y - sr.top),
-        hitElementId: onBase ? 'base' : null, isCorrectIntent: onBase,
+        hitElementId: onBase ? this.stackSupport : null, isCorrectIntent: onBase,
         timeSincePromptMs: this.promptEndAt ? now - this.promptEndAt : null,
         missDistancePx: missPx,
       });
       if (this.curRecord.firstAttemptCorrect === null) this.curRecord.firstAttemptCorrect = onBase;
       if (onBase){
-        this.completeTrial(true, {at:[st.x, st.y]});
+        // this block becomes the new top of the tower
+        el.classList.add('placed');
+        this.stackSupport = d.id;
+        const pieces = this.cur.pieces || [];
+        const allPlaced = pieces.every(p => {
+          const pe = stage.querySelector(`[data-el="${p.el}"]`);
+          return pe && pe.classList.contains('placed');
+        });
+        if (allPlaced){
+          this.completeTrial(true, {at:[st.x, st.y]});
+        } else {
+          Audio2.correct();
+          FX.burst(st.x, st.y);
+        }
       } else {
         this.wrongCount++;
         if (this.wrongCount >= 2 && !this.usedFallback) this.applyFallback();

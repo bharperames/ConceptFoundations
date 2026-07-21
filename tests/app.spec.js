@@ -101,6 +101,27 @@ test('4.2 physics: centered drop lands on the base; past-edge drop rolls off', a
   expect(ends[1].miss).toBeGreaterThan(0);
 });
 
+test('5.3 tower: the support surface rises as blocks stack', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'composition', 2);
+  await waitForInteractive(page, 'stack');
+
+  const base = await page.locator('[data-el="base"]').boundingBox();
+  await dragTo(page, '[data-el="blockA"]', base.x + base.width/2, base.y - 150);
+  await page.waitForFunction(() =>
+    document.querySelector('[data-el="blockA"]').classList.contains('placed'),
+    null, { timeout: 8000 });
+
+  const a = await page.locator('[data-el="blockA"]').boundingBox();
+  await dragTo(page, '[data-el="blockB"]', a.x + a.width/2, a.y - 150);
+  await page.waitForFunction(() => CF.Engine.locked, null, { timeout: 8000 });
+
+  const ends = await dragEnds(page);
+  expect(ends.map(e => e.ok)).toEqual([true, true]);
+  const b = await page.locator('[data-el="blockB"]').boundingBox();
+  expect(Math.abs((b.y + b.height) - a.y)).toBeLessThan(6);   // B rests on A
+});
+
 test('4.3: a missed star stays where it was set down (no zap-back)', async ({ page }) => {
   await boot(page);
   await startLevel(page, 'spatial', 2);
