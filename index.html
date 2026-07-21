@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#F2F7FB">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='30' cy='32' r='16' fill='%233D8BFF'/%3E%3Ccircle cx='68' cy='32' r='16' fill='%233D8BFF'/%3E%3Crect x='33' y='56' width='34' height='34' rx='10' fill='%23FF5D55' transform='rotate(8 50 73)'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 /* ═══════════════ Tokens ═══════════════ */
 :root{
@@ -190,7 +192,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   position:absolute;inset:0;background:var(--sea);opacity:.22;
   transform:scaleX(0);transform-origin:left;pointer-events:none;
 }
-.grownups.holding .hold-fill{transform:scaleX(1);transition:transform 2.2s linear}
+.grownups.holding .hold-fill{transform:scaleX(1);transition:transform .65s linear}
 
 /* ═══════════════ Play ═══════════════ */
 #view-play{touch-action:none}
@@ -250,6 +252,12 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .zone-card .mini svg{width:100%;height:100%;display:block}
 .zone-card.pulse{animation:pulse 1s ease infinite}
 .zone-card.grayout{filter:grayscale(1) opacity(.45)}
+.el.ground-bar{
+  width:104%;
+  height:calc(var(--s)*0.12*1vmin);
+  border-radius:calc(var(--s)*0.06*1vmin);
+  background:#C9DAE9;
+}
 /* painted-only hit-testing for drag trials (transparent svg regions pass through) */
 .painted-hit{pointer-events:none}
 .painted-hit svg{pointer-events:none}
@@ -542,6 +550,7 @@ const Audio2 = (() => {
   }
 
   function speak(text, onend){
+    if (document.hidden){ if (onend) setTimeout(onend, 250); return; }
     Captions.show(text);
     if (muted){ if (onend) setTimeout(onend, 250); return; }
     if (!('speechSynthesis' in window)){ if (onend) setTimeout(onend, 600); return; }
@@ -633,16 +642,18 @@ const SIL = {
     <rect x="47" y="22" width="6" height="16" rx="3" fill="#7A5236"/>
     <ellipse cx="62" cy="27" rx="11" ry="6" transform="rotate(-24 62 27)" fill="#33C06A"/></g>`),
   car: c => wrap(`<g fill="${c}">
-    <rect x="8" y="46" width="84" height="22" rx="11"/>
-    <path d="M28 48 L38 30 L66 30 L76 48 Z"/>
-    <circle cx="29" cy="70" r="11"/><circle cx="71" cy="70" r="11"/>
-    <circle cx="29" cy="70" r="4.5" fill="#F6FAFE"/><circle cx="71" cy="70" r="4.5" fill="#F6FAFE"/></g>`),
+    <rect x="6" y="44" width="88" height="24" rx="12"/>
+    <path d="M26 46 L36 26 L66 26 L78 46 Z"/>
+    <path d="M40 32 L62 32 L68 44 L40 44 Z" fill="#F6FAFE" opacity=".85"/>
+    <circle cx="27" cy="70" r="12" fill="#2A3642"/><circle cx="73" cy="70" r="12" fill="#2A3642"/>
+    <circle cx="27" cy="70" r="5" fill="#F6FAFE"/><circle cx="73" cy="70" r="5" fill="#F6FAFE"/></g>`),
   bird: c => wrap(`<g fill="${c}" class="hit">
     <ellipse ${H} cx="48" cy="56" rx="24" ry="16"/>
     <circle ${H} cx="70" cy="40" r="12"/>
     <path ${H} d="M80 36 L94 41 L80 46 Z"/>
     <path ${H} d="M28 52 L8 42 L14 60 Z"/>
     <ellipse ${H} cx="46" cy="52" rx="13" ry="8" transform="rotate(-18 46 52)" fill="#2E6FCE"/></g>`),
+  nestBack: () => wrap(`<ellipse cx="50" cy="46" rx="39" ry="11" fill="#7E6040"/>`),
   nest: c => wrap(`<g>
     <path d="M10 44 A40 34 0 0 0 90 44 Z" fill="${c}"/>
     <ellipse cx="50" cy="44" rx="40" ry="10" fill="none" stroke="#8A6A45" stroke-width="7"/>
@@ -672,7 +683,6 @@ const WOOD_BLOCK = tone => wrap(`<g class="hit">
   <rect ${H} x="0" y="0" width="100" height="100" rx="6" fill="${tone}"/>
   <rect x="0" y="0" width="100" height="15" rx="6" fill="#ffffff" opacity=".2"/>
   <path d="M14 44 Q36 38 58 44 T94 46 M18 72 Q42 66 68 72" fill="none" stroke="#8A5A2B" stroke-width="4" stroke-linecap="round" opacity=".3"/></g>`);
-const GROUND = () => wrap(`<rect x="0" y="86" width="100" height="12" rx="5" fill="#C9DAE9"/>`);
 const BOX = () => wrap(`<g>
   <rect x="6" y="16" width="88" height="74" rx="10" fill="#E5EFF8" stroke="#A9C6E0" stroke-width="5"/>
   <rect x="2" y="10" width="96" height="12" rx="6" fill="#C6DAEB"/></g>`);
@@ -716,7 +726,7 @@ const CLUSTER = {
 };
 function zoneEl(id, x, count, itemSvg){
   const minis = CLUSTER[count].map(([mx,my]) =>
-    `<span class="mini" style="left:${mx}%;top:${my}%;width:26%;height:26%">${itemSvg}</span>`).join('');
+    `<span class="mini" style="left:${mx}%;top:${my}%;width:${count > 4 ? 21 : 26}%;height:${count > 4 ? 21 : 26}%">${itemSvg}</span>`).join('');
   return { id, x, y:50, s:42, zone:true, html:minis, count };
 }
 
@@ -732,8 +742,13 @@ const NODES = [
         const sk2 = pick(rng, SHAPE_KEYS.filter(k=>k!==sk));
         const mk = (kc,ks) => SHAPES[ks](C[kc]);
         const tests = [];
+        const leftFirst = rng() < .5;
         for (let t=0;t<3;t++){
-          const sides = shuffle(rng, [true,false]);
+          // sample stays constant (matching-to-sample); the distractor and the
+          // correct side change every round so no two rounds look identical
+          const dc = shuffle(rng, COLOR_KEYS.filter(k => k !== ck))[0];
+          const ds2 = SHAPE_KEYS.filter(k => k !== sk)[t % (SHAPE_KEYS.length - 1)];
+          const sides = [ (t % 2 === 0) === leftFirst ];
           const xs = rowXs(2);
           tests.push(tapTrial({ state:'TEST', prompt:'Tap the one that’s the same', say:'See this one? Tap the one that is the same!',
             elements:[
@@ -742,7 +757,7 @@ const NODES = [
               elShape('sample', mk(ck,sk), 50, 19, 22.2, {scenery:true, sampleCard:true}),
               elShape('arrow', CHEVRON(), 50, 40, 8, {scenery:true, decor:true}),
               elShape('target', mk(ck,sk), xs[sides[0]?0:1], 64, 19, {target:true, tappable:true}),
-              elShape('d1', mk(ck2,sk2), xs[sides[0]?1:0], 64, 19, {tappable:true}),
+              elShape('d1', mk(dc,ds2), xs[sides[0]?1:0], 64, 19, {tappable:true}),
             ]}));
         }
         return {
@@ -763,8 +778,9 @@ const NODES = [
       make(rng){
         const [base, odd] = pick2(rng, ['dog','cat','elephant','bird']);
         const c1 = pick(rng, ['sea','grape','tang']); const c2 = c1;
-        const mkTest = () => {
-          const n = 4, xs = rowXs(n), ti = Math.floor(rng()*n);
+        const genOrder = shuffle(rng, [0,1,2,3]);
+        const mkTest = t => {
+          const n = 4, xs = rowXs(n), ti = genOrder[t];
           return tapTrial({ state:'GENERALIZE', prompt:'Tap the different one', say:'One is different! Tap the different one.',
             elements: xs.map((x,i) => elShape(i===ti?'target':'d'+i,
               SIL[i===ti?odd:base](C[i===ti?c2:c1]), x, 52, 17,
@@ -775,7 +791,7 @@ const NODES = [
             elements:[ elShape('a', SIL[base](C[c1]), 38, 50, 19), elShape('b', SIL[base](C[c1]), 62, 50, 19) ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'Different', say:'A '+base+' and a '+odd+'. Different!',
             elements:[ elShape('a', SIL[base](C[c1]), 38, 50, 19), elShape('b', SIL[odd](C[c1]), 62, 50, 19) ]}),
-          tests:[mkTest(), mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
   ],
@@ -792,12 +808,14 @@ const NODES = [
       make(rng){
         const an = pick(rng, ['elephant','dog','cat']);
         const c1 = pick(rng, ['grape','sea','tang']);
-        const mkTest = () => {
-          const flip = rng() < .5, xs = [34, 70];
+        const startFlip = rng() < .5;
+        const mkTest = i => {
+          const flip = (i % 2 === 0) === startFlip;
+          const xs = [34, 70];
           return tapTrial({ state:'GENERALIZE', prompt:'Tap the big animal', say:'Tap the big animal!',
             elements:[
-              elShape('target', SIL[an](C[c1]), xs[flip?1:0], 50, 34, {tappable:true, target:true}),
-              elShape('d1', SIL[an](C[c1]), xs[flip?0:1], 62, 12, {tappable:true}),
+              elShape('target', SIL[an](C[c1]), xs[flip?1:0], [50,46,53][i]||50, [34,31,36][i]||34, {tappable:true, target:true}),
+              elShape('d1', SIL[an](C[c1]), xs[flip?0:1], [62,66,58][i]||62, [12,13,11][i]||12, {tappable:true}),
             ]});
         };
         return {
@@ -805,7 +823,7 @@ const NODES = [
             elements:[ elShape('a', SIL[an](C[c1]), 50, 50, 38) ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'Small', say:'Now a small '+an+'.',
             elements:[ elShape('a', SIL[an](C[c1]), 50, 56, 12) ]}),
-          tests:[mkTest(), mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
   ],
@@ -815,11 +833,11 @@ const NODES = [
   tag:'Seeing amounts without counting', prereqs:['identity'],
   levels:[
     { id:'3.1', name:'Extreme delta', focus:'1 vs 5', fallback:'grayWrong',
-      make(rng){ return quantityLevel(rng, {a:1, b:5, ask:'more', item:'apple'}); }},
+      make(rng){ return quantityLevel(rng, {pairs:[[1,5],[1,6],[2,6]], ask:'more', item:'apple'}); }},
     { id:'3.2', name:'Subitizing threshold', focus:'2 vs 4', fallback:'grayWrong',
-      make(rng){ return quantityLevel(rng, {a:2, b:4, ask:'more', item:'apple'}); }},
+      make(rng){ return quantityLevel(rng, {pairs:[[2,4],[3,5],[2,5]], ask:'more', item:'apple'}); }},
     { id:'3.3', name:'Generalization', focus:'Fewer cars — flipped question', isGen:true, fallback:'pulseTarget',
-      make(rng){ return quantityLevel(rng, {a:3, b:6, ask:'less', item:'car'}); }},
+      make(rng){ return quantityLevel(rng, {pairs:[[3,6],[2,5],[4,6]], ask:'less', item:'car'}); }},
   ],
 },
 {
@@ -854,46 +872,54 @@ const NODES = [
     { id:'4.2', name:'On top', focus:'The "on top of" relation — 2-inch wood cube physics', fallback:'demoDrag',
       make(rng){
         const scene = rest => ({ rest });
-        const mkTest = () => {
-          const baseRight = rng() < .5;
+        const mkTest = i => {
+          const flip = rng() < .5;
+          // both blocks are grabbable — whichever one the child picks up, the
+          // OTHER becomes the support; neither block is special
           return Object.assign({
-            kind:'stack', state:'TEST', prompt:'Put the block on top',
-            say:'Put the block on top of the other block!', timeoutMs: 16000,
+            kind:'stack', state:'TEST', prompt:'Put a block on top',
+            say:'Put a block on top of the other block!', timeoutMs: 16000,
+            stackGoal: 1,
             elements:[
-              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
-              elShape('base', WOOD_BLOCK('#C08847'), baseRight?63:37, 68, 15, {scenery:true, target:true}),
-              elShape('block', WOOD_BLOCK('#DFA75F'), baseRight?19:81, 66, 15, {piece:true}),
+              elShape('ground', '', 50, 72, 76, {scenery:true, decor:true, groundBar:true}),
+              elShape('blockA', WOOD_BLOCK('#C08847'), (flip?63:37)+[0,-5,4][i], 68, 15, {piece:true}),
+              elShape('blockB', WOOD_BLOCK('#DFA75F'), (flip?19:81)+[0,6,-4][i], 66, 15, {piece:true}),
             ],
-            pieces:[{ el:'block', slot:'base', snap:0, slotDy:-13 }],
-            stackScene: scene({ base:'floor', block:'floor' }),
+            pieces:[
+              { el:'blockA', slot:'blockB', snap:0, slotDy:-13 },
+              { el:'blockB', slot:'blockA', snap:0, slotDy:-13 },
+            ],
+            stackScene: scene({ blockA:'floor', blockB:'floor' }),
           });
         };
         return {
           expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'On top', say:'Look! The block is on top of the other block.',
             elements:[
-              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('ground', '', 50, 72, 76, {scenery:true, decor:true, groundBar:true}),
               elShape('base', WOOD_BLOCK('#C08847'), 50, 68, 15, {scenery:true}),
               elShape('block', WOOD_BLOCK('#DFA75F'), 50, 50, 15, {scenery:true}),
             ]}), { stackScene: scene({ base:'floor', block:'base' }) }),
           contrast: Object.assign(watchTrial({ state:'CONTRAST', prompt:'Next to', say:'Now it is next to the block. Not on top.',
             elements:[
-              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('ground', '', 50, 72, 76, {scenery:true, decor:true, groundBar:true}),
               elShape('base', WOOD_BLOCK('#C08847'), 42, 68, 15, {scenery:true}),
               elShape('block', WOOD_BLOCK('#DFA75F'), 62, 68, 15, {scenery:true}),
             ]}), { stackScene: scene({ base:'floor', block:'floor' }) }),
-          tests:[mkTest(), mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
     { id:'4.3', name:'Precision containment', focus:'Star into star hole', fallback:'expandSnap',
       make(rng){
         const pc = pick(rng, ['sun','coral','grass']);
-        const mkTest = () => {
-          const starTop = rng() < .5;
+        const startTop = rng() < .5;
+        const mkTest = i => {
+          const starTop = (i % 2 === 0) === startTop;
+          const hx = [66, 60, 72][i] || 66;
           return dragTrial({ state:'TEST', prompt:'Fit the star in its hole', say:'Fit the star into its hole!',
             elements:[
-              elShape('hole', STAR_HOLE(), 66, starTop?32:66, 20, {scenery:true}),
-              elShape('decoy', CIRC_HOLE(), 66, starTop?66:32, 20, {scenery:true}),
-              elShape('star', SHAPES.star(C[pc]), 17, 52, 18, {piece:true}),
+              elShape('hole', STAR_HOLE(), hx, starTop?32:66, 20, {scenery:true}),
+              elShape('decoy', CIRC_HOLE(), hx, starTop?66:32, 20, {scenery:true}),
+              elShape('star', SHAPES.star(C[pc]), [17,14,22][i]||17, [52,42,62][i]||52, 18, {piece:true}),
             ],
             pieces:[{ el:'star', slot:'hole', snap: 7 }], decoys:['decoy']});
         };
@@ -902,27 +928,38 @@ const NODES = [
             elements:[ elShape('hole', STAR_HOLE(), 50, 50, 20, {scenery:true}), elShape('star', SHAPES.star(C[pc]), 50, 50, 18) ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'It is out', say:'Now the star is out.',
             elements:[ elShape('hole', STAR_HOLE(), 64, 44, 20, {scenery:true}), elShape('star', SHAPES.star(C[pc]), 22, 60, 18) ]}),
-          tests:[mkTest(), mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
     { id:'4.4', name:'Generalization', focus:'Bird into nest', isGen:true, fallback:'muteOther',
       make(rng){
-        const mkTest = () => {
-          const nestRight = rng() < .5;
+        const startRight = rng() < .5;
+        const nestPair = (x, y) => [
+          elShape('nest', SIL.nestBack(), x, y, 26, {scenery:true}),
+          elShape('nestf', SIL.nest('#B98B5E'), x, y, 26, {scenery:true, decor:true}),
+        ];
+        const mkTest = i => {
+          const nestRight = (i % 2 === 0) === startRight;
+          const nx = (nestRight?68:32) + [0,-6,5][i];
+          const ny = [58,52,62][i] || 58;
+          const pair = nestPair(nx, ny);
           return dragTrial({ state:'GENERALIZE', prompt:'Put the bird in the nest', say:'Put the bird in the nest!',
             elements:[
-              elShape('nest', SIL.nest('#B98B5E'), nestRight?68:32, 58, 26, {scenery:true}),
+              pair[0],
               elShape('tree', SHAPES.circle('#8FCF9F'), nestRight?30:70, 34, 22, {scenery:true, decor:true}),
-              elShape('bird', SIL.bird(C.sea), nestRight?16:84, 24, 15, {piece:true}),
+              pair[1],
+              elShape('bird', SIL.bird(C.sea), nestRight?16:84, [24,40,18][i]||24, 15, {piece:true}),
             ],
-            pieces:[{ el:'bird', slot:'nest', snap: 11, slotDy:-4 }]});
+            pieces:[{ el:'bird', slot:'nest', snap: 11, slotDy:-4, sinkBehind:'nestf' }]});
         };
+        const ep = nestPair(50, 58);
+        const cp = nestPair(62, 62);
         return {
           expose: watchTrial({ state:'EXPOSE', prompt:'In the nest', say:'The bird is in its nest.',
-            elements:[ elShape('nest', SIL.nest('#B98B5E'), 50, 58, 26, {scenery:true}), elShape('bird', SIL.bird(C.sea), 50, 46, 14) ]}),
+            elements:[ ep[0], elShape('bird', SIL.bird(C.sea), 50, 53, 14), ep[1] ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'Out of the nest', say:'Now the bird flew out!',
-            elements:[ elShape('nest', SIL.nest('#B98B5E'), 62, 62, 26, {scenery:true}), elShape('bird', SIL.bird(C.sea), 24, 28, 14) ]}),
-          tests:[mkTest(), mkTest(), mkTest()],
+            elements:[ cp[0], cp[1], elShape('bird', SIL.bird(C.sea), 24, 28, 14) ]}),
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
   ],
@@ -975,7 +1012,7 @@ const NODES = [
             kind:'stack', state:'TEST', prompt:'Build a tower',
             say:'Stack the blocks! Build a tall tower!', timeoutMs: 20000,
             elements:[
-              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('ground', '', 50, 72, 76, {scenery:true, decor:true, groundBar:true}),
               elShape('base', WOOD_BLOCK('#C08847'), baseLeft?42:58, 68, 14, {scenery:true, target:true}),
               elShape('blockA', WOOD_BLOCK('#DFA75F'), baseLeft?76:24, 66, 14, {piece:true}),
               elShape('blockB', WOOD_BLOCK('#E8B36B'), baseLeft?[88,16][i%2]:[12,84][i%2], 66, 14, {piece:true}),
@@ -990,14 +1027,14 @@ const NODES = [
         return {
           expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'A tower!', say:'Look! A tower of blocks!',
             elements:[
-              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('ground', '', 50, 72, 76, {scenery:true, decor:true, groundBar:true}),
               elShape('base', WOOD_BLOCK('#C08847'), 50, 68, 14, {scenery:true}),
               elShape('blockA', WOOD_BLOCK('#DFA75F'), 50, 52, 14, {scenery:true}),
               elShape('blockB', WOOD_BLOCK('#E8B36B'), 50, 36, 14, {scenery:true}),
             ]}), { stackScene: scene({ base:'floor', blockA:'base', blockB:'blockA' }) }),
           contrast: Object.assign(watchTrial({ state:'CONTRAST', prompt:'All fallen down', say:'Oh no, the tower fell down! The blocks are all apart.',
             elements:[
-              elShape('ground', GROUND(), 50, 72, 76, {scenery:true, decor:true}),
+              elShape('ground', '', 50, 72, 76, {scenery:true, decor:true, groundBar:true}),
               elShape('base', WOOD_BLOCK('#C08847'), 30, 68, 14, {scenery:true}),
               elShape('blockA', WOOD_BLOCK('#DFA75F'), 54, 66, 14, {scenery:true}),
               elShape('blockB', WOOD_BLOCK('#E8B36B'), 74, 66, 14, {scenery:true}),
@@ -1007,9 +1044,10 @@ const NODES = [
       }},
     { id:'5.4', name:'Generalization', focus:'Build a house from 3 parts', isGen:true, fallback:'lockMost',
       make(rng){
+        const jitter = Math.round(rng()*10 - 5);
         const mkTest = i => dragTrial({ state:'GENERALIZE', prompt:'Build the house', say:'Build the house! Put every piece in its place.',
           elements:[
-            elShape('outline', HOUSE.outline(), i ? 38 : 62, 48, 36, {scenery:true, anchor:true}),
+            elShape('outline', HOUSE.outline(), (i ? 38 : 62) + jitter, 48, 36, {scenery:true, anchor:true}),
             elShape('roof', HOUSE.roof(), i ? 85 : 15, i ? 78 : 26, 36, {piece:true}),
             elShape('body', HOUSE.body(), i ? 87 : 13, i ? 30 : 58, 36, {piece:true}),
             elShape('door', HOUSE.door(), i ? 78 : 22, i ? 55 : 84, 36, {piece:true}),
@@ -1042,9 +1080,11 @@ function outlierLevel(rng, mode){
   const [baseShape, oddShape] = pick2(rng, SHAPE_KEYS);
   const oc = mode === 'shape' ? baseColor : oddColor;
   const os = mode === 'color' ? baseShape : oddShape;
-  const mkTest = () => {
-    const n = mode === 'both' ? 5 : 4;
-    const xs = rowXs(n), ti = Math.floor(rng()*n);
+  const nOut = mode === 'both' ? 5 : 4;
+  const posOrder = shuffle(rng, Array.from({length: nOut}, (_, k) => k));
+  const mkTest = t => {
+    const n = nOut;
+    const xs = rowXs(n), ti = posOrder[t];
     return tapTrial({ state:'TEST', prompt:'Tap the different one', say:'One is different! Tap the different one.',
       elements: xs.map((x,i) => elShape(i===ti?'target':'d'+i,
         SHAPES[i===ti?os:baseShape](C[i===ti?oc:baseColor]), x, 52, n===5?15:17,
@@ -1053,19 +1093,23 @@ function outlierLevel(rng, mode){
   return {
     expose: watchTrial({ state:'EXPOSE', prompt:'Same', say:'Look. All the same.',
       elements:[ elShape('a', SHAPES[baseShape](C[baseColor]), 38, 50, 19), elShape('b', SHAPES[baseShape](C[baseColor]), 62, 50, 19) ]}),
-    contrast: watchTrial({ state:'CONTRAST', prompt:'Different', say:'This one is different.',
+    contrast: watchTrial({ state:'CONTRAST', prompt:'Different', say:'These two are different.',
       elements:[ elShape('a', SHAPES[baseShape](C[baseColor]), 38, 50, 19), elShape('b', SHAPES[os](C[oc]), 62, 50, 19) ]}),
-    tests:[mkTest(), mkTest(), mkTest()],
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
 function sizeLevel(rng, {big, small, ask}){
   const ck = pick(rng, COLOR_KEYS), sk = pick(rng, SHAPE_KEYS);
   const mk = () => SHAPES[sk](C[ck]);
-  const mkTest = () => {
-    const flip = rng() < .5, xs = [32, 68];
+  const startFlip = rng() < .5;
+  const mkTest = i => {
+    const flip = (i % 2 === 0) === startFlip;
+    const big2 = [big, big*0.92, big*1.06][i] || big;
+    const small2 = [small, small*1.08, small*0.94][i] || small;
+    const xs = [32, 68];
     const els = [
-      elShape('big', mk(), xs[flip?1:0], 50, big, {tappable:true, target: ask==='big'}),
-      elShape('small', mk(), xs[flip?0:1], ask==='big'?62:56, small, {tappable:true, target: ask==='small'}),
+      elShape('big', mk(), xs[flip?1:0], [50,46,53][i]||50, big2, {tappable:true, target: ask==='big'}),
+      elShape('small', mk(), xs[flip?0:1], (ask==='big'?62:56)+[0,4,-3][i], small2, {tappable:true, target: ask==='small'}),
     ];
     return tapTrial({ state:'TEST', prompt:`Tap the ${ask} one`, say:`Tap the ${ask} one!`, elements: els });
   };
@@ -1074,13 +1118,14 @@ function sizeLevel(rng, {big, small, ask}){
       elements:[ elShape('a', mk(), 50, 50, big) ]}),
     contrast: watchTrial({ state:'CONTRAST', prompt:'Small', say:'And this one is small.',
       elements:[ elShape('a', mk(), 50, 58, small) ]}),
-    tests:[mkTest(), mkTest(), mkTest()],
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
-function quantityLevel(rng, {a, b, ask, item}){
-  const ic = item === 'apple' ? C.coral : pick(rng, ['sea','grape','tang']);
+function quantityLevel(rng, {pairs, ask, item}){
+  const ic = item === 'apple' ? C.coral : C[pick(rng, ['sea','grape','tang'])];
   const svg = SIL[item](ic);
-  const mkTest = () => {
+  const mkTest = i => {
+    const [a, b] = pairs[i % pairs.length];
     const bigLeft = rng() < .5;
     const za = zoneEl('side-a', bigLeft?72:28, a, svg);
     const zb = zoneEl('side-b', bigLeft?28:72, b, svg);
@@ -1090,12 +1135,13 @@ function quantityLevel(rng, {a, b, ask, item}){
       prompt:`Tap the side with ${ask}`, say:`Which side has ${ask}?`,
       elements:[za, zb] });
   };
+  const [a0, b0] = pairs[0];
   return {
-    expose: watchTrial({ state:'EXPOSE', prompt: a===1?'One':'A few', say: a===1 ? `One ${item}.` : `${a===2?'Two':'Three'} ${item}s.`,
-      elements:[ zoneEl('za', 50, a, svg) ]}),
+    expose: watchTrial({ state:'EXPOSE', prompt: a0===1?'One':'Some', say: a0===1 ? `One ${item}.` : `Some ${item}s.`,
+      elements:[ zoneEl('za', 50, a0, svg) ]}),
     contrast: watchTrial({ state:'CONTRAST', prompt:'More!', say:'Look — more!',
-      elements:[ zoneEl('zb', 50, b, svg) ]}),
-    tests:[mkTest(), mkTest(), mkTest()],
+      elements:[ zoneEl('zb', 50, b0, svg) ]}),
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
 
@@ -1250,12 +1296,17 @@ const Engine = {
 
   stage(){ return $('#stage'); },
 
-  startLevel(node, level){
+  startLevel(node, level, forcedSeed){
+    this.active = true;
     this.node = node; this.level = level;
     const settings = Store.settings();
     settings.seedCounter = (settings.seedCounter||0) + 1;
     Store.saveSettings(settings);
-    const seed = hashStr(`${node.key}|${level.id}|${settings.seedCounter}`);
+    const seed = forcedSeed || hashStr(`${node.key}|${level.id}|${settings.seedCounter}`);
+    // the address bar is always a permalink to this exact challenge
+    const q = new URLSearchParams(location.search);
+    q.set('level', level.id); q.set('seed', seed.toString(36));
+    history.replaceState(null, '', '?' + q.toString());
     const rng = mulberry32(seed);
     const gen = level.make(rng);
     this.trials = [gen.expose, gen.contrast, ...gen.tests];
@@ -1284,10 +1335,12 @@ const Engine = {
     this.cur = this.trials[idx];
     this.locked = false; this.wrongCount = 0; this.usedFallback = false;
     this.hintCount = 0;
+    this.promptSpeaks = 0;
+    this.promptEndAt = 0;
     this.drag = null;
     // stacking trials: the landing surface starts as the base and rises with
     // each placed block (towers)
-    if (this.cur.kind === 'stack') this.stackSupport = 'base';
+    if (this.cur.kind === 'stack') this.stackOn = {};   // child id → support id
     const st = $('#stones').children[idx]; if (st) st.classList.add('cur');
 
     // trial record per spec
@@ -1307,18 +1360,30 @@ const Engine = {
     this.speakPrompt();
   },
 
-  speakPrompt(){
-    this.promptEndAt = 0;
+  speakPrompt(force){
+    if (!this.active || !this.cur) return;
     // a reference sample ("same as this") pulses while the prompt names it
     const sc = this.stage().querySelector('.sample-card');
     if (sc){ sc.classList.add('pulse'); setTimeout(() => sc.classList.remove('pulse'), 2600); }
-    Audio2.speak(this.cur.say, () => {
+    // annoyance cap: never auto-repeat the same prompt more than 3 times;
+    // the speaker button (force) always speaks — that's an explicit request
+    if (!force && this.promptSpeaks >= 3){
       if (!this.promptEndAt) this.promptEndAt = Date.now();
-      this.armTimers();
-    });
+      return;
+    }
+    this.promptSpeaks++;
+    if (this.promptEndAt){
+      Audio2.speak(this.cur.say);
+    } else {
+      Audio2.speak(this.cur.say, () => {
+        if (!this.promptEndAt) this.promptEndAt = Date.now();
+        this.armTimers();
+      });
+    }
   },
 
   armTimers(){
+    if (!this.active) return;   // speech onend after exit must not re-arm
     clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
     if (this.cur.kind === 'watch'){
       this.autoTimer = setTimeout(() => this.completeTrial(true, {silent:true}), this.cur.autoMs);
@@ -1348,6 +1413,7 @@ const Engine = {
       el.style.setProperty('--s', spec.s);
       if (spec.ring) el.style.filter = 'drop-shadow(0 0 8px rgba(61,139,255,.55))';
       if (spec.sampleCard) el.classList.add('sample-card');
+      if (spec.groundBar) el.classList.add('ground-bar');
       if (spec.decor) el.style.opacity = '.85';
       if ((this.cur.kind === 'drag' || this.cur.kind === 'stack') && spec.piece) el.classList.add('painted-hit');
       stage.appendChild(el);
@@ -1374,8 +1440,8 @@ const Engine = {
     const floorRel = sr.height * 0.80;
     const g = stage.querySelector('[data-el="ground"]');
     if (g){
-      const gh = px('ground');
-      g.style.top = (floorRel - gh*0.86 + gh/2) + 'px';
+      const barH = px('ground') * 0.12;
+      g.style.top = (floorRel + barH/2) + 'px';
     }
     // rest map: id → 'floor' or the id of the element it sits on (towers chain)
     const rest = this.cur.stackScene.rest;
@@ -1497,6 +1563,26 @@ const Engine = {
     };
     pieceEl.classList.add('dragging');
     pieceEl.classList.remove('returning','snapping');
+    // stacking: lifting a block carries everything stacked on top of it
+    if (this.cur.kind === 'stack'){
+      const id = pieceEl.dataset.el;
+      const kids = [];
+      const collect = pid => {
+        for (const [c, sup] of Object.entries(this.stackOn))
+          if (sup === pid){ kids.push(c); collect(c); }
+      };
+      collect(id);
+      delete this.stackOn[id];
+      const stage = this.stage();
+      const pc = pieceEl.getBoundingClientRect();
+      this.drag.group = kids.map(k => {
+        const el2 = stage.querySelector(`[data-el="${k}"]`);
+        const r2 = el2.getBoundingClientRect();
+        return { id: k, el: el2,
+          dx: (r2.left + r2.width/2) - (pc.left + pc.width/2),
+          dy: (r2.top + r2.height/2) - (pc.top + pc.height/2) };
+      });
+    }
     Telemetry.event({
       trialId: this.curRecord.id, timestamp: now, type:'DRAG_START',
       coordinateX: Math.round(x), coordinateY: Math.round(y),
@@ -1524,6 +1610,10 @@ const Engine = {
     const cx = e.clientX + d.dx, cy = e.clientY + d.dy;
     d.el.style.left = ((cx - sr.left)/sr.width*100)+'%';
     d.el.style.top  = ((cy - sr.top)/sr.height*100)+'%';
+    for (const g of d.group || []){
+      g.el.style.left = ((cx + g.dx - sr.left)/sr.width*100)+'%';
+      g.el.style.top  = ((cy + g.dy - sr.top)/sr.height*100)+'%';
+    }
   },
 
   onPointerUp(e){
@@ -1570,6 +1660,10 @@ const Engine = {
     if (ok){
       // snap into place (or fall in, for a release above an open container)
       d.el.classList.add(fellIn ? 'fall-in' : 'snapping', 'placed');
+      if (spec.sinkBehind){
+        const front = this.stage().querySelector(`[data-el="${spec.sinkBehind}"]`);
+        if (front){ d.el.style.zIndex = '1'; front.style.zIndex = '2'; }
+      }
       d.el.style.left = ((scx - sr.left)/sr.width*100)+'%';
       d.el.style.top = ((scy - sr.top)/sr.height*100)+'%';
       const finish = () => {
@@ -1605,20 +1699,48 @@ const Engine = {
     // geometry from declared --s sizes and rect CENTERS — rect extents lie
     // mid-animation (scale(0) would zero out gravity and the contact band)
     const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
-    const specOf = id => this.cur.elements.find(s => s.id === id);
+    const specOf = id => this.cur.elements.find(s2 => s2.id === id);
     const size = ((specOf(d.id)||{}).s * vmin) || pr.width;
     const PX_M = size / 0.0508;        // the block IS 5.08 cm — px-per-meter from that
     const G = 9.81 * PX_M;             // gravity in px/s²
     const REST = 0.32;                 // wood-on-wood restitution: a clack, barely a bounce
     const V_SETTLE = 0.35 * PX_M;      // below ~0.35 m/s an impact just settles
-    const baseEl = stage.querySelector(`[data-el="${this.stackSupport}"]`);
-    const br0 = baseEl.getBoundingClientRect();
-    const baseSize = ((specOf(this.stackSupport)||{}).s * vmin) || br0.width;
-    const baseCx = br0.left + br0.width/2;
-    const br = { left: baseCx - baseSize/2, right: baseCx + baseSize/2,
-                 top: (br0.top + br0.height/2) - baseSize/2, width: baseSize };
     const floorY = this.stackFloorY();
     const vcap = 1.5 * PX_M;           // a toddler toss tops out around 1.5 m/s
+
+    // every stack element outside the carried group is a candidate surface;
+    // the landing surface at a given x is the HIGHEST overlapping candidate
+    const groupIds = [d.id, ...((d.group || []).map(g => g.id))];
+    const cands = this.cur.elements.filter(e2 =>
+      (e2.piece || e2.id === 'base') && !groupIds.includes(e2.id));
+    const surface = c => {
+      const el2 = stage.querySelector(`[data-el="${c.id}"]`);
+      if (!el2) return null;
+      const r2 = el2.getBoundingClientRect();
+      const cs = (c.s * vmin) || r2.width;
+      const cx0 = r2.left + r2.width/2;
+      return { id: c.id, cx: cx0, width: cs,
+        left: cx0 - cs/2, right: cx0 + cs/2,
+        top: (r2.top + r2.height/2) - cs/2 };
+    };
+    const surfaceAt = x => {
+      let best = null;
+      for (const c of cands){
+        const sfc = surface(c);
+        if (!sfc) continue;
+        if (x + size/2 > sfc.left + 2 && x - size/2 < sfc.right - 2 &&
+            (!best || sfc.top < best.top)) best = sfc;
+      }
+      return best;
+    };
+    const nearestGapX = x => {
+      let gap = Infinity;
+      for (const c of cands){
+        const sfc = surface(c);
+        if (sfc) gap = Math.min(gap, Math.abs(x - sfc.cx) - sfc.width/2);
+      }
+      return gap === Infinity ? null : Math.max(0, Math.round(gap));
+    };
 
     // a hand that held still before letting go imparts no toss — only count
     // gesture velocity if the pointer was moving right up to the release
@@ -1628,17 +1750,23 @@ const Engine = {
       x: pr.left + pr.width/2, y: pr.top + pr.height/2,
       vx: clamp((d.vx || 0) * toss, -vcap, vcap), vy: clamp((d.vy || 0) * toss, -vcap, vcap),
       ang: 0, va: 0, pa: 0, pa0: 0, dir: 1, pivotX: 0, r: size * Math.SQRT1_2,
-      mode: 'fall', bounces: 0,
+      sup: null, mode: 'fall', bounces: 0,
     };
-    // released while sunk into the base from the side: shove out to the near edge
-    if (st.y + size/2 > br.top + 4 && st.x + size/2 > br.left && st.x - size/2 < br.right){
-      st.x = (st.x < baseCx) ? br.left - size/2 - 1 : br.right + size/2 + 1;
+    // released while sunk into a surface from the side: shove out to the near edge
+    const s0 = surfaceAt(st.x);
+    if (s0 && st.y + size/2 > s0.top + 4 && st.y > s0.top){
+      st.x = (st.x < s0.cx) ? s0.left - size/2 - 1 : s0.right + size/2 + 1;
     }
 
     const paint = () => {
       el.style.left = (st.x - sr.left) + 'px';
       el.style.top  = (st.y - sr.top) + 'px';
       el.style.transform = `translate(-50%,-50%) rotate(${st.ang}deg)`;
+      for (const g of d.group || []){
+        g.el.style.left = (st.x + g.dx - sr.left) + 'px';
+        g.el.style.top  = (st.y + g.dy - sr.top) + 'px';
+        g.el.style.transform = `translate(-50%,-50%) rotate(${st.ang}deg)`;
+      }
     };
 
     const settle = onBase => {
@@ -1646,26 +1774,28 @@ const Engine = {
       st.mode = 'done';
       st.ang = 0; paint();
       el.style.transform = '';
+      for (const g of d.group || []) g.el.style.transform = '';
       const now = Date.now();
-      const missPx = onBase ? 0 : Math.max(0, Math.round(Math.abs(st.x - baseCx) - br.width/2));
       Telemetry.event({
         trialId: this.curRecord.id, timestamp: now, type:'DRAG_END',
         coordinateX: Math.round(st.x - sr.left), coordinateY: Math.round(st.y - sr.top),
-        hitElementId: onBase ? this.stackSupport : null, isCorrectIntent: onBase,
+        hitElementId: onBase ? st.sup.id : null, isCorrectIntent: onBase,
         timeSincePromptMs: this.promptEndAt ? now - this.promptEndAt : null,
-        missDistancePx: missPx,
+        missDistancePx: onBase ? 0 : nearestGapX(st.x),
       });
       if (this.curRecord.firstAttemptCorrect === null) this.curRecord.firstAttemptCorrect = onBase;
       if (onBase){
-        // this block becomes the new top of the tower
-        el.classList.add('placed');
-        this.stackSupport = d.id;
-        const pieces = this.cur.pieces || [];
-        const allPlaced = pieces.every(p => {
-          const pe = stage.querySelector(`[data-el="${p.el}"]`);
-          return pe && pe.classList.contains('placed');
-        });
-        if (allPlaced){
+        // record who rests on whom; success = every stack element in ONE
+        // stack, regardless of the order it was built in
+        this.stackOn[d.id] = st.sup.id;
+        const stackIds = this.cur.elements
+          .filter(e2 => e2.piece || e2.id === 'base').map(e2 => e2.id);
+        const rootOf = id0 => {
+          let cur0 = id0, g0 = 0;
+          while (this.stackOn[cur0] && g0++ < 12) cur0 = this.stackOn[cur0];
+          return cur0;
+        };
+        if (new Set(stackIds.map(rootOf)).size === 1){
           this.completeTrial(true, {at:[st.x, st.y]});
         } else {
           Audio2.correct();
@@ -1677,18 +1807,6 @@ const Engine = {
       }
     };
 
-    // Hybrid driver: rAF for smoothness, a timer fallback so the sim still
-    // advances when the browser throttles rAF (occluded window, split view).
-    let last = performance.now();
-    const schedule = () => {
-      this.physRAF = requestAnimationFrame(tick);
-      this.physTimer = setTimeout(tick, 40);
-    };
-    const tick = () => {
-      cancelAnimationFrame(this.physRAF);
-      clearTimeout(this.physTimer);
-      loop();
-    };
     // one physics substep; returns true once the block has settled
     const step = dt => {
       if (st.mode === 'fall'){
@@ -1697,29 +1815,28 @@ const Engine = {
         st.vx *= (1 - 0.4*dt);
         st.ang += st.va * dt;
         const bottom = st.y + size/2;
-        const overBase = (st.x + size/2 > br.left + 2) && (st.x - size/2 < br.right - 2);
+        const sup = surfaceAt(st.x);
 
-        if (st.vy > 0 && overBase && bottom >= br.top && st.y < br.top){
-          const relX = st.x - baseCx;
-          const overhang = Math.abs(relX) + size/2 - br.width/2;
-          st.y = br.top - size/2;
+        if (st.vy > 0 && sup && bottom >= sup.top && st.y < sup.top){
+          st.sup = sup;
+          const relX = st.x - sup.cx;
+          const overhang = Math.abs(relX) + size/2 - sup.width/2;
+          st.y = sup.top - size/2;
           if (st.vy > 0.15*PX_M) Audio2.clack(Math.min(1, st.vy / PX_M));
           if (overhang < size*0.12){
             // (near-)fully supported face landing: bounce once, then rest
             if (st.vy > V_SETTLE && st.bounces < 2){ st.vy = -REST * st.vy; st.bounces++; }
             else { settle(true); return true; }
           } else {
-            // partial contact → the block pivots on the base's edge corner.
+            // partial contact → pivot on the surface's edge corner.
             // CoM inside the edge rocks and settles; outside, it rolls off.
             st.mode = 'pivot';
             st.dir = relX < 0 ? -1 : 1;
-            st.pivotX = st.dir === -1 ? br.left : br.right;
+            st.pivotX = st.dir === -1 ? sup.left : sup.right;
             const dxOut = (st.x - st.pivotX) * st.dir;   // + outside, − inside
             st.r = Math.hypot(dxOut, size/2);
             st.pa0 = Math.atan2(dxOut, size/2);          // face-flat angle from vertical
             st.pa = st.pa0;
-            // impact impulse at the corner tips it outward, more so with speed
-            // and overhang asymmetry
             st.va = clamp(st.vy * Math.max(overhang, 8) / (size*size), 0.15, 2.4);
           }
         } else if (bottom >= floorY){
@@ -1728,7 +1845,6 @@ const Engine = {
           if (st.vy > V_SETTLE && st.bounces < 2){
             st.vy = -REST * st.vy; st.vx *= 0.5; st.bounces++;
           } else if (Math.abs(st.ang % 90) > 2){
-            // a cube lands on a face: ease any tumble rotation flat, then rest
             st.ang *= 0.6; st.va = 0;
           } else {
             settle(false); return true;
@@ -1747,7 +1863,7 @@ const Engine = {
           else { settle(true); return true; }
         }
         st.x = st.pivotX + st.dir * st.r * Math.sin(st.pa);
-        st.y = br.top - st.r * Math.cos(st.pa);
+        st.y = st.sup.top - st.r * Math.cos(st.pa);
         st.ang = st.dir * (st.pa - st.pa0) * 180/Math.PI;
         if (st.pa > 1.35){
           // rolled past the corner — off it goes
@@ -1762,8 +1878,17 @@ const Engine = {
     };
 
     // Each tick simulates the REAL elapsed time in collision-safe substeps, so
-    // the outcome is identical at 60fps and under heavy timer throttling —
-    // substep length is bounded so fast blocks can't tunnel through surfaces.
+    // the outcome is identical at 60fps and under heavy timer throttling.
+    let last = performance.now();
+    const schedule = () => {
+      this.physRAF = requestAnimationFrame(tick);
+      this.physTimer = setTimeout(tick, 40);
+    };
+    const tick = () => {
+      cancelAnimationFrame(this.physRAF);
+      clearTimeout(this.physTimer);
+      loop();
+    };
     const loop = () => {
       if (st.mode === 'done') return;
       const now = performance.now();
@@ -1782,7 +1907,7 @@ const Engine = {
 
   /* ---------- timeout, fallback, frustration ---------- */
   onTimeout(){
-    if (this.locked) return;
+    if (!this.active || this.locked || !this.cur) return;
     const now = Date.now();
     Telemetry.event({
       trialId: this.curRecord.id, timestamp: now, type:'TIMEOUT',
@@ -1831,9 +1956,10 @@ const Engine = {
       pulseTarget(){ if (target){ target.classList.add('pulse'); setTimeout(()=>target.classList.remove('pulse'), 3200);} speakAgain(); },
       glowTarget(){ if (target){ target.classList.add('glowring','pulse'); setTimeout(()=>target.classList.remove('pulse'), 3200);} speakAgain(); },
       reduceField(){
-        // drop the field to 1 vs 1: keep target + one distractor
+        // reduce to 2-vs-1, never 1-vs-1: with only one of each left,
+        // "the different one" has nothing to be different FROM
         const ds = [...stage.querySelectorAll('[data-el]')].filter(n => !n.dataset.target && !n.classList.contains('zone-card'));
-        ds.slice(1).forEach(n => { n.style.transition='opacity .4s'; n.style.opacity='0'; setTimeout(()=>n.remove(), 450); });
+        ds.slice(2).forEach(n => { n.style.transition='opacity .4s'; n.style.opacity='0'; setTimeout(()=>n.remove(), 450); });
         speakAgain();
       },
       growTarget(){ if (target){ target.classList.add('pulse'); setTimeout(()=>target.classList.remove('pulse'), 3200);} speakAgain(); },
@@ -1925,6 +2051,7 @@ const Engine = {
   },
 
   finishRun(){
+    this.active = false;
     const outcome = applyRunOutcome(this.node, this.level, this.results);
     const msg = outcome === 'complete' ? this.node.title + ' — done!' : 'You did it!';
     Telemetry.end(true, outcome);
@@ -1937,6 +2064,8 @@ const Engine = {
   },
 
   abort(){
+    this.active = false;
+    this.cur = null;
     clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
     this.stopPhysics();
     if (window.speechSynthesis) speechSynthesis.cancel();
@@ -2214,6 +2343,8 @@ function miniPreview(node, level){
   const gen = level.make(rng);
   const trial = (gen.tests && gen.tests[0]) || gen.expose;
   const spans = trial.elements.map(e => {
+    if (e.groundBar)
+      return `<span class="lp-el" style="left:50%;top:82%;width:104%;aspect-ratio:auto;height:9%;background:#C9DAE9;border-radius:6px"></span>`;
     const w = e.s * 1.5;   // element size as % of preview width
     return `<span class="lp-el${e.zone ? ' lp-zone' : ''}" style="left:${e.x}%;top:${e.y}%;width:${w}%">${e.html}</span>`;
   }).join('');
@@ -2591,6 +2722,13 @@ function applyTheme(){
 }
 
 function showView(name){
+  if (name !== 'play'){
+    const q = new URLSearchParams(location.search);
+    if (q.has('level') || q.has('seed')){
+      q.delete('level'); q.delete('seed');
+      history.replaceState(null, '', q.toString() ? '?' + q.toString() : location.pathname);
+    }
+  }
   $('#view-home').classList.toggle('hidden', name!=='home');
   $('#view-play').classList.toggle('hidden', name!=='play');
   $('#view-dash').classList.toggle('hidden', name!=='dash');
@@ -2608,7 +2746,7 @@ function init(){
   window.addEventListener('pointerup', e => Engine.onPointerUp(e));
   window.addEventListener('pointercancel', e => Engine.onPointerUp(e));
 
-  $('#btn-replay').addEventListener('click', () => { Audio2.unlock(); Engine.speakPrompt(); });
+  $('#btn-replay').addEventListener('click', () => { Audio2.unlock(); Engine.speakPrompt(true); });
   $('#lp-close').addEventListener('click', closePicker);
   $('#lp-scrim').addEventListener('click', closePicker);
   $('#btn-home').addEventListener('click', () => { Engine.abort(); showView('home'); renderHome(); });
@@ -2620,7 +2758,7 @@ function init(){
   const startHold = e => {
     e.preventDefault();
     gw.classList.add('holding');
-    holdT = setTimeout(() => { gw.classList.remove('holding'); renderDash(); showView('dash'); }, 2250);
+    holdT = setTimeout(() => { gw.classList.remove('holding'); renderDash(); showView('dash'); }, 675);
   };
   const stopHold = () => { gw.classList.remove('holding'); clearTimeout(holdT); };
   gw.addEventListener('pointerdown', startHold);
@@ -2630,6 +2768,16 @@ function init(){
 
   // audio unlock on any first interaction
   window.addEventListener('pointerdown', () => Audio2.unlock(), { once:true });
+
+  // deep link: ?level=4.2[&seed=N] opens that exact challenge (testing aid)
+  const q0 = new URLSearchParams(location.search);
+  const lvId = q0.get('level');
+  if (lvId){
+    for (const node of NODES){
+      const lv = node.levels.find(l => l.id === lvId);
+      if (lv){ Engine.startLevel(node, lv, parseInt(q0.get('seed'), 36) || undefined); break; }
+    }
+  }
 
   // scripting hook for the test harness (drive trials, run simulations headlessly)
   window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES,
