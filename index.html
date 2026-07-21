@@ -108,6 +108,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   background:var(--card);border-radius:28px;text-align:center;
   box-shadow:0 6px 20px rgba(61,107,153,.12), 0 1px 0 rgba(61,107,153,.06);
   transition:transform .15s ease;
+  -webkit-touch-callout:none;touch-action:manipulation;
 }
 .ccard:active{transform:scale(.96)}
 .ccard svg.cicon{width:86px;height:86px;display:block;margin:0 auto}
@@ -124,6 +125,58 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 }
 .ccard .lock{display:none}
 .ccard.locked .lock{display:flex}
+
+.home-hint{text-align:center;color:var(--ink-soft);font-size:13px;font-weight:600;margin:22px 0 0;opacity:.75}
+
+/* ═══════════════ Level picker ═══════════════ */
+.lp{position:fixed;inset:0;z-index:80}
+.lp-scrim{position:absolute;inset:0;background:rgba(14,26,40,.45)}
+.lp-panel{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(92vw,880px);max-height:86vh;overflow-y:auto;
+  background:var(--card);border-radius:28px;padding:20px 22px 24px;
+  box-shadow:0 24px 70px rgba(10,25,40,.35);
+  animation:lp-in .28s cubic-bezier(.2,1.3,.4,1) both;
+}
+@keyframes lp-in{from{transform:translate(-50%,-46%) scale(.92);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.lp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.lp-head h2{font-size:22px;font-weight:800;margin:0;letter-spacing:-.3px}
+.lp-x{
+  width:44px;height:44px;border-radius:50%;border:none;flex:none;
+  background:var(--sky-2);color:var(--ink-soft);
+  display:flex;align-items:center;justify-content:center;
+}
+.lp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.lp-card{
+  position:relative;border:none;padding:12px 12px 14px;text-align:center;
+  background:var(--sky-1);border-radius:20px;
+  box-shadow:inset 0 0 0 2px var(--line);
+  transition:transform .12s ease;
+}
+.lp-card:active{transform:scale(.95)}
+.lp-card .lp-name{display:block;font-size:16px;font-weight:800;margin-top:10px}
+.lp-card .lp-desc{display:block;font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-top:2px}
+.lp-card.done .lp-name::after{content:" ★";color:var(--sun)}
+.lp-card.locked{opacity:.45;filter:saturate(.4)}
+.lp-card .lp-lock{
+  position:absolute;top:8px;right:10px;width:26px;height:26px;border-radius:50%;
+  background:var(--sky-2);display:none;align-items:center;justify-content:center;color:var(--ink-soft);
+}
+.lp-card.locked .lp-lock{display:flex}
+.lp-preview{
+  position:relative;aspect-ratio:16/10;border-radius:14px;overflow:hidden;
+  background:linear-gradient(180deg,var(--sky-1),var(--sky-2));
+  box-shadow:inset 0 0 0 2px var(--line);pointer-events:none;
+}
+.lp-el{position:absolute;transform:translate(-50%,-50%);aspect-ratio:1}
+.lp-el svg{width:100%;height:100%;display:block;overflow:visible}
+.lp-el .emoji{font-size:100%}
+.lp-el.lp-zone{
+  aspect-ratio:1.15;background:var(--zone-bg);border-radius:16%;
+  box-shadow:inset 0 0 0 1.5px var(--line);
+}
+.lp-el .mini{position:absolute;transform:translate(-50%,-50%)}
+.lp-el .mini svg{width:100%;height:100%;display:block}
 
 .grownups{
   position:fixed;right:18px;bottom:max(16px,env(safe-area-inset-bottom));
@@ -357,6 +410,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
     <p class="home-sub">Tap a game to start</p>
   </header>
   <div id="concept-grid" class="concept-grid"></div>
+  <p class="home-hint">Grown-ups: press and hold a game to choose a level</p>
   <button id="btn-grownups" class="grownups">
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg>
     <span>Hold for grown-ups</span>
@@ -388,6 +442,20 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   </header>
   <div id="dash-body"></div>
 </main>
+
+<!-- ══════════ LEVEL PICKER (long-press a game card) ══════════ -->
+<div id="level-picker" class="lp hidden">
+  <div class="lp-scrim" id="lp-scrim"></div>
+  <div class="lp-panel" role="dialog" aria-modal="true" aria-labelledby="lp-title">
+    <div class="lp-head">
+      <h2 id="lp-title"></h2>
+      <button id="lp-close" class="lp-x" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>
+      </button>
+    </div>
+    <div id="lp-grid" class="lp-grid"></div>
+  </div>
+</div>
 
 <div id="fx-layer" aria-hidden="true"></div>
 
@@ -2071,6 +2139,51 @@ function nodeUnlocked(node){
     return np && np.mastered && np.mastered.length >= NODES.find(n=>n.key===k).levels.length;
   });
 }
+/* ---- Level picker: long-press a game card for big, graphical level cards.
+   Previews are rendered from each level's REAL trial generator (fixed seed),
+   so the picture always matches what the level actually plays like. ---- */
+function miniPreview(node, level){
+  const rng = mulberry32(hashStr(node.key + '|' + level.id + '|preview'));
+  const gen = level.make(rng);
+  const trial = (gen.tests && gen.tests[0]) || gen.expose;
+  const spans = trial.elements.map(e => {
+    const w = e.s * 1.5;   // element size as % of preview width
+    return `<span class="lp-el${e.zone ? ' lp-zone' : ''}" style="left:${e.x}%;top:${e.y}%;width:${w}%">${e.html}</span>`;
+  }).join('');
+  return `<div class="lp-preview">${spans}</div>`;
+}
+function levelReachable(node, np, i){
+  return Store.settings().unlockAll || i <= np.levelIdx || np.mastered.includes(node.levels[i].id);
+}
+function openPicker(node){
+  const np = nodeProgress(node.key);
+  $('#lp-title').textContent = node.title;
+  const grid = $('#lp-grid');
+  grid.innerHTML = node.levels.map((lv, i) => {
+    const reachable = levelReachable(node, np, i);
+    const done = np.mastered.includes(lv.id);
+    return `<button class="lp-card${reachable?'':' locked'}${done?' done':''}" data-i="${i}" ${reachable?'':'aria-disabled="true"'}>
+      ${miniPreview(node, lv)}
+      <span class="lp-name">Level ${lv.id}</span>
+      <span class="lp-desc">${lv.name}</span>
+      <span class="lp-lock"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg></span>
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('.lp-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const i = parseInt(card.dataset.i, 10);
+      if (!levelReachable(node, nodeProgress(node.key), i)){
+        card.classList.add('wobble'); setTimeout(()=>card.classList.remove('wobble'), 500);
+        return;
+      }
+      closePicker();
+      Engine.startLevel(node, node.levels[i]);
+    });
+  });
+  $('#level-picker').classList.remove('hidden');
+}
+function closePicker(){ $('#level-picker').classList.add('hidden'); }
+
 function renderHome(){
   const grid = $('#concept-grid');
   grid.innerHTML = '';
@@ -2091,8 +2204,18 @@ function renderHome(){
       <span class="clevel">${allDone ? 'All levels done ★' : 'Level ' + node.levels[np.levelIdx].id}</span>
       <span class="ladder">${ladder}</span>
       <span class="lock"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg></span>`;
-    btn.addEventListener('pointerdown', () => Audio2.unlock());
+    // long-press (iPad-friendly) opens the big-card level picker
+    let holdTimer = 0, longFired = false;
+    btn.addEventListener('pointerdown', () => {
+      Audio2.unlock();
+      longFired = false;
+      if (unlocked) holdTimer = setTimeout(() => { longFired = true; openPicker(node); }, 550);
+    });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev =>
+      btn.addEventListener(ev, () => clearTimeout(holdTimer)));
+    btn.addEventListener('contextmenu', e => e.preventDefault());
     btn.addEventListener('click', e => {
+      if (longFired){ longFired = false; return; }
       if (!unlocked){
         const first = node.prereqs[0];
         const pre = NODES.find(n=>n.key===first);
@@ -2419,6 +2542,8 @@ function init(){
   window.addEventListener('pointercancel', e => Engine.onPointerUp(e));
 
   $('#btn-replay').addEventListener('click', () => { Audio2.unlock(); Engine.speakPrompt(); });
+  $('#lp-close').addEventListener('click', closePicker);
+  $('#lp-scrim').addEventListener('click', closePicker);
   $('#btn-home').addEventListener('click', () => { Engine.abort(); showView('home'); renderHome(); });
   $('#btn-dash-back').addEventListener('click', () => { showView('home'); renderHome(); });
 
