@@ -23,7 +23,7 @@ Everything lives in a single self-contained file: **`index.html`**
 
 ## Curriculum
 
-Five nodes, seventeen micro-levels, each run as E→C→T(×3):
+Six nodes, twenty-two micro-levels, each run as E→C→T(×3):
 
 | Node | Levels | Interaction | Prerequisite |
 |---|---|---|---|
