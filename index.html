@@ -549,10 +549,37 @@ const Audio2 = (() => {
     }
   }
 
-  function speak(text, onend){
-    if (document.hidden){ if (onend) setTimeout(onend, 250); return; }
-    Captions.show(text);
-    if (muted){ if (onend) setTimeout(onend, 250); return; }
+  /* Recorded-clip layer. A spoken phrase plays a real audio clip when one is
+     mapped; anything unmapped falls back to synthesized speech. Add a phrase
+     by dropping clips/<name>.mp3 and one CLIP_MAP entry — nothing else changes.
+     Disable with ?noclips=1 (falls back to TTS everywhere). */
+  const clipsOff = new URLSearchParams(location.search).has('noclips');
+  const CLIP_MAP = {
+    'great job': 'great_job.mp3',
+    'yay': 'yay.mp3',
+    'hooray': 'hooray.mp3',
+    'we did it': 'we_did_it.mp3',
+    'peekaboo': 'peekaboo.mp3',
+    'lets play hide and seek': 'lets_play_hide_and_seek.mp3',
+    'uh oh': 'uh_oh.mp3',
+  };
+  const normPhrase = t => t.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  const clipBuffers = {};   // url → Promise<AudioBuffer>
+  function loadClip(url){
+    if (!clipBuffers[url]){
+      clipBuffers[url] = fetch(url)
+        .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error('404')))
+        .then(a => ctx.decodeAudioData(a));
+    }
+    return clipBuffers[url];
+  }
+  function talkFor(ms){
+    const spk = $('#btn-replay');
+    if (!spk) return;
+    spk.classList.add('talking');
+    setTimeout(() => spk.classList.remove('talking'), ms);
+  }
+  function ttsSpeak(text, onend){
     if (!('speechSynthesis' in window)){ if (onend) setTimeout(onend, 600); return; }
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
@@ -561,10 +588,30 @@ const Audio2 = (() => {
     let done = false;
     const fin = () => { if (!done){ done = true; if (onend) onend(); } };
     u.onend = fin; u.onerror = fin;
-    // Fallback in case onend never fires (some engines):
-    setTimeout(fin, 900 + text.length * 90);
-    const spk = $('#btn-replay'); if (spk){ spk.classList.add('talking'); u.addEventListener('end', ()=>spk.classList.remove('talking')); setTimeout(()=>spk.classList.remove('talking'), 900+text.length*90); }
+    setTimeout(fin, 900 + text.length * 90);   // some engines never fire onend
+    talkFor(900 + text.length * 90);
     speechSynthesis.speak(u);
+  }
+
+  function speak(text, onend){
+    if (document.hidden){ if (onend) setTimeout(onend, 250); return; }
+    Captions.show(text);
+    if (muted){ if (onend) setTimeout(onend, 250); return; }
+    const clip = !clipsOff && ctx && CLIP_MAP[normPhrase(text)];
+    if (clip){
+      loadClip('./clips/' + clip).then(buf => {
+        let done = false;
+        const fin = () => { if (!done){ done = true; if (onend) onend(); } };
+        const src = ctx.createBufferSource();
+        src.buffer = buf; src.connect(ctx.destination);
+        src.onended = fin;
+        setTimeout(fin, buf.duration * 1000 + 250);   // onended safety net
+        talkFor(buf.duration * 1000 + 150);
+        src.start();
+      }).catch(() => ttsSpeak(text, onend));   // missing/undecodable → speak it
+      return;
+    }
+    ttsSpeak(text, onend);
   }
 
   function tone(freq, t0, dur, type='sine', gain=0.16){
@@ -2035,7 +2082,7 @@ const Engine = {
     if (isTest){
       Audio2.correct();
       if (opts.at) FX.burst(opts.at[0], opts.at[1]);
-      const praise = ['Yay!','You did it!','Hooray!','Great job!'][Math.floor(Math.random()*4)];
+      const praise = ['Yay!','We did it!','Hooray!','Great job!'][Math.floor(Math.random()*4)];
       Audio2.speak(praise);
       setTimeout(() => this.runTrial(this.trialIdx+1), 1400);
     } else {
@@ -2052,7 +2099,7 @@ const Engine = {
     Audio2.fanfare();
     FX.confetti();
     FX.cheer(msg);
-    Audio2.speak('Hooray! ' + (msg==='You did it!' ? 'You did it!' : 'All done!'));
+    Audio2.speak('Hooray!');
     setTimeout(() => { showView('home'); renderHome(); }, 2500);
   },
 
