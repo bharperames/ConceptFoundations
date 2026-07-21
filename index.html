@@ -569,7 +569,8 @@ const Audio2 = (() => {
     'lets play hide and seek': 'lets_play_hide_and_seek.mp3',
     'uh oh': 'uh_oh.mp3',
   };
-  const normPhrase = t => t.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  // strip apostrophes first (so "let's" → "lets", not "let s"), then the rest
+  const normPhrase = t => t.toLowerCase().replace(/['’`]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
   const clipBuffers = {};   // url → Promise<AudioBuffer>
   function loadClip(url){
     if (!clipBuffers[url]){
@@ -2179,8 +2180,13 @@ const Engine = {
       Audio2.correct();
       if (opts.at) FX.burst(opts.at[0], opts.at[1]);
       const praise = ['Yay!','We did it!','Hooray!','Great job!'][Math.floor(Math.random()*4)];
-      Audio2.speak(praise);
-      setTimeout(() => this.runTrial(this.trialIdx+1), 1400);
+      // advance only after the praise finishes (clips run 0.5–2.4s), with a
+      // floor so short praise still lands and a cap so we never hang on audio
+      const started = Date.now();
+      let advanced = false;
+      const go = () => { if (!advanced){ advanced = true; this.runTrial(this.trialIdx+1); } };
+      Audio2.speak(praise, () => setTimeout(go, Math.max(0, 1300 - (Date.now()-started))));
+      setTimeout(go, 4000);
     } else {
       setTimeout(() => this.runTrial(this.trialIdx+1), 250);
     }
