@@ -83,6 +83,16 @@ coordinates, `hitElementId`, `isCorrectIntent`, `timeSincePromptMs`, plus
 
 Open the dashboard with the "Hold for grown-ups" button (2.2s press-and-hold).
 
+## Mini games
+
+Separate from the teaching sequence, a **Mini games** section on the home
+screen holds standalone arcade interludes. **Bubble Pop** is a canvas game:
+realistically-rendered soap bubbles (iridescent rims, specular glints, soft
+refraction) drift down and speed up over time; tap to pop them (droplet burst
++ pop sound). If one reaches the ground the round ends. Score = bubbles popped.
+It runs its own game loop, independent of the E→C→T engine, so it never
+touches curriculum progress or telemetry.
+
 ## Audio & assets
 
 Spoken lines play recorded audio clips when the phrase is mapped

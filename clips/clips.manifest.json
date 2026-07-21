@@ -50,6 +50,13 @@
       "uid": "clip_e298bfd34a3f",
       "sha256": "971a766da12a3564176de76ef5ab11448dd61cb46d433d9288d13c591ef59823",
       "source_file": "clips/clip_e298bfd34a3f__uh_oh.mp3"
+    },
+    {
+      "dest": "bubble_pop.mp3",
+      "phrase": "bubble bubble bubble bubble bubble pop",
+      "uid": "clip_f5f0ad4c1f94",
+      "sha256": "f4e5659709580c04642fec47888e8e5283fc8916f666d68f7cfe96fadac4b0f1",
+      "source_file": "clips/clip_f5f0ad4c1f94__bubble_bubble_bubble_bubble_bubble_pop.mp3"
     }
   ]
 }

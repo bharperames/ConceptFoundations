@@ -231,3 +231,24 @@ test('simulator generates sessions and the dashboard renders', async ({ page }) 
   await expect(page.locator('.tile')).toHaveCount(4);
   await expect(page.locator('#chart-ttft svg')).toBeVisible();
 });
+
+test('bubble pop: popping scores, a grounded bubble ends the round', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => CF.BubbleGame.start());
+  await expect(page.locator('#view-bubbles')).toBeVisible();
+  await page.waitForFunction(() => CF.BubbleGame.bubbles.length > 0, null, { timeout: 6000 });
+  const score = await page.evaluate(() => {
+    const g = CF.BubbleGame, b = g.bubbles[g.bubbles.length - 1];
+    g.hit(b.x, b.y);
+    return g.score;
+  });
+  expect(score).toBe(1);
+  // a bubble reaching the ground ends the round
+  await page.evaluate(() => {
+    const g = CF.BubbleGame;
+    g.bubbles.push({ x: g.W/2, y: g.ground - 1, r: 30, vy: 200, wobA: 0, wobF: 1, phase: 0, hue: 200, t: 0 });
+  });
+  await page.waitForFunction(() => !CF.BubbleGame.running, null, { timeout: 3000 });
+  await expect(page.locator('#bub-over')).toBeVisible();
+  expect(await page.locator('#bub-final').textContent()).toBe('1');
+});
