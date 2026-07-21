@@ -162,6 +162,17 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 @keyframes talk{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 #prompt-text{font-size:clamp(20px,3.2vw,28px);font-weight:800;letter-spacing:-.2px}
 
+/* ═══════════════ Closed captions ═══════════════ */
+.cc-bar{
+  position:fixed;left:50%;bottom:104px;transform:translateX(-50%);
+  max-width:82vw;z-index:65;pointer-events:none;
+  background:rgba(15,26,38,.85);color:#fff;
+  font-size:clamp(17px,2.4vw,22px);font-weight:700;letter-spacing:.2px;
+  padding:10px 20px;border-radius:14px;text-align:center;
+  opacity:0;transition:opacity .18s ease;
+}
+.cc-bar.on{opacity:1}
+
 /* ═══════════════ FX ═══════════════ */
 #fx-layer{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
 .spark{position:absolute;width:16px;height:16px;animation:fly .8s ease-out both}
@@ -360,6 +371,30 @@ const median = xs => {
 };
 
 /* ════════════════════════════════ 2 · Audio ═══════════════════════════════ */
+/* Closed captions: every spoken utterance is mirrored as on-screen text when
+   enabled (dashboard toggle, or ?cc=1) — lets testers work with volume off. */
+const Captions = {
+  el: null, timer: 0,
+  enabled(){
+    return !!Store.settings().cc || new URLSearchParams(location.search).has('cc');
+  },
+  show(text){
+    if (!this.enabled()) return;
+    if (!this.el){
+      this.el = document.createElement('div');
+      this.el.className = 'cc-bar';
+      this.el.setAttribute('aria-live', 'polite');
+      document.body.appendChild(this.el);
+    }
+    this.el.textContent = text;
+    this.el.classList.add('on');
+    clearTimeout(this.timer);
+    // linger long enough to read, roughly matching speech duration
+    this.timer = setTimeout(() => this.el.classList.remove('on'),
+      Math.max(1600, 500 + text.length * 70));
+  },
+};
+
 const Audio2 = (() => {
   let ctx = null, voice = null, unlocked = false;
   // ?mute=1 silences speech and tones (for automated testing); prompt timing
@@ -382,6 +417,7 @@ const Audio2 = (() => {
   }
 
   function speak(text, onend){
+    Captions.show(text);
     if (muted){ if (onend) setTimeout(onend, 250); return; }
     if (!('speechSynthesis' in window)){ if (onend) setTimeout(onend, 600); return; }
     speechSynthesis.cancel();
@@ -1835,6 +1871,8 @@ function renderDash(){
     <div class="dash-controls">
       <div class="ctl"><button id="sw-unlock" class="switch ${settings.unlockAll?'on':''}" role="switch" aria-checked="${settings.unlockAll}" aria-label="Unlock every game"></button>
         <span>Unlock every game (skip prerequisites)</span></div>
+      <div class="ctl"><button id="sw-cc" class="switch ${settings.cc?'on':''}" role="switch" aria-checked="${!!settings.cc}" aria-label="Captions"></button>
+        <span>Captions (CC) — show spoken words as text</span></div>
       <button id="btn-wipe" class="danger">Erase all data</button>
     </div>`;
 
@@ -1936,6 +1974,10 @@ function renderDash(){
 
   $('#sw-unlock').addEventListener('click', () => {
     const s = Store.settings(); s.unlockAll = !s.unlockAll; Store.saveSettings(s);
+    renderDash();
+  });
+  $('#sw-cc').addEventListener('click', () => {
+    const s = Store.settings(); s.cc = !s.cc; Store.saveSettings(s);
     renderDash();
   });
   const wipe = $('#btn-wipe');

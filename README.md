@@ -15,6 +15,8 @@ Everything lives in a single self-contained file: **`index.html`**
   `http://127.0.0.1:8742/`
 - Append `?mute=1` to silence speech/tones during testing (prompt timing — and
   therefore TTFT telemetry — is preserved).
+- Captions (CC): toggle in the grown-ups dashboard, or append `?cc=1`, to show
+  every spoken prompt as on-screen text — handy for testing with the volume off.
 
 ## Curriculum
 
@@ -66,6 +68,15 @@ restores the pre-simulation curriculum position).
 An **Insights** section turns telemetry into findings (memorization risk,
 frustration hotspots, TTFT trends, motor-vs-conceptual miss profile, DDA
 repair loops) — the feedback loop for iterating on levels and pacing.
+
+## Roadmap
+
+- **Prompt modality alternation** — present each challenge through rotating
+  modalities: (1) spoken words, (2) written words, (3) glyphs/icons. This adds a
+  learning modality axis on top of the concept axis; the trial schema already
+  separates `prompt` (display) from `say` (speech), so a third `glyph` channel
+  and a per-trial modality selector slot in naturally. Telemetry should tag each
+  trial's modality so the dashboard can compare acquisition across modalities.
 
 For scripted testing, `window.CF` exposes `{ Engine, Store, Simulator,
 Telemetry, NODES, PROFILES, computeStats, computeInsights, renderDash,
