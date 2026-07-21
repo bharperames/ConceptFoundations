@@ -1,0 +1,1986 @@
+<meta charset="utf-8">
+<title>Concept Foundations</title>
+<style>
+/* ═══════════════ Tokens ═══════════════ */
+:root{
+  color-scheme: light;
+  /* child world: morning sky */
+  --sky-1:#F6FAFE; --sky-2:#E7F1FA;
+  --ink:#22384A; --ink-soft:#5D7285;
+  --card:#FFFFFF;
+  --line:#D8E5F0;
+  --coral:#FF5D55; --sun:#FFC02E; --grass:#33C06A;
+  --sea:#3D8BFF; --grape:#9B6DF2; --tang:#FF8A3C;
+  --stone:#CBDDEC; --stone-done:#3D8BFF;
+  /* grown-up dashboard: dataviz chrome */
+  --d-page:#F1F5F9; --d-card:#fcfcfb; --d-ink:#0b0b0b; --d-ink2:#52514e;
+  --d-muted:#898781; --d-grid:#e1e0d9; --d-axis:#c3c2b7;
+  --s1:#2a78d6; --s2:#008300; --d-good:#006300; --d-crit:#d03b3b;
+  --round: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--round);
+  background:linear-gradient(180deg,var(--sky-1),var(--sky-2));
+  color:var(--ink);
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none; user-select:none;
+  overscroll-behavior:none;
+}
+button{font-family:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radius:12px}
+.hidden{display:none !important}
+.view{position:fixed;inset:0;overflow:hidden}
+
+/* ═══════════════ Home ═══════════════ */
+#view-home{overflow-y:auto;padding:max(20px,env(safe-area-inset-top)) 20px 90px}
+.home-header{text-align:center;margin:26px auto 8px}
+.logo-dots{display:flex;justify-content:center;gap:10px;margin-bottom:14px}
+.logo-dots span{width:18px;height:18px;border-radius:50%;background:var(--sea)}
+.logo-dots .dot-diff{background:var(--coral);border-radius:5px;transform:rotate(8deg)}
+.home-header h1{font-size:clamp(26px,4.5vw,40px);font-weight:800;letter-spacing:-.5px;margin:0}
+.home-sub{color:var(--ink-soft);font-size:17px;margin:6px 0 0}
+.concept-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;max-width:900px;margin:28px auto 0}
+.ccard{
+  position:relative;width:196px;padding:20px 14px 16px;border:none;
+  background:var(--card);border-radius:28px;text-align:center;
+  box-shadow:0 6px 20px rgba(61,107,153,.12), 0 1px 0 rgba(61,107,153,.06);
+  transition:transform .15s ease;
+}
+.ccard:active{transform:scale(.96)}
+.ccard svg.cicon{width:86px;height:86px;display:block;margin:0 auto}
+.ccard .cname{display:block;font-size:19px;font-weight:800;margin-top:8px}
+.ccard .clevel{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px;font-weight:600}
+.ccard .ladder{display:flex;justify-content:center;gap:5px;margin-top:10px}
+.ladder i{width:9px;height:9px;border-radius:50%;background:var(--stone)}
+.ladder i.done{background:var(--grass)}
+.ladder i.cur{background:var(--sun);transform:scale(1.25)}
+.ccard.locked{opacity:.55;filter:saturate(.4)}
+.ccard.locked .lock{
+  position:absolute;top:10px;right:12px;width:30px;height:30px;border-radius:50%;
+  background:var(--sky-2);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);
+}
+.ccard .lock{display:none}
+.ccard.locked .lock{display:flex}
+
+.grownups{
+  position:fixed;right:18px;bottom:max(16px,env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:8px;overflow:hidden;
+  border:none;border-radius:999px;padding:12px 18px;
+  background:rgba(255,255,255,.85);color:var(--ink-soft);
+  font-size:14px;font-weight:700;box-shadow:0 3px 12px rgba(61,107,153,.14);
+  touch-action:none;
+}
+.grownups .hold-fill{
+  position:absolute;inset:0;background:var(--sea);opacity:.22;
+  transform:scaleX(0);transform-origin:left;pointer-events:none;
+}
+.grownups.holding .hold-fill{transform:scaleX(1);transition:transform 2.2s linear}
+
+/* ═══════════════ Play ═══════════════ */
+#view-play{touch-action:none}
+.btn-round{
+  position:absolute;z-index:30;width:52px;height:52px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.9);color:var(--ink-soft);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(61,107,153,.16);
+}
+.btn-exit{top:max(14px,env(safe-area-inset-top));left:16px}
+.stones{
+  position:absolute;top:max(24px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+  display:flex;gap:10px;z-index:20;
+}
+.stone{width:30px;height:17px;border-radius:10px;background:var(--stone);transition:background .3s}
+.stone.done{background:var(--stone-done);animation:stonepop .45s ease}
+.stone.cur{outline:3px solid rgba(61,139,255,.35);outline-offset:2px}
+@keyframes stonepop{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+
+.stage{position:absolute;inset:70px 0 96px;touch-action:none}
+.el{
+  position:absolute;transform:translate(-50%,-50%);
+  width:calc(var(--s)*1vmin);height:calc(var(--s)*1vmin);
+  background:none;border:none;padding:0;display:flex;align-items:center;justify-content:center;
+}
+.el svg{width:100%;height:100%;display:block;overflow:visible}
+.el .emoji{font-size:calc(var(--s)*.86*1vmin);line-height:1}
+.el.appear{animation:popin .4s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes popin{from{transform:translate(-50%,-50%) scale(0)}to{transform:translate(-50%,-50%) scale(1)}}
+.el.tappable:active{transform:translate(-50%,-50%) scale(.92)}
+.el.pulse{animation:pulse 1s ease infinite}
+@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.13);filter:drop-shadow(0 0 14px rgba(61,139,255,.7))}}
+.el.wobble{animation:wobble .45s ease}
+@keyframes wobble{0%,100%{transform:translate(-50%,-50%) rotate(0)}25%{transform:translate(-50%,-50%) rotate(-7deg)}75%{transform:translate(-50%,-50%) rotate(7deg)}}
+.el.glowring{filter:drop-shadow(0 0 6px var(--sun)) drop-shadow(0 0 16px var(--sun))}
+.el.muted{opacity:.25;transition:opacity .4s}
+.el.grayout{filter:grayscale(1) opacity(.45);transition:filter .4s}
+.el.dragging{z-index:40;transition:none !important;filter:drop-shadow(0 10px 16px rgba(34,56,74,.25)) scale(1.04)}
+.el.returning{transition:left .5s cubic-bezier(.3,1.2,.4,1), top .5s cubic-bezier(.3,1.2,.4,1)}
+.el.snapping{transition:left .18s ease-out, top .18s ease-out}
+.el.demo-move{transition:left 1s ease-in-out, top 1s ease-in-out}
+.el.placed{filter:none}
+.zone-card{
+  position:absolute;transform:translate(-50%,-50%);
+  width:calc(var(--s)*1.15*1vmin);height:calc(var(--s)*1vmin);
+  border:none;padding:0;border-radius:26px;
+  background:rgba(255,255,255,.75);
+  box-shadow:inset 0 0 0 3px var(--line), 0 4px 14px rgba(61,107,153,.10);
+}
+.zone-card:active{transform:translate(-50%,-50%) scale(.97)}
+.zone-card .mini{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
+.zone-card .mini svg{width:100%;height:100%;display:block}
+.zone-card.pulse{animation:pulse 1s ease infinite}
+.zone-card.grayout{filter:grayscale(1) opacity(.45)}
+/* painted-only hit-testing for drag trials (transparent svg regions pass through) */
+.painted-hit{pointer-events:none}
+.painted-hit svg{pointer-events:none}
+.painted-hit svg .hit{pointer-events:visiblePainted}
+
+.prompt-bubble{
+  position:absolute;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:12px;max-width:86vw;
+  background:var(--card);border-radius:999px;padding:10px 26px 10px 12px;
+  box-shadow:0 8px 24px rgba(61,107,153,.18);z-index:20;
+  animation:bubblein .35s cubic-bezier(.2,1.3,.4,1) both;
+}
+@keyframes bubblein{from{transform:translateX(-50%) translateY(30px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+.btn-speaker{
+  width:52px;height:52px;border-radius:50%;border:none;flex:none;
+  background:var(--sea);color:#fff;display:flex;align-items:center;justify-content:center;
+}
+.btn-speaker:active{transform:scale(.9)}
+.btn-speaker.talking{animation:talk .8s ease infinite}
+@keyframes talk{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+#prompt-text{font-size:clamp(20px,3.2vw,28px);font-weight:800;letter-spacing:-.2px}
+
+/* ═══════════════ FX ═══════════════ */
+#fx-layer{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.spark{position:absolute;width:16px;height:16px;animation:fly .8s ease-out both}
+.spark svg{width:100%;height:100%;overflow:visible}
+@keyframes fly{
+  from{transform:translate(0,0) scale(1);opacity:1}
+  to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}
+}
+.confetto{position:absolute;top:-4vh;width:12px;height:18px;border-radius:3px;animation:fall 2.4s ease-in both}
+@keyframes fall{
+  from{transform:translateY(0) rotate(0)}
+  to{transform:translateY(115vh) rotate(560deg);opacity:.7}
+}
+.cheer{
+  position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(246,250,254,.86);pointer-events:none;
+  animation:cheerin .5s cubic-bezier(.2,1.3,.4,1) both;
+}
+@keyframes cheerin{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+.cheer .big{font-size:15vmin}
+.cheer .msg{font-size:clamp(28px,5vw,44px);font-weight:800}
+
+/* ═══════════════ Dashboard ═══════════════ */
+.dash{overflow-y:auto;background:var(--d-page);font-family:var(--sans);color:var(--d-ink);-webkit-user-select:text;user-select:text}
+.dash-header{max-width:980px;margin:0 auto;padding:28px 20px 4px}
+.dash-back{border:none;background:none;color:var(--s1);font-size:14px;font-weight:600;padding:6px 0}
+.dash-header h1{font-size:26px;font-weight:700;margin:10px 0 4px;letter-spacing:-.3px}
+.dash-sub{color:var(--d-ink2);font-size:14px;margin:0;max-width:60ch}
+#dash-body{max-width:980px;margin:0 auto;padding:18px 20px 60px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:14px 0 8px}
+.tile{background:var(--d-card);border:1px solid rgba(11,11,11,.10);border-radius:12px;padding:16px 18px}
+.tile .tv{font-size:30px;font-weight:700;letter-spacing:-.5px}
+.tile .tl{font-size:13px;color:var(--d-ink2);margin-top:2px}
+.tile .th{font-size:12px;color:var(--d-muted);margin-top:8px;line-height:1.45}
+.dash h2{font-size:16px;font-weight:700;margin:30px 0 4px}
+.dash .h2-sub{font-size:13px;color:var(--d-ink2);margin:0 0 12px;max-width:70ch}
+.chart-card{background:var(--d-card);border:1px solid rgba(11,11,11,.10);border-radius:12px;padding:18px;position:relative}
+.legend{display:flex;gap:18px;font-size:13px;color:var(--d-ink2);margin-bottom:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:baseline}
+.viz-tip{
+  position:absolute;pointer-events:none;background:var(--d-ink);color:#fff;
+  font-size:12px;padding:6px 10px;border-radius:6px;white-space:nowrap;
+  transform:translate(-50%,-130%);opacity:0;transition:opacity .12s;z-index:5;
+}
+.viz-tip b{font-weight:600}
+.dash table{width:100%;border-collapse:collapse;font-size:13px;background:var(--d-card);border:1px solid rgba(11,11,11,.10);border-radius:12px;overflow:hidden}
+.dash th{
+  text-align:left;font-weight:600;color:var(--d-ink2);font-size:12px;
+  padding:10px 14px;border-bottom:1px solid var(--d-grid);background:var(--d-card);
+}
+.dash td{padding:9px 14px;border-bottom:1px solid var(--d-grid);font-variant-numeric:tabular-nums}
+.dash tr:last-child td{border-bottom:none}
+.dash td.num,.dash th.num{text-align:right}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px}
+.pill.gen{background:#e8f1e8;color:var(--s2)}
+.pill.test{background:#e7effa;color:var(--s1)}
+.nodemap{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.nodecard{background:var(--d-card);border:1px solid rgba(11,11,11,.10);border-radius:12px;padding:14px 16px}
+.nodecard .nn{font-weight:600;font-size:14px}
+.nodecard .nl{font-size:12px;color:var(--d-ink2);margin-top:2px}
+.nodecard .steps{display:flex;gap:5px;margin-top:10px}
+.nodecard .steps i{height:7px;flex:1;border-radius:4px;background:var(--d-grid)}
+.nodecard .steps i.done{background:var(--s2)}
+.nodecard .steps i.cur{background:var(--s1)}
+.dash-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+.dash-controls .ctl{
+  display:flex;align-items:center;gap:10px;background:var(--d-card);
+  border:1px solid rgba(11,11,11,.10);border-radius:12px;padding:12px 16px;font-size:13px;
+}
+.switch{position:relative;width:40px;height:24px;border:none;border-radius:999px;background:var(--d-grid);transition:background .2s;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+.switch.on{background:var(--s2)}
+.switch.on::after{left:19px}
+.danger{border:1px solid rgba(208,59,59,.4);background:none;color:var(--d-crit);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:600}
+.danger.armed{background:var(--d-crit);color:#fff}
+.empty{
+  background:var(--d-card);border:1px dashed var(--d-axis);border-radius:12px;
+  padding:40px 24px;text-align:center;color:var(--d-ink2);font-size:14px;margin-top:16px;
+}
+.empty b{color:var(--d-ink);font-size:16px;display:block;margin-bottom:6px}
+.insights{display:grid;gap:10px}
+.insight{
+  display:flex;gap:12px;align-items:flex-start;background:var(--d-card);
+  border:1px solid rgba(11,11,11,.10);border-radius:12px;padding:14px 16px;
+}
+.insight .ic{flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;margin-top:1px}
+.insight.good .ic{background:#0ca30c}
+.insight.warning .ic{background:#fab219;color:#4a3500}
+.insight.serious .ic{background:#ec835a}
+.insight .it{font-weight:600;font-size:14px}
+.insight .it .tag{font-weight:600;font-size:11px;margin-left:8px;text-transform:uppercase;letter-spacing:.04em}
+.insight.good .tag{color:var(--d-good)}
+.insight.warning .tag{color:#8a6100}
+.insight.serious .tag{color:#b1401f}
+.insight .ib{font-size:13px;color:var(--d-ink2);margin-top:3px;line-height:1.5;max-width:78ch}
+.sim-card{background:var(--d-card);border:1px solid rgba(11,11,11,.10);border-radius:12px;padding:16px 18px}
+.sim-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sim-row select{
+  font:inherit;font-size:13px;padding:9px 12px;border-radius:10px;
+  border:1px solid var(--d-axis);background:var(--d-card);color:var(--d-ink);
+}
+.btn-primary{
+  border:none;background:var(--s1);color:#fff;border-radius:10px;
+  padding:10px 16px;font-size:13px;font-weight:600;
+}
+.btn-quiet{
+  border:1px solid var(--d-axis);background:none;color:var(--d-ink2);
+  border-radius:10px;padding:10px 16px;font-size:13px;font-weight:600;
+}
+.sim-note{font-size:12px;color:var(--d-muted);margin-top:10px;line-height:1.5}
+.pill.sim{background:#f3ecdf;color:#8a6100}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+</style>
+
+<!-- ══════════ HOME ══════════ -->
+<main id="view-home" class="view">
+  <header class="home-header">
+    <div class="logo-dots" aria-hidden="true"><span></span><span></span><span class="dot-diff"></span></div>
+    <h1>Concept Foundations</h1>
+    <p class="home-sub">Tap a game to start</p>
+  </header>
+  <div id="concept-grid" class="concept-grid"></div>
+  <button id="btn-grownups" class="grownups">
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg>
+    <span>Hold for grown-ups</span>
+    <i class="hold-fill" aria-hidden="true"></i>
+  </button>
+</main>
+
+<!-- ══════════ PLAY ══════════ -->
+<main id="view-play" class="view hidden">
+  <button id="btn-home" class="btn-round btn-exit" aria-label="Back to games">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.8 11h2.4v9h5.2v-6h3.2v6h5.2v-9h2.4z"/></svg>
+  </button>
+  <div id="stones" class="stones" aria-hidden="true"></div>
+  <div id="stage" class="stage"></div>
+  <div id="prompt-bubble" class="prompt-bubble hidden">
+    <button id="btn-replay" class="btn-speaker" aria-label="Say it again">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a3.5 3.5 0 0 0-2-3.15v6.3a3.5 3.5 0 0 0 2-3.15zm-2-7v2.06A5.5 5.5 0 0 1 18.5 12a5.5 5.5 0 0 1-4 5.94V20a7.5 7.5 0 0 0 0-15z"/></svg>
+    </button>
+    <span id="prompt-text"></span>
+  </div>
+</main>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<main id="view-dash" class="view dash hidden">
+  <header class="dash-header">
+    <button id="btn-dash-back" class="dash-back">&larr; Back to games</button>
+    <h1>Learning dashboard</h1>
+    <p class="dash-sub">Every session is an event stream. These numbers come straight from your child's touches — nothing is estimated.</p>
+  </header>
+  <div id="dash-body"></div>
+</main>
+
+<div id="fx-layer" aria-hidden="true"></div>
+
+<script type="module">
+/* ════════════════════════════════ 1 · Utilities ═══════════════════════════ */
+const $ = s => document.querySelector(s);
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() :
+  'xxxx-xxxx-xxxx'.replace(/x/g, () => Math.floor(Math.random()*16).toString(16)));
+const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+
+/* Deterministic PRNG: strict rulesets pick from constrained pools via this
+   seeded stream, and the seed is stored on the session for exact replay. */
+function hashStr(str){
+  let h = 2166136261;
+  for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const pick = (rng, arr) => arr[Math.floor(rng()*arr.length)];
+function pick2 (rng, arr){ const a = pick(rng,arr); let b = pick(rng,arr); while (b===a) b = pick(rng,arr); return [a,b]; }
+function shuffle(rng, arr){
+  const a = arr.slice();
+  for (let i=a.length-1;i>0;i--){ const j = Math.floor(rng()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; }
+  return a;
+}
+const median = xs => {
+  if (!xs.length) return null;
+  const s = xs.slice().sort((a,b)=>a-b), m = Math.floor(s.length/2);
+  return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+};
+
+/* ════════════════════════════════ 2 · Audio ═══════════════════════════════ */
+const Audio2 = (() => {
+  let ctx = null, voice = null, unlocked = false;
+  // ?mute=1 silences speech and tones (for automated testing); prompt timing
+  // still fires so TTFT telemetry keeps its semantics.
+  const muted = new URLSearchParams(location.search).has('mute');
+
+  function unlock(){
+    if (unlocked) return; unlocked = true;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+    } catch(e){ ctx = null; }
+    if ('speechSynthesis' in window){
+      const load = () => {
+        const vs = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+        voice = vs.find(v => /Samantha|Karen|Google US/i.test(v.name)) || vs[0] || null;
+      };
+      load(); speechSynthesis.onvoiceschanged = load;
+    }
+  }
+
+  function speak(text, onend){
+    if (muted){ if (onend) setTimeout(onend, 250); return; }
+    if (!('speechSynthesis' in window)){ if (onend) setTimeout(onend, 600); return; }
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) u.voice = voice;
+    u.rate = 0.9; u.pitch = 1.1;
+    let done = false;
+    const fin = () => { if (!done){ done = true; if (onend) onend(); } };
+    u.onend = fin; u.onerror = fin;
+    // Fallback in case onend never fires (some engines):
+    setTimeout(fin, 900 + text.length * 90);
+    const spk = $('#btn-replay'); if (spk){ spk.classList.add('talking'); u.addEventListener('end', ()=>spk.classList.remove('talking')); setTimeout(()=>spk.classList.remove('talking'), 900+text.length*90); }
+    speechSynthesis.speak(u);
+  }
+
+  function tone(freq, t0, dur, type='sine', gain=0.16){
+    if (!ctx || muted) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime + t0);
+    g.gain.exponentialRampToValueAtTime(gain, ctx.currentTime + t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t0 + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(ctx.currentTime + t0); o.stop(ctx.currentTime + t0 + dur + 0.05);
+  }
+  const correct  = () => { tone(660,0,.18,'triangle'); tone(880,.12,.25,'triangle'); };
+  const wrong    = () => { tone(180,0,.22,'sine',.1); };
+  const snapSnd  = () => { tone(520,0,.1,'triangle',.12); tone(780,.06,.12,'triangle',.12); };
+  const fanfare  = () => { [523,659,784,1047].forEach((f,i)=>tone(f, i*.13, .3, 'triangle')); };
+  return { unlock, speak, correct, wrong, snapSnd, fanfare };
+})();
+
+/* ════════════════════════════════ 3 · Art (flat SVG, no raster) ═══════════ */
+const C = { sea:'#3D8BFF', coral:'#FF5D55', sun:'#FFC02E', grass:'#33C06A', grape:'#9B6DF2', tang:'#FF8A3C' };
+const COLOR_KEYS = Object.keys(C);
+/* CVD-distinct outlier pairs for color-isolation levels (strict ruleset pool) */
+const COLOR_PAIRS = [['sea','tang'], ['grape','sun'], ['sea','coral'], ['grass','grape']];
+
+const wrap = inner => `<svg viewBox="0 0 100 100" aria-hidden="true">${inner}</svg>`;
+const H = 'class="hit"'; // painted-hit marker for drag trials
+
+const SHAPES = {
+  circle : c => wrap(`<circle ${H} cx="50" cy="50" r="44" fill="${c}"/>`),
+  square : c => wrap(`<rect ${H} x="10" y="10" width="80" height="80" rx="16" fill="${c}"/>`),
+  triangle:c => wrap(`<path ${H} d="M50 14 L89 82 L11 82 Z" fill="${c}" stroke="${c}" stroke-width="12" stroke-linejoin="round"/>`),
+  star   : c => wrap(`<path ${H} d="M50 8 L60.5 39.5 L94 39.5 L67 59 L77.5 90 L50 70.5 L22.5 90 L33 59 L6 39.5 L39.5 39.5 Z" fill="${c}" stroke="${c}" stroke-width="8" stroke-linejoin="round"/>`),
+  heart  : c => wrap(`<path ${H} d="M50 88 C20 64 8 46 8 32 C8 18 19 10 30 10 C39 10 46 15 50 22 C54 15 61 10 70 10 C81 10 92 18 92 32 C92 46 80 64 50 88 Z" fill="${c}"/>`),
+};
+const SHAPE_KEYS = Object.keys(SHAPES);
+
+/* Flat silhouettes built from primitives (avoids raster noise per curriculum). */
+const SIL = {
+  dog: c => wrap(`<g fill="${c}">
+    <ellipse cx="55" cy="60" rx="28" ry="18"/>
+    <circle cx="26" cy="44" r="14"/>
+    <ellipse cx="15" cy="37" rx="6" ry="11" transform="rotate(24 15 37)"/>
+    <ellipse cx="15" cy="50" rx="8" ry="6"/>
+    <rect x="34" y="70" width="9" height="16" rx="4"/><rect x="48" y="72" width="9" height="14" rx="4"/>
+    <rect x="62" y="72" width="9" height="14" rx="4"/><rect x="74" y="70" width="9" height="16" rx="4"/>
+    <path d="M82 52 Q95 44 91 30" fill="none" stroke="${c}" stroke-width="8" stroke-linecap="round"/></g>`),
+  cat: c => wrap(`<g fill="${c}">
+    <ellipse cx="56" cy="64" rx="24" ry="17"/>
+    <circle cx="30" cy="42" r="13"/>
+    <path d="M20 36 L17 20 L29 30 Z"/><path d="M40 36 L43 20 L31 30 Z"/>
+    <rect x="40" y="74" width="8" height="13" rx="4"/><rect x="64" y="74" width="8" height="13" rx="4"/>
+    <path d="M78 60 Q94 56 92 38" fill="none" stroke="${c}" stroke-width="7" stroke-linecap="round"/></g>`),
+  elephant: c => wrap(`<g fill="${c}">
+    <ellipse cx="58" cy="54" rx="31" ry="23"/>
+    <circle cx="24" cy="44" r="16"/>
+    <ellipse cx="30" cy="42" rx="9" ry="13"/>
+    <path d="M14 50 Q4 64 12 80 Q14 85 20 82" fill="none" stroke="${c}" stroke-width="9" stroke-linecap="round"/>
+    <rect x="38" y="68" width="11" height="18" rx="5"/><rect x="56" y="70" width="11" height="16" rx="5"/><rect x="72" y="68" width="11" height="18" rx="5"/></g>`),
+  apple: c => wrap(`<g fill="${c}">
+    <circle cx="41" cy="58" r="26"/><circle cx="59" cy="58" r="26"/>
+    <rect x="47" y="22" width="6" height="16" rx="3" fill="#7A5236"/>
+    <ellipse cx="62" cy="27" rx="11" ry="6" transform="rotate(-24 62 27)" fill="#33C06A"/></g>`),
+  car: c => wrap(`<g fill="${c}">
+    <rect x="8" y="46" width="84" height="22" rx="11"/>
+    <path d="M28 48 L38 30 L66 30 L76 48 Z"/>
+    <circle cx="29" cy="70" r="11"/><circle cx="71" cy="70" r="11"/>
+    <circle cx="29" cy="70" r="4.5" fill="#F6FAFE"/><circle cx="71" cy="70" r="4.5" fill="#F6FAFE"/></g>`),
+  bird: c => wrap(`<g fill="${c}" class="hit">
+    <ellipse ${H} cx="48" cy="56" rx="24" ry="16"/>
+    <circle ${H} cx="70" cy="40" r="12"/>
+    <path ${H} d="M80 36 L94 41 L80 46 Z"/>
+    <path ${H} d="M28 52 L8 42 L14 60 Z"/>
+    <ellipse ${H} cx="46" cy="52" rx="13" ry="8" transform="rotate(-18 46 52)" fill="#2E6FCE"/></g>`),
+  nest: c => wrap(`<g>
+    <path d="M10 44 A40 34 0 0 0 90 44 Z" fill="${c}"/>
+    <ellipse cx="50" cy="44" rx="40" ry="10" fill="none" stroke="#8A6A45" stroke-width="7"/>
+    <path d="M18 58 Q34 66 50 62 M42 72 Q58 76 74 66" fill="none" stroke="#8A6A45" stroke-width="4" stroke-linecap="round"/></g>`),
+};
+
+/* Composition art: pieces drawn in a shared 100×100 space so overlay = whole. */
+const HALF_L = c => wrap(`<path ${H} d="M50 6 A44 44 0 0 0 50 94 Z" fill="${c}"/>`);
+const HALF_R = c => wrap(`<path ${H} d="M50 6 A44 44 0 0 1 50 94 Z" fill="${c}"/>`);
+const ZIG = 'L58 26 L46 34 L58 46 L46 56 L58 66 L46 76 L52 84';
+const PUZ_L = c => wrap(`<path ${H} d="M12 12 L52 12 ${ZIG} L52 88 L12 88 Z" fill="${c}"/>`);
+const PUZ_R2 = c => wrap(`<path ${H} d="M52 12 L88 12 L88 88 L52 88 L46 76 L58 66 L46 56 L58 46 L46 34 L58 26 Z" fill="${c}"/>`);
+
+const HOUSE = {
+  outline: () => wrap(`<g fill="none" stroke="#A9C6E0" stroke-width="2.5" stroke-dasharray="6 5">
+    <path d="M18 42 L50 14 L82 42 Z"/><rect x="26" y="42" width="48" height="44" rx="3"/><rect x="43" y="60" width="14" height="26" rx="3"/></g>`),
+  roof: () => wrap(`<path ${H} d="M18 42 L50 14 L82 42 Z" fill="#FF5D55"/>`),
+  body: () => wrap(`<rect ${H} x="26" y="42" width="48" height="44" rx="3" fill="#FFC02E"/>`),
+  door: () => wrap(`<rect ${H} x="43" y="60" width="14" height="26" rx="3" fill="#3D8BFF"/>`),
+};
+
+const BOX = () => wrap(`<g>
+  <rect x="6" y="16" width="88" height="74" rx="10" fill="#E5EFF8" stroke="#A9C6E0" stroke-width="5"/>
+  <rect x="2" y="10" width="96" height="12" rx="6" fill="#C6DAEB"/></g>`);
+const BALL = c => wrap(`<g class="hit"><circle ${H} cx="50" cy="50" r="42" fill="${c}"/><circle ${H} cx="36" cy="36" r="12" fill="#ffffff" opacity=".45"/></g>`);
+const STAR_HOLE = () => wrap(`<path d="M50 8 L60.5 39.5 L94 39.5 L67 59 L77.5 90 L50 70.5 L22.5 90 L33 59 L6 39.5 L39.5 39.5 Z" fill="#C9DAE9" stroke="#A9C6E0" stroke-width="3" stroke-linejoin="round"/>`);
+const CIRC_HOLE = () => wrap(`<circle cx="50" cy="50" r="42" fill="#C9DAE9" stroke="#A9C6E0" stroke-width="3"/>`);
+
+/* Node icons for the home cards */
+const NICON = {
+  identity: `<svg class="cicon" viewBox="0 0 100 100"><circle cx="26" cy="38" r="14" fill="${C.sea}"/><circle cx="62" cy="38" r="14" fill="${C.sea}"/><rect x="34" y="58" width="28" height="28" rx="8" fill="${C.coral}" transform="rotate(8 48 72)"/></svg>`,
+  magnitude:`<svg class="cicon" viewBox="0 0 100 100"><circle cx="38" cy="48" r="28" fill="${C.grape}"/><circle cx="80" cy="66" r="11" fill="${C.grape}" opacity=".75"/></svg>`,
+  quantity: `<svg class="cicon" viewBox="0 0 100 100"><circle cx="24" cy="56" r="10" fill="${C.grass}"/><circle cx="62" cy="34" r="10" fill="${C.grass}"/><circle cx="82" cy="52" r="10" fill="${C.grass}"/><circle cx="64" cy="70" r="10" fill="${C.grass}"/><circle cx="82" cy="30" r="10" fill="${C.grass}" opacity=".8"/></svg>`,
+  spatial:  `<svg class="cicon" viewBox="0 0 100 100"><rect x="18" y="34" width="64" height="52" rx="9" fill="#E5EFF8" stroke="#A9C6E0" stroke-width="5"/><circle cx="50" cy="60" r="16" fill="${C.coral}"/></svg>`,
+  composition:`<svg class="cicon" viewBox="0 0 100 100"><path d="M24 46 L50 22 L76 46 Z" fill="${C.coral}"/><rect x="30" y="46" width="40" height="34" rx="4" fill="${C.sun}"/><rect x="44" y="60" width="12" height="20" rx="3" fill="${C.sea}"/></svg>`,
+};
+
+/* ═══════════════════════ 4 · Curriculum (strict rulesets) ═════════════════ */
+/* Layout helpers: positions are % of stage, sizes are vmin units. */
+function rowXs(n){
+  if (n===1) return [50];
+  const gap = Math.min(26, 76/(n-1));
+  return Array.from({length:n}, (_,i) => 50 + (i-(n-1)/2)*gap);
+}
+const elShape = (id, html, x, y, s, extra={}) => ({ id, html, x, y, s, ...extra });
+
+function tapTrial({prompt, say, elements, state}){
+  return { kind:'tap', state, prompt, say: say||prompt, elements, timeoutMs: 9000 };
+}
+function watchTrial({prompt, say, elements, state, autoMs}){
+  return { kind:'watch', state, prompt, say: say||prompt, elements, autoMs: autoMs||3400, timeoutMs: 0 };
+}
+function dragTrial({prompt, say, elements, pieces, state, decoys}){
+  return { kind:'drag', state, prompt, say: say||prompt, elements, pieces, decoys: decoys||[], timeoutMs: 14000 };
+}
+
+/* Cluster offsets (in % of zone box) for quantity groups, counts 1–6 */
+const CLUSTER = {
+  1:[[50,50]], 2:[[36,50],[64,50]], 3:[[50,32],[34,64],[66,64]],
+  4:[[34,34],[66,34],[34,66],[66,66]], 5:[[50,28],[30,50],[70,50],[38,74],[62,74]],
+  6:[[32,30],[68,30],[26,58],[74,58],[42,78],[58,78]],
+};
+function zoneEl(id, x, count, itemSvg){
+  const minis = CLUSTER[count].map(([mx,my]) =>
+    `<span class="mini" style="left:${mx}%;top:${my}%;width:26%;height:26%">${itemSvg}</span>`).join('');
+  return { id, x, y:50, s:42, zone:true, html:minis, count };
+}
+
+const NODES = [
+{
+  key:'identity', num:1, title:'Same & Different', parentName:'Identity',
+  tag:'Matching, then spotting the outlier', prereqs:[],
+  levels:[
+    { id:'1.1', name:'Exact visual match', focus:'Shape & color', fallback:'pulseTarget',
+      make(rng){
+        const ck = pick(rng, COLOR_KEYS), sk = pick(rng, SHAPE_KEYS);
+        const [ck2] = COLOR_PAIRS.find(p=>p[0]===ck) ? [COLOR_PAIRS.find(p=>p[0]===ck)[1]] : [pick2(rng, COLOR_KEYS.filter(k=>k!==ck))[0]];
+        const sk2 = pick(rng, SHAPE_KEYS.filter(k=>k!==sk));
+        const mk = (kc,ks) => SHAPES[ks](C[kc]);
+        const tests = [];
+        for (let t=0;t<3;t++){
+          const sides = shuffle(rng, [true,false]);
+          const xs = rowXs(2);
+          tests.push(tapTrial({ state:'TEST', prompt:'Tap the same one', say:'Which one is the same? Tap it!',
+            elements:[
+              elShape('sample', mk(ck,sk), 50, 20, 13, {scenery:true, ring:true}),
+              elShape('target', mk(ck,sk), xs[sides[0]?0:1], 62, 19, {target:true, tappable:true}),
+              elShape('d1', mk(ck2,sk2), xs[sides[0]?1:0], 62, 19, {tappable:true}),
+            ]}));
+        }
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'Same', say:'Look. These are the same.',
+            elements:[ elShape('a', mk(ck,sk), 38, 50, 20), elShape('b', mk(ck,sk), 62, 50, 20) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Different', say:'These are different.',
+            elements:[ elShape('a', mk(ck,sk), 38, 50, 20), elShape('b', mk(ck2,sk2), 62, 50, 20) ]}),
+          tests,
+        };
+      }},
+    { id:'1.2', name:'Shape isolation', focus:'Shape (color held still)', fallback:'reduceField',
+      make(rng){ return outlierLevel(rng, 'shape'); }},
+    { id:'1.3', name:'Color isolation', focus:'Color (shape held still)', fallback:'reduceField',
+      make(rng){ return outlierLevel(rng, 'color'); }},
+    { id:'1.4', name:'Dual variable', focus:'Shape & color together', fallback:'reduceField',
+      make(rng){ return outlierLevel(rng, 'both'); }},
+    { id:'1.5', name:'Generalization', focus:'Animals, not geometry', isGen:true, fallback:'glowTarget',
+      make(rng){
+        const [base, odd] = pick2(rng, ['dog','cat','elephant','bird']);
+        const c1 = pick(rng, ['sea','grape','tang']); const c2 = c1;
+        const mkTest = () => {
+          const n = 4, xs = rowXs(n), ti = Math.floor(rng()*n);
+          return tapTrial({ state:'GENERALIZE', prompt:'Tap the different one', say:'One is different! Tap the different one.',
+            elements: xs.map((x,i) => elShape(i===ti?'target':'d'+i,
+              SIL[i===ti?odd:base](C[i===ti?c2:c1]), x, 52, 17,
+              { tappable:true, target:i===ti, meta:{kind:i===ti?odd:base} })) });
+        };
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'Same', say:'Look! Two ' + base + 's. The same.',
+            elements:[ elShape('a', SIL[base](C[c1]), 38, 50, 19), elShape('b', SIL[base](C[c1]), 62, 50, 19) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Different', say:'A '+base+' and a '+odd+'. Different!',
+            elements:[ elShape('a', SIL[base](C[c1]), 38, 50, 19), elShape('b', SIL[odd](C[c1]), 62, 50, 19) ]}),
+          tests:[mkTest(), mkTest(), mkTest()],
+        };
+      }},
+  ],
+},
+{
+  key:'magnitude', num:2, title:'Big & Small', parentName:'Magnitude',
+  tag:'Relative size, apart from shape', prereqs:['identity'],
+  levels:[
+    { id:'2.1', name:'Extreme contrast', focus:'Huge vs tiny', fallback:'growTarget',
+      make(rng){ return sizeLevel(rng, {big:46, small:10, ask:'big'}); }},
+    { id:'2.2', name:'Moderate contrast', focus:'Closer sizes, asks for small', fallback:'shrinkSmall',
+      make(rng){ return sizeLevel(rng, {big:26, small:16, ask:'small'}); }},
+    { id:'2.3', name:'Generalization', focus:'Big vs small animal', isGen:true, fallback:'muteOther',
+      make(rng){
+        const an = pick(rng, ['elephant','dog','cat']);
+        const c1 = pick(rng, ['grape','sea','tang']);
+        const mkTest = () => {
+          const flip = rng() < .5, xs = [34, 70];
+          return tapTrial({ state:'GENERALIZE', prompt:'Tap the big animal', say:'Tap the big animal!',
+            elements:[
+              elShape('target', SIL[an](C[c1]), xs[flip?1:0], 50, 34, {tappable:true, target:true}),
+              elShape('d1', SIL[an](C[c1]), xs[flip?0:1], 62, 12, {tappable:true}),
+            ]});
+        };
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'Big', say:'Look — a big '+an+'!',
+            elements:[ elShape('a', SIL[an](C[c1]), 50, 50, 38) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Small', say:'Now a small '+an+'.',
+            elements:[ elShape('a', SIL[an](C[c1]), 50, 56, 12) ]}),
+          tests:[mkTest(), mkTest(), mkTest()],
+        };
+      }},
+  ],
+},
+{
+  key:'quantity', num:3, title:'More & Less', parentName:'Quantity',
+  tag:'Seeing amounts without counting', prereqs:['identity'],
+  levels:[
+    { id:'3.1', name:'Extreme delta', focus:'1 vs 5', fallback:'grayWrong',
+      make(rng){ return quantityLevel(rng, {a:1, b:5, ask:'more', item:'apple'}); }},
+    { id:'3.2', name:'Subitizing threshold', focus:'2 vs 4', fallback:'grayWrong',
+      make(rng){ return quantityLevel(rng, {a:2, b:4, ask:'more', item:'apple'}); }},
+    { id:'3.3', name:'Generalization', focus:'Fewer cars — flipped question', isGen:true, fallback:'pulseTarget',
+      make(rng){ return quantityLevel(rng, {a:3, b:6, ask:'less', item:'car'}); }},
+  ],
+},
+{
+  key:'spatial', num:4, title:'In & Out', parentName:'Spatial',
+  tag:'Containment — drag things where they belong', prereqs:['magnitude'],
+  levels:[
+    { id:'4.1', name:'Gross proximity', focus:'Ball into a big box', fallback:'demoDrag',
+      make(rng){
+        const bc = pick(rng, ['coral','grass','grape']);
+        const mkTest = () => dragTrial({ state:'TEST', prompt:'Put the ball in the box', say:'Put the ball in the box!',
+          elements:[
+            elShape('box', BOX(), 63, 50, 44, {scenery:true}),
+            elShape('ball', BALL(C[bc]), 16, 62, 15, {piece:true}),
+          ],
+          pieces:[{ el:'ball', slot:'box', snap: 16 }]});
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'In', say:'The ball is in the box.',
+            elements:[ elShape('box', BOX(), 50, 50, 44, {scenery:true}), elShape('ball', BALL(C[bc]), 50, 56, 15) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Out', say:'Now the ball is out of the box.',
+            elements:[ elShape('box', BOX(), 60, 50, 44, {scenery:true}), elShape('ball', BALL(C[bc]), 18, 62, 15) ]}),
+          tests:[mkTest(), mkTest(), mkTest()],
+        };
+      }},
+    { id:'4.2', name:'Precision containment', focus:'Star into star hole', fallback:'expandSnap',
+      make(rng){
+        const pc = pick(rng, ['sun','coral','grass']);
+        const mkTest = () => {
+          const starTop = rng() < .5;
+          return dragTrial({ state:'TEST', prompt:'Fit the star in its hole', say:'Fit the star into its hole!',
+            elements:[
+              elShape('hole', STAR_HOLE(), 66, starTop?32:66, 20, {scenery:true}),
+              elShape('decoy', CIRC_HOLE(), 66, starTop?66:32, 20, {scenery:true}),
+              elShape('star', SHAPES.star(C[pc]), 17, 52, 18, {piece:true}),
+            ],
+            pieces:[{ el:'star', slot:'hole', snap: 7 }], decoys:['decoy']});
+        };
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'It fits', say:'The star fits in the star hole!',
+            elements:[ elShape('hole', STAR_HOLE(), 50, 50, 20, {scenery:true}), elShape('star', SHAPES.star(C[pc]), 50, 50, 18) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'It is out', say:'Now the star is out.',
+            elements:[ elShape('hole', STAR_HOLE(), 64, 44, 20, {scenery:true}), elShape('star', SHAPES.star(C[pc]), 22, 60, 18) ]}),
+          tests:[mkTest(), mkTest(), mkTest()],
+        };
+      }},
+    { id:'4.3', name:'Generalization', focus:'Bird into nest', isGen:true, fallback:'muteOther',
+      make(rng){
+        const mkTest = () => {
+          const nestRight = rng() < .5;
+          return dragTrial({ state:'GENERALIZE', prompt:'Put the bird in the nest', say:'Put the bird in the nest!',
+            elements:[
+              elShape('nest', SIL.nest('#B98B5E'), nestRight?68:32, 58, 26, {scenery:true}),
+              elShape('tree', SHAPES.circle('#8FCF9F'), nestRight?30:70, 34, 22, {scenery:true, decor:true}),
+              elShape('bird', SIL.bird(C.sea), nestRight?16:84, 24, 15, {piece:true}),
+            ],
+            pieces:[{ el:'bird', slot:'nest', snap: 11, slotDy:-4 }]});
+        };
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'In the nest', say:'The bird is in its nest.',
+            elements:[ elShape('nest', SIL.nest('#B98B5E'), 50, 58, 26, {scenery:true}), elShape('bird', SIL.bird(C.sea), 50, 46, 14) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Out of the nest', say:'Now the bird flew out!',
+            elements:[ elShape('nest', SIL.nest('#B98B5E'), 62, 62, 26, {scenery:true}), elShape('bird', SIL.bird(C.sea), 24, 28, 14) ]}),
+          tests:[mkTest(), mkTest(), mkTest()],
+        };
+      }},
+  ],
+},
+{
+  key:'composition', num:5, title:'Build It', parentName:'Composition',
+  tag:'Pieces make a whole', prereqs:['spatial'],
+  levels:[
+    { id:'5.1', name:'Symmetrical halves', focus:'Two halves meet', fallback:'magnetSnap',
+      make(rng){
+        const cc = pick(rng, ['tang','grape','grass']);
+        const mkTest = () => dragTrial({ state:'TEST', prompt:'Put them together', say:'Put the two halves together!',
+          elements:[
+            elShape('left', HALF_L(C[cc]), 40, 50, 26, {scenery:true, anchor:true}),
+            elShape('right', HALF_R(C[cc]), 78, 58, 26, {piece:true}),
+          ],
+          pieces:[{ el:'right', slot:'left', snap: 8, overlay:true }]});
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'Whole', say:'A whole circle.',
+            elements:[ elShape('a', SHAPES.circle(C[cc]), 50, 50, 26) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Pieces', say:'Now it is in pieces.',
+            elements:[ elShape('a', HALF_L(C[cc]), 36, 50, 26), elShape('b', HALF_R(C[cc]), 68, 54, 26) ]}),
+          tests:[mkTest(), mkTest(), mkTest()],
+        };
+      }},
+    { id:'5.2', name:'Asymmetrical pieces', focus:'Puzzle-cut square', fallback:'flashWhole',
+      make(rng){
+        const cc = pick(rng, ['sea','coral','sun']);
+        const mkTest = () => dragTrial({ state:'TEST', prompt:'Finish the square', say:'Finish the square! Put the piece in.',
+          elements:[
+            elShape('left', PUZ_L(C[cc]), 40, 50, 28, {scenery:true, anchor:true}),
+            elShape('right', PUZ_R2(C[cc]), 79, 56, 28, {piece:true}),
+          ],
+          pieces:[{ el:'right', slot:'left', snap: 6, overlay:true }],
+          whole: SHAPES.square(C[cc])});
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'Whole', say:'A whole square.',
+            elements:[ elShape('a', SHAPES.square(C[cc]), 50, 50, 26) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Pieces', say:'It broke into puzzle pieces!',
+            elements:[ elShape('a', PUZ_L(C[cc]), 36, 50, 28), elShape('b', PUZ_R2(C[cc]), 70, 54, 28) ]}),
+          tests:[mkTest(), mkTest(), mkTest()],
+        };
+      }},
+    { id:'5.3', name:'Generalization', focus:'Build a house from 3 parts', isGen:true, fallback:'lockMost',
+      make(rng){
+        const mkTest = () => dragTrial({ state:'GENERALIZE', prompt:'Build the house', say:'Build the house! Put every piece in its place.',
+          elements:[
+            elShape('outline', HOUSE.outline(), 62, 48, 36, {scenery:true, anchor:true}),
+            elShape('roof', HOUSE.roof(), 15, 26, 36, {piece:true}),
+            elShape('body', HOUSE.body(), 13, 58, 36, {piece:true}),
+            elShape('door', HOUSE.door(), 22, 84, 36, {piece:true}),
+          ],
+          pieces:[
+            { el:'body', slot:'outline', snap: 8, overlay:true },
+            { el:'roof', slot:'outline', snap: 8, overlay:true },
+            { el:'door', slot:'outline', snap: 8, overlay:true },
+          ]});
+        return {
+          expose: watchTrial({ state:'EXPOSE', prompt:'A house', say:'Look, a whole house!',
+            elements:[
+              elShape('r', HOUSE.roof(), 50, 48, 36), elShape('b', HOUSE.body(), 50, 48, 36), elShape('d', HOUSE.door(), 50, 48, 36) ]}),
+          contrast: watchTrial({ state:'CONTRAST', prompt:'Pieces', say:'The house is in pieces.',
+            elements:[
+              elShape('r', HOUSE.roof(), 26, 34, 32), elShape('b', HOUSE.body(), 56, 60, 32), elShape('d', HOUSE.door(), 80, 34, 32) ]}),
+          tests:[mkTest(), mkTest()],
+        };
+      }},
+  ],
+},
+];
+
+/* Shared generators (the strict rulesets) */
+function outlierLevel(rng, mode){
+  // mode: 'shape' (color static), 'color' (shape static), 'both'
+  const baseColor = pick(rng, COLOR_KEYS);
+  const pair = pick(rng, COLOR_PAIRS.filter(p => p.includes(baseColor))) || pick(rng, COLOR_PAIRS);
+  const oddColor = pair[0] === baseColor ? pair[1] : pair[0];
+  const [baseShape, oddShape] = pick2(rng, SHAPE_KEYS);
+  const oc = mode === 'shape' ? baseColor : oddColor;
+  const os = mode === 'color' ? baseShape : oddShape;
+  const mkTest = () => {
+    const n = mode === 'both' ? 5 : 4;
+    const xs = rowXs(n), ti = Math.floor(rng()*n);
+    return tapTrial({ state:'TEST', prompt:'Tap the different one', say:'One is different! Tap the different one.',
+      elements: xs.map((x,i) => elShape(i===ti?'target':'d'+i,
+        SHAPES[i===ti?os:baseShape](C[i===ti?oc:baseColor]), x, 52, n===5?15:17,
+        { tappable:true, target:i===ti })) });
+  };
+  return {
+    expose: watchTrial({ state:'EXPOSE', prompt:'Same', say:'Look. All the same.',
+      elements:[ elShape('a', SHAPES[baseShape](C[baseColor]), 38, 50, 19), elShape('b', SHAPES[baseShape](C[baseColor]), 62, 50, 19) ]}),
+    contrast: watchTrial({ state:'CONTRAST', prompt:'Different', say:'This one is different.',
+      elements:[ elShape('a', SHAPES[baseShape](C[baseColor]), 38, 50, 19), elShape('b', SHAPES[os](C[oc]), 62, 50, 19) ]}),
+    tests:[mkTest(), mkTest(), mkTest()],
+  };
+}
+function sizeLevel(rng, {big, small, ask}){
+  const ck = pick(rng, COLOR_KEYS), sk = pick(rng, SHAPE_KEYS);
+  const mk = () => SHAPES[sk](C[ck]);
+  const mkTest = () => {
+    const flip = rng() < .5, xs = [32, 68];
+    const els = [
+      elShape('big', mk(), xs[flip?1:0], 50, big, {tappable:true, target: ask==='big'}),
+      elShape('small', mk(), xs[flip?0:1], ask==='big'?62:56, small, {tappable:true, target: ask==='small'}),
+    ];
+    return tapTrial({ state:'TEST', prompt:`Tap the ${ask} one`, say:`Tap the ${ask} one!`, elements: els });
+  };
+  return {
+    expose: watchTrial({ state:'EXPOSE', prompt:'Big', say:'Look. Big!',
+      elements:[ elShape('a', mk(), 50, 50, big) ]}),
+    contrast: watchTrial({ state:'CONTRAST', prompt:'Small', say:'And this one is small.',
+      elements:[ elShape('a', mk(), 50, 58, small) ]}),
+    tests:[mkTest(), mkTest(), mkTest()],
+  };
+}
+function quantityLevel(rng, {a, b, ask, item}){
+  const ic = item === 'apple' ? C.coral : pick(rng, ['sea','grape','tang']);
+  const svg = SIL[item](ic);
+  const mkTest = () => {
+    const bigLeft = rng() < .5;
+    const za = zoneEl('side-a', bigLeft?72:28, a, svg);
+    const zb = zoneEl('side-b', bigLeft?28:72, b, svg);
+    const target = ask === 'more' ? zb : za;
+    target.target = true;
+    return tapTrial({ state: ask==='less' ? 'GENERALIZE' : 'TEST',
+      prompt:`Tap the side with ${ask}`, say:`Which side has ${ask}? Tap it!`,
+      elements:[za, zb] });
+  };
+  return {
+    expose: watchTrial({ state:'EXPOSE', prompt: a===1?'One':'A few', say: a===1 ? `One ${item}.` : `${a===2?'Two':'Three'} ${item}s.`,
+      elements:[ zoneEl('za', 50, a, svg) ]}),
+    contrast: watchTrial({ state:'CONTRAST', prompt:'More!', say:'Look — more!',
+      elements:[ zoneEl('zb', 50, b, svg) ]}),
+    tests:[mkTest(), mkTest(), mkTest()],
+  };
+}
+
+/* ═══════════════════════ 5 · Storage ══════════════════════════════════════ */
+const Store = {
+  KEY_S:'cf_sessions_v2', KEY_P:'cf_progress_v2', KEY_C:'cf_settings_v2',
+  sessions(){ try { return JSON.parse(localStorage.getItem(this.KEY_S)) || []; } catch(e){ return []; } },
+  saveSessions(s){ try { localStorage.setItem(this.KEY_S, JSON.stringify(s.slice(-300))); } catch(e){} },
+  progress(){
+    try { return JSON.parse(localStorage.getItem(this.KEY_P)) || {}; } catch(e){ return {}; }
+  },
+  saveProgress(p){ try { localStorage.setItem(this.KEY_P, JSON.stringify(p)); } catch(e){} },
+  settings(){ try { return JSON.parse(localStorage.getItem(this.KEY_C)) || {unlockAll:false, seedCounter:0}; } catch(e){ return {unlockAll:false, seedCounter:0}; } },
+  saveSettings(s){ try { localStorage.setItem(this.KEY_C, JSON.stringify(s)); } catch(e){} },
+  wipe(){ localStorage.removeItem(this.KEY_S); localStorage.removeItem(this.KEY_P); localStorage.removeItem(this.KEY_C); },
+};
+function nodeProgress(key){
+  const p = Store.progress();
+  if (!p[key]) p[key] = { levelIdx:0, mastered:[], consecFallbacks:0, isoStats:{} };
+  return p[key];
+}
+function saveNodeProgress(key, np){
+  const p = Store.progress(); p[key] = np; Store.saveProgress(p);
+}
+
+/* ═══════════════════════ 6 · Telemetry ════════════════════════════════════ */
+/* InteractionEvent per spec: eventId, trialId, timestamp, type (TAP | DRAG_START |
+   DRAG_END | TIMEOUT), coordinateX/Y, hitElementId, isCorrectIntent,
+   timeSincePromptMs — plus missDistancePx, evaluated client-side. */
+const Telemetry = {
+  session: null,
+  begin(node, level, seed){
+    this.session = {
+      id: uuid(), userId:'child-local', node: node.key, nodeTitle: node.parentName,
+      levelId: level.id, levelName: level.name, isGen: !!level.isGen, seed,
+      startTime: Date.now(), endTime: null, trials: [], events: [],
+    };
+  },
+  addTrial(t){ if (this.session) this.session.trials.push(t); },
+  event(e){ if (this.session) this.session.events.push({ eventId: uuid(), ...e }); },
+  end(completed, outcome){
+    if (!this.session) return null;
+    this.session.endTime = Date.now();
+    this.session.completed = completed;
+    if (outcome) this.session.outcome = outcome;
+    const s = Store.sessions(); s.push(this.session); Store.saveSessions(s);
+    const done = this.session; this.session = null; return done;
+  },
+};
+
+/* Shared DDA rule (curriculum implementation note): the live engine and the
+   simulation harness both route run results through this exact function. */
+function applyRunOutcome(node, level, results){
+  const tests = results.filter(r => r.kind !== 'watch');
+  const clean = tests.filter(r => r.firstAttemptCorrect && !r.usedFallback).length;
+  const fellback = tests.filter(r => r.usedFallback).length;
+  const np = nodeProgress(node.key);
+  if (fellback > 0) np.consecFallbacks += fellback;
+  else np.consecFallbacks = 0;
+  let outcome = 'stay';
+  if (np.consecFallbacks >= 3){
+    np.consecFallbacks = 0;
+    const curIdx = node.levels.indexOf(level);
+    if (level.id === '1.4'){
+      // route to whichever isolation variable the child struggled with more
+      const s12 = np.isoStats['1.2']||0, s13 = np.isoStats['1.3']||0;
+      np.levelIdx = (s13 > s12) ? 2 : 1;
+    } else {
+      np.levelIdx = Math.max(0, curIdx - 1);
+    }
+    outcome = 'down';
+  } else if (clean >= Math.max(1, tests.length - 1)){
+    const curIdx = node.levels.indexOf(level);
+    if (!np.mastered.includes(level.id)) np.mastered.push(level.id);
+    np.levelIdx = Math.min(node.levels.length - 1, curIdx + 1);
+    outcome = (curIdx === node.levels.length - 1) ? 'complete' : 'up';
+  }
+  saveNodeProgress(node.key, np);
+  return outcome;
+}
+
+/* Frustration: >3 unproductive taps inside 1 s (spec §3). Detected live for
+   step-down, and re-derivable from the raw event stream for the dashboard. */
+function makeFrustrationDetector(onFire){
+  let taps = [];
+  return function feed(ts, unproductive){
+    if (!unproductive){ taps = []; return; }
+    taps.push(ts);
+    taps = taps.filter(t => ts - t <= 1000);
+    if (taps.length > 3){ taps = []; onFire(); }
+  };
+}
+function countFrustration(events){
+  let taps = [], n = 0;
+  for (const e of events){
+    if (e.type !== 'TAP') continue;
+    if (e.isCorrectIntent){ taps = []; continue; }
+    taps.push(e.timestamp);
+    taps = taps.filter(t => e.timestamp - t <= 1000);
+    if (taps.length > 3){ n++; taps = []; }
+  }
+  return n;
+}
+
+/* ═══════════════════════ 7 · FX ═══════════════════════════════════════════ */
+const FX = {
+  layer: null,
+  init(){ this.layer = $('#fx-layer'); },
+  burst(x, y, colors){
+    const cols = colors || [C.sun, C.coral, C.sea, C.grass, C.grape];
+    for (let i=0;i<12;i++){
+      const s = document.createElement('span');
+      s.className = 'spark';
+      const ang = (i/12)*Math.PI*2 + Math.random()*.5;
+      const d = 60 + Math.random()*70;
+      s.style.left = x+'px'; s.style.top = y+'px';
+      s.style.setProperty('--dx', Math.cos(ang)*d+'px');
+      s.style.setProperty('--dy', Math.sin(ang)*d+'px');
+      const c = cols[i % cols.length];
+      s.innerHTML = `<svg viewBox="0 0 20 20"><path d="M10 0 L12.5 7.5 L20 10 L12.5 12.5 L10 20 L7.5 12.5 L0 10 L7.5 7.5 Z" fill="${c}"/></svg>`;
+      this.layer.appendChild(s);
+      setTimeout(()=>s.remove(), 900);
+    }
+  },
+  confetti(){
+    const cols = [C.sun, C.coral, C.sea, C.grass, C.grape, C.tang];
+    for (let i=0;i<44;i++){
+      const c = document.createElement('span');
+      c.className = 'confetto';
+      c.style.left = Math.random()*100+'vw';
+      c.style.background = cols[i % cols.length];
+      c.style.animationDelay = (Math.random()*.7)+'s';
+      this.layer.appendChild(c);
+      setTimeout(()=>c.remove(), 3400);
+    }
+  },
+  cheer(msg){
+    const d = document.createElement('div');
+    d.className = 'cheer';
+    d.innerHTML = `<div class="big">🎉</div><div class="msg">${msg}</div>`;
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(), 2400);
+  },
+};
+
+/* ═══════════════════════ 8 · Trial Engine ═════════════════════════════════ */
+const Engine = {
+  node:null, level:null, trials:[], trialIdx:0, cur:null, curRecord:null,
+  promptEndAt:0, timeoutTimer:0, autoTimer:0, locked:false,
+  wrongCount:0, usedFallback:false, results:[], frustration:null,
+  drag:null, // active drag state
+
+  stage(){ return $('#stage'); },
+
+  startLevel(node, level){
+    this.node = node; this.level = level;
+    const settings = Store.settings();
+    settings.seedCounter = (settings.seedCounter||0) + 1;
+    Store.saveSettings(settings);
+    const seed = hashStr(`${node.key}|${level.id}|${settings.seedCounter}`);
+    const rng = mulberry32(seed);
+    const gen = level.make(rng);
+    this.trials = [gen.expose, gen.contrast, ...gen.tests];
+    this.results = [];
+    Telemetry.begin(node, level, seed);
+    this.frustration = makeFrustrationDetector(() => this.onFrustration());
+    showView('play');
+    this.renderStones();
+    this.runTrial(0);
+  },
+
+  renderStones(){
+    const wrapEl = $('#stones');
+    wrapEl.innerHTML = this.trials.map((t,i) =>
+      `<span class="stone" data-i="${i}" title="${t.state}"></span>`).join('');
+  },
+  markStone(i, cls){
+    const s = $('#stones').children[i];
+    if (s){ s.classList.remove('cur'); if (cls) s.classList.add(cls); }
+  },
+
+  runTrial(idx){
+    clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
+    if (idx >= this.trials.length) return this.finishRun();
+    this.trialIdx = idx;
+    this.cur = this.trials[idx];
+    this.locked = false; this.wrongCount = 0; this.usedFallback = false;
+    this.drag = null;
+    const st = $('#stones').children[idx]; if (st) st.classList.add('cur');
+
+    // trial record per spec
+    const target = (this.cur.elements.find(e=>e.target) || {}).id || null;
+    this.curRecord = {
+      id: uuid(), state: this.cur.state,
+      targetElementId: this.cur.kind==='drag' ? this.cur.pieces.map(p=>p.slot).join('+') : target,
+      distractorElementIds: this.cur.elements.filter(e=>!e.target && !e.scenery && (e.tappable||e.zone)).map(e=>e.id),
+      prompt: this.cur.prompt, timeoutMs: this.cur.timeoutMs,
+      firstAttemptCorrect: null, usedFallback: false, kind: this.cur.kind,
+    };
+    Telemetry.addTrial(this.curRecord);
+
+    this.renderTrial();
+    $('#prompt-text').textContent = this.cur.prompt;
+    $('#prompt-bubble').classList.remove('hidden');
+    this.speakPrompt();
+  },
+
+  speakPrompt(){
+    this.promptEndAt = 0;
+    Audio2.speak(this.cur.say, () => {
+      if (!this.promptEndAt) this.promptEndAt = Date.now();
+      this.armTimers();
+    });
+  },
+
+  armTimers(){
+    clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
+    if (this.cur.kind === 'watch'){
+      this.autoTimer = setTimeout(() => this.completeTrial(true, {silent:true}), this.cur.autoMs);
+    } else if (!this.locked){
+      this.timeoutTimer = setTimeout(() => this.onTimeout(), this.cur.timeoutMs);
+    }
+  },
+
+  renderTrial(){
+    const stage = this.stage();
+    stage.innerHTML = '';
+    for (const spec of this.cur.elements){
+      let el;
+      if (spec.zone){
+        el = document.createElement('button');
+        el.className = 'zone-card appear';
+        el.innerHTML = spec.html;
+      } else {
+        el = document.createElement(spec.tappable ? 'button' : 'div');
+        el.className = 'el appear' + (spec.tappable ? ' tappable' : '');
+        el.innerHTML = spec.html;
+      }
+      el.dataset.el = spec.id;
+      if (spec.target) el.dataset.target = '1';
+      if (spec.piece) el.dataset.piece = '1';
+      el.style.left = spec.x+'%'; el.style.top = spec.y+'%';
+      el.style.setProperty('--s', spec.s);
+      if (spec.ring) el.style.filter = 'drop-shadow(0 0 8px rgba(61,139,255,.55))';
+      if (spec.decor) el.style.opacity = '.85';
+      if (this.cur.kind === 'drag' && spec.piece) el.classList.add('painted-hit');
+      stage.appendChild(el);
+    }
+  },
+
+  /* ---------- pointer input ---------- */
+  onPointerDown(e){
+    if ($('#view-play').classList.contains('hidden')) return;
+    Audio2.unlock();
+    const stage = this.stage();
+    const now = Date.now();
+    const sr = stage.getBoundingClientRect();
+    const x = e.clientX - sr.left, y = e.clientY - sr.top;
+
+    // drag pickup?
+    if (this.cur && this.cur.kind === 'drag' && !this.locked){
+      const pieceEl = this.hitPiece(e.clientX, e.clientY);
+      if (pieceEl){ this.beginDrag(pieceEl, e, x, y, now); return; }
+    }
+    if (!this.cur || this.locked) { return; }
+
+    const hit = e.target.closest ? e.target.closest('[data-el]') : null;
+    const hitId = hit ? hit.dataset.el : null;
+    const isTarget = !!(hit && hit.dataset.target);
+    const interactiveTrial = this.cur.kind === 'tap';
+    const md = this.missDistance(e.clientX, e.clientY);
+
+    Telemetry.event({
+      trialId: this.curRecord.id, timestamp: now, type:'TAP',
+      coordinateX: Math.round(x), coordinateY: Math.round(y),
+      hitElementId: hitId, isCorrectIntent: interactiveTrial && isTarget,
+      timeSincePromptMs: this.promptEndAt ? now - this.promptEndAt : null,
+      missDistancePx: md,
+    });
+
+    if (!interactiveTrial){
+      // watch/drag states: taps are unproductive except drag pickups (handled above)
+      this.frustration(now, true);
+      return;
+    }
+
+    if (this.curRecord.firstAttemptCorrect === null)
+      this.curRecord.firstAttemptCorrect = isTarget;
+
+    if (isTarget){
+      this.frustration(now, false);
+      this.completeTrial(true, {at:[e.clientX, e.clientY]});
+    } else {
+      this.frustration(now, true);
+      this.wrongCount++;
+      Audio2.wrong();
+      if (hit) { hit.classList.remove('wobble'); void hit.offsetWidth; hit.classList.add('wobble'); }
+      this.trackIsoMiss(hitId);
+      if (this.wrongCount >= 2 && !this.usedFallback) this.applyFallback();
+    }
+  },
+
+  /* For DDA 1.4 → 1.2/1.3 routing: record which isolation levels get missed */
+  trackIsoMiss(){
+    if (!this.level) return;
+    if (this.level.id === '1.2' || this.level.id === '1.3'){
+      const np = nodeProgress(this.node.key);
+      np.isoStats[this.level.id] = (np.isoStats[this.level.id]||0) + 1;
+      saveNodeProgress(this.node.key, np);
+    }
+  },
+
+  missDistance(cx, cy){
+    const t = this.stage().querySelector('[data-target]') ||
+              (this.cur.kind==='drag' ? this.stage().querySelector(`[data-el="${this.cur.pieces[0].slot}"]`) : null);
+    if (!t) return null;
+    const r = t.getBoundingClientRect();
+    const dx = Math.max(r.left - cx, 0, cx - r.right);
+    const dy = Math.max(r.top - cy, 0, cy - r.bottom);
+    return Math.round(Math.hypot(dx, dy));
+  },
+
+  /* ---------- drag & drop ---------- */
+  hitPiece(cx, cy){
+    const els = document.elementsFromPoint(cx, cy);
+    for (const n of els){
+      const owner = n.closest ? n.closest('[data-piece]') : null;
+      if (owner && !owner.classList.contains('placed')) return owner;
+    }
+    // generous fallback: bounding-box hit on unplaced pieces (toddler fingers)
+    for (const p of this.stage().querySelectorAll('[data-piece]:not(.placed)')){
+      const r = p.getBoundingClientRect();
+      const pad = 8;
+      if (cx>r.left-pad && cx<r.right+pad && cy>r.top-pad && cy<r.bottom+pad) return p;
+    }
+    return null;
+  },
+
+  beginDrag(pieceEl, e, x, y, now){
+    const sr = this.stage().getBoundingClientRect();
+    const pr = pieceEl.getBoundingClientRect();
+    this.drag = {
+      el: pieceEl, id: pieceEl.dataset.el,
+      dx: (pr.left + pr.width/2) - e.clientX,
+      dy: (pr.top + pr.height/2) - e.clientY,
+    };
+    pieceEl.classList.add('dragging');
+    pieceEl.classList.remove('returning','snapping');
+    Telemetry.event({
+      trialId: this.curRecord.id, timestamp: now, type:'DRAG_START',
+      coordinateX: Math.round(x), coordinateY: Math.round(y),
+      hitElementId: this.drag.id, isCorrectIntent: true,
+      timeSincePromptMs: this.promptEndAt ? now - this.promptEndAt : null,
+      missDistancePx: null,
+    });
+    this.frustration(now, false);
+  },
+
+  onPointerMove(e){
+    if (!this.drag) return;
+    const sr = this.stage().getBoundingClientRect();
+    const cx = e.clientX + this.drag.dx, cy = e.clientY + this.drag.dy;
+    this.drag.el.style.left = ((cx - sr.left)/sr.width*100)+'%';
+    this.drag.el.style.top  = ((cy - sr.top)/sr.height*100)+'%';
+  },
+
+  onPointerUp(e){
+    if (!this.drag) return;
+    const d = this.drag; this.drag = null;
+    d.el.classList.remove('dragging');
+    const sr = this.stage().getBoundingClientRect();
+    const now = Date.now();
+    const spec = this.cur.pieces.find(p => p.el === d.id);
+    const slotEl = this.stage().querySelector(`[data-el="${spec.slot}"]`);
+    const pr = d.el.getBoundingClientRect();
+    const pcx = pr.left + pr.width/2, pcy = pr.top + pr.height/2;
+    const slr = slotEl.getBoundingClientRect();
+    const scx = slr.left + slr.width/2 + (spec.slotDx||0)*sr.width/100;
+    const scy = slr.top + slr.height/2 + (spec.slotDy||0)*sr.height/100;
+    const dist = Math.hypot(pcx-scx, pcy-scy);
+    const snapPx = (spec.snapBoost || spec.snap) * Math.min(window.innerWidth, window.innerHeight) / 100;
+    const ok = dist <= snapPx;
+
+    Telemetry.event({
+      trialId: this.curRecord.id, timestamp: now, type:'DRAG_END',
+      coordinateX: Math.round(pcx - sr.left), coordinateY: Math.round(pcy - sr.top),
+      hitElementId: ok ? spec.slot : null, isCorrectIntent: ok,
+      timeSincePromptMs: this.promptEndAt ? now - this.promptEndAt : null,
+      missDistancePx: Math.max(0, Math.round(dist - snapPx)),
+    });
+
+    if (this.curRecord.firstAttemptCorrect === null)
+      this.curRecord.firstAttemptCorrect = ok;
+
+    if (ok){
+      // snap into place
+      d.el.classList.add('snapping','placed');
+      d.el.style.left = ((scx - sr.left)/sr.width*100)+'%';
+      d.el.style.top = ((scy - sr.top)/sr.height*100)+'%';
+      Audio2.snapSnd();
+      const allPlaced = this.cur.pieces.every(p =>
+        this.stage().querySelector(`[data-el="${p.el}"]`).classList.contains('placed'));
+      if (allPlaced) this.completeTrial(true, {at:[scx, scy]});
+    } else {
+      Audio2.wrong();
+      this.wrongCount++;
+      // glide back to origin spot
+      const orig = this.cur.elements.find(el => el.id === d.id);
+      d.el.classList.add('returning');
+      d.el.style.left = orig.x+'%'; d.el.style.top = orig.y+'%';
+      setTimeout(()=>d.el.classList.remove('returning'), 550);
+      if (this.wrongCount >= 2 && !this.usedFallback) this.applyFallback();
+    }
+  },
+
+  /* ---------- timeout, fallback, frustration ---------- */
+  onTimeout(){
+    if (this.locked) return;
+    const now = Date.now();
+    Telemetry.event({
+      trialId: this.curRecord.id, timestamp: now, type:'TIMEOUT',
+      coordinateX: null, coordinateY: null, hitElementId: null,
+      isCorrectIntent: false,
+      timeSincePromptMs: this.promptEndAt ? now - this.promptEndAt : null,
+      missDistancePx: null,
+    });
+    if (this.curRecord.firstAttemptCorrect === null) this.curRecord.firstAttemptCorrect = false;
+    if (!this.usedFallback) this.applyFallback();
+    else this.hintPulse();
+    this.timeoutTimer = setTimeout(() => this.onTimeout(), this.cur.timeoutMs);
+  },
+
+  onFrustration(){
+    if (!this.usedFallback) this.applyFallback();
+  },
+
+  hintPulse(){
+    const t = this.stage().querySelector('[data-target]') ||
+              this.stage().querySelector('[data-piece]:not(.placed)');
+    if (t){ t.classList.add('pulse'); setTimeout(()=>t.classList.remove('pulse'), 2600); }
+    this.speakPrompt();
+  },
+
+  applyFallback(){
+    this.usedFallback = true;
+    this.curRecord.usedFallback = true;
+    const fb = this.level.fallback;
+    const stage = this.stage();
+    const target = stage.querySelector('[data-target]');
+    const speakAgain = () => this.speakPrompt();
+
+    const actions = {
+      pulseTarget(){ if (target){ target.classList.add('pulse'); setTimeout(()=>target.classList.remove('pulse'), 3200);} speakAgain(); },
+      glowTarget(){ if (target){ target.classList.add('glowring','pulse'); setTimeout(()=>target.classList.remove('pulse'), 3200);} speakAgain(); },
+      reduceField(){
+        // drop the field to 1 vs 1: keep target + one distractor
+        const ds = [...stage.querySelectorAll('[data-el]')].filter(n => !n.dataset.target && !n.classList.contains('zone-card'));
+        ds.slice(1).forEach(n => { n.style.transition='opacity .4s'; n.style.opacity='0'; setTimeout(()=>n.remove(), 450); });
+        speakAgain();
+      },
+      growTarget(){ if (target){ target.classList.add('pulse'); setTimeout(()=>target.classList.remove('pulse'), 3200);} speakAgain(); },
+      shrinkSmall(){
+        if (target){ const s = parseFloat(target.style.getPropertyValue('--s')); target.style.setProperty('--s', Math.max(8, s*.7)); }
+        speakAgain();
+      },
+      muteOther(){
+        [...stage.querySelectorAll('[data-el]')].forEach(n => {
+          if (!n.dataset.target && !n.dataset.piece && n.dataset.el !== 'nest') n.classList.add('muted');
+        });
+        speakAgain();
+      },
+      grayWrong(){
+        [...stage.querySelectorAll('[data-el]')].forEach(n => { if (!n.dataset.target) n.classList.add('grayout'); });
+        speakAgain();
+      },
+      demoDrag(){
+        // auto-animate the drag path, then return
+        const piece = stage.querySelector('[data-piece]:not(.placed)');
+        if (!piece) return speakAgain();
+        const spec = Engine.cur.pieces.find(p => p.el === piece.dataset.el);
+        const slot = stage.querySelector(`[data-el="${spec.slot}"]`);
+        const sr = stage.getBoundingClientRect(), slr = slot.getBoundingClientRect();
+        const orig = Engine.cur.elements.find(el => el.id === piece.dataset.el);
+        piece.classList.add('demo-move');
+        piece.style.left = ((slr.left+slr.width/2 - sr.left)/sr.width*100)+'%';
+        piece.style.top = ((slr.top+slr.height/2 - sr.top)/sr.height*100)+'%';
+        setTimeout(() => {
+          piece.style.left = orig.x+'%'; piece.style.top = orig.y+'%';
+          setTimeout(()=>piece.classList.remove('demo-move'), 1100);
+        }, 1400);
+        speakAgain();
+      },
+      expandSnap(){ Engine.cur.pieces.forEach(p => p.snapBoost = p.snap * 2.2); speakAgain(); },
+      magnetSnap(){ Engine.cur.pieces.forEach(p => p.snapBoost = p.snap * 2.6); speakAgain(); },
+      flashWhole(){
+        const anchor = stage.querySelector('[data-el="left"]');
+        if (anchor && Engine.cur.whole){
+          const ghost = document.createElement('div');
+          ghost.className = 'el'; ghost.innerHTML = Engine.cur.whole;
+          ghost.style.left = anchor.style.left; ghost.style.top = anchor.style.top;
+          ghost.style.setProperty('--s', anchor.style.getPropertyValue('--s'));
+          ghost.style.opacity = '.85'; ghost.style.pointerEvents = 'none';
+          stage.appendChild(ghost);
+          setTimeout(()=>{ ghost.style.transition='opacity .5s'; ghost.style.opacity='0'; setTimeout(()=>ghost.remove(), 550); }, 900);
+        }
+        speakAgain();
+      },
+      lockMost(){
+        // lock all but one piece in place
+        const pieces = Engine.cur.pieces.slice(0, -1);
+        const sr = stage.getBoundingClientRect();
+        for (const p of pieces){
+          const el = stage.querySelector(`[data-el="${p.el}"]`);
+          if (el.classList.contains('placed')) continue;
+          const slot = stage.querySelector(`[data-el="${p.slot}"]`);
+          const slr = slot.getBoundingClientRect();
+          el.classList.add('snapping','placed');
+          el.style.left = ((slr.left+slr.width/2 - sr.left)/sr.width*100)+'%';
+          el.style.top = ((slr.top+slr.height/2 - sr.top)/sr.height*100)+'%';
+        }
+        speakAgain();
+      },
+    };
+    (actions[fb] || actions.pulseTarget)();
+  },
+
+  /* ---------- trial + run completion ---------- */
+  completeTrial(success, opts={}){
+    if (this.locked) return;
+    this.locked = true;
+    clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
+    this.results.push({ state: this.cur.state, kind: this.cur.kind,
+      firstAttemptCorrect: this.curRecord.firstAttemptCorrect,
+      usedFallback: this.usedFallback });
+
+    this.markStone(this.trialIdx, 'done');
+    const isTest = this.cur.kind !== 'watch';
+    if (isTest){
+      Audio2.correct();
+      if (opts.at) FX.burst(opts.at[0], opts.at[1]);
+      const praise = ['Yay!','You did it!','Hooray!','Great job!'][Math.floor(Math.random()*4)];
+      Audio2.speak(praise);
+      setTimeout(() => this.runTrial(this.trialIdx+1), 1400);
+    } else {
+      setTimeout(() => this.runTrial(this.trialIdx+1), 250);
+    }
+  },
+
+  finishRun(){
+    const outcome = applyRunOutcome(this.node, this.level, this.results);
+    const msg = outcome === 'complete' ? this.node.title + ' — done!' : 'You did it!';
+    Telemetry.end(true, outcome);
+
+    Audio2.fanfare();
+    FX.confetti();
+    FX.cheer(msg);
+    Audio2.speak('Hooray! ' + (msg==='You did it!' ? 'You did it!' : 'All done!'));
+    setTimeout(() => { showView('home'); renderHome(); }, 2500);
+  },
+
+  abort(){
+    clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    Telemetry.end(false, 'abandoned');
+  },
+};
+
+/* ═══════════════════════ 9 · Simulation harness ═══════════════════════════
+   Generates synthetic sessions through the SAME level generators, event schema
+   and DDA rules as live play, so the dashboard and insights can be exercised
+   and iterated on without a toddler in the loop. Behavioral profiles model
+   TTFT latency, error rates, motor noise (near-misses) and frustration bursts. */
+const PROFILES = {
+  swift:      { label:'Quick learner', ttftMean:800,  ttftSd:400,  pTest:.93, pGen:.86, motorNoise:.15, frusP:.02, maxWrong:1 },
+  typical:    { label:'Typical toddler', ttftMean:1600, ttftSd:900,  pTest:.78, pGen:.64, motorNoise:.35, frusP:.08, maxWrong:2 },
+  cautious:   { label:'Careful & slow', ttftMean:3200, ttftSd:1400, pTest:.86, pGen:.76, motorNoise:.2,  frusP:.03, maxWrong:1 },
+  struggling: { label:'Struggling', ttftMean:2200, ttftSd:1600, pTest:.52, pGen:.30, motorNoise:.3,  frusP:.25, maxWrong:3 },
+};
+
+const Simulator = {
+  gauss(rng, mean, sd){
+    const u = Math.max(rng(), 1e-9), v = rng();
+    return mean + sd * Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+  },
+
+  /* One synthetic wrong attempt: near-miss (motor slip, lands close to the
+     target) or far miss (wrong choice — taps a distractor). */
+  missSample(rng, profile){
+    const nearMiss = rng() < profile.motorNoise;
+    return nearMiss
+      ? { hit: null, missPx: Math.round(6 + rng()*38) }
+      : { hit: 'distractor', missPx: Math.round(90 + rng()*260) };
+  },
+
+  simulateSession(profileKey, rng, startTime){
+    const profile = PROFILES[profileKey];
+    // walk the curriculum in node order; play the first unlocked, unfinished node
+    const node = NODES.find(n => nodeUnlocked(n) && nodeProgress(n.key).mastered.length < n.levels.length)
+      || NODES[0];
+    const np = nodeProgress(node.key);
+    const level = node.levels[clamp(np.levelIdx, 0, node.levels.length-1)];
+    const seed = Math.floor(rng()*2**31);
+    const gen = level.make(mulberry32(seed));
+    const trials = [gen.expose, gen.contrast, ...gen.tests];
+
+    const session = {
+      id: uuid(), userId:'child-sim', simulated:true, profile: profileKey,
+      node: node.key, nodeTitle: node.parentName, levelId: level.id,
+      levelName: level.name, isGen: !!level.isGen, seed,
+      startTime, endTime: null, trials: [], events: [],
+    };
+    let t = startTime;
+    const results = [];
+
+    for (const trial of trials){
+      const rec = {
+        id: uuid(), state: trial.state,
+        targetElementId: trial.kind==='drag' ? trial.pieces.map(p=>p.slot).join('+')
+          : (trial.elements.find(e=>e.target)||{}).id || null,
+        distractorElementIds: trial.elements.filter(e=>!e.target && !e.scenery && (e.tappable||e.zone)).map(e=>e.id),
+        prompt: trial.prompt, timeoutMs: trial.timeoutMs,
+        firstAttemptCorrect: null, usedFallback: false, kind: trial.kind,
+      };
+      session.trials.push(rec);
+      t += 1500 + rng()*1200; // prompt speech
+      const promptEnd = t;
+
+      if (trial.kind === 'watch'){
+        t += trial.autoMs || 3400;
+        results.push({ state: trial.state, kind:'watch', firstAttemptCorrect: null, usedFallback: false });
+        continue;
+      }
+
+      // depth makes later micro-levels slightly harder; generalization uses pGen
+      const depth = node.levels.indexOf(level) * 0.03;
+      const pOk = clamp((trial.state==='GENERALIZE' ? profile.pGen : profile.pTest) - depth, .05, .98);
+      const ev = (type, extra) => session.events.push({
+        eventId: uuid(), trialId: rec.id, timestamp: Math.round(t),
+        coordinateX: Math.round(80 + rng()*600), coordinateY: Math.round(60 + rng()*320),
+        timeSincePromptMs: Math.round(t - promptEnd), ...extra, type,
+      });
+
+      let wrongs = 0, done = false;
+      while (!done){
+        const firstTry = rec.firstAttemptCorrect === null;
+        const succeed = rng() < (firstTry ? pOk : clamp(pOk + .25, 0, .97));
+        t += clamp(this.gauss(rng, profile.ttftMean, profile.ttftSd), 350, trial.timeoutMs - 500);
+
+        if (trial.timeoutMs && (t - promptEnd) > trial.timeoutMs && firstTry){
+          ev('TIMEOUT', { hitElementId:null, isCorrectIntent:false, missDistancePx:null,
+            coordinateX:null, coordinateY:null });
+          rec.firstAttemptCorrect = false; rec.usedFallback = true;
+        }
+
+        if (trial.kind === 'drag'){
+          ev('DRAG_START', { hitElementId: trial.pieces[0].el, isCorrectIntent:true, missDistancePx:null });
+          t += 700 + rng()*900;
+          if (succeed){
+            ev('DRAG_END', { hitElementId: trial.pieces[0].slot, isCorrectIntent:true, missDistancePx:0 });
+            if (firstTry && rec.firstAttemptCorrect === null) rec.firstAttemptCorrect = true;
+            done = true;
+          } else {
+            ev('DRAG_END', { hitElementId:null, isCorrectIntent:false,
+              missDistancePx: Math.round(20 + rng()*120) });
+            if (rec.firstAttemptCorrect === null) rec.firstAttemptCorrect = false;
+            wrongs++;
+          }
+        } else {
+          if (succeed){
+            ev('TAP', { hitElementId: rec.targetElementId, isCorrectIntent:true, missDistancePx:0 });
+            if (firstTry && rec.firstAttemptCorrect === null) rec.firstAttemptCorrect = true;
+            done = true;
+          } else {
+            const m = this.missSample(rng, profile);
+            ev('TAP', { hitElementId: m.hit === 'distractor' ? (rec.distractorElementIds[0]||null) : null,
+              isCorrectIntent:false, missDistancePx: m.missPx });
+            if (rec.firstAttemptCorrect === null) rec.firstAttemptCorrect = false;
+            wrongs++;
+            if (level.id==='1.2' || level.id==='1.3'){
+              np.isoStats[level.id] = (np.isoStats[level.id]||0) + 1;
+            }
+            // frustration burst: >3 unproductive taps inside 1s
+            if (rng() < profile.frusP){
+              for (let k=0;k<4;k++){ t += 120 + rng()*90;
+                ev('TAP', { hitElementId:null, isCorrectIntent:false, missDistancePx: Math.round(60+rng()*200) }); }
+              rec.usedFallback = true;
+            }
+          }
+          if (wrongs >= 2) rec.usedFallback = true;
+        }
+        if (wrongs > profile.maxWrong && !done){
+          // fallback scaffold carries them through
+          t += 1200; rec.usedFallback = true;
+          const okEv = trial.kind === 'drag'
+            ? ['DRAG_END', { hitElementId: trial.pieces[0].slot, isCorrectIntent:true, missDistancePx:0 }]
+            : ['TAP', { hitElementId: rec.targetElementId, isCorrectIntent:true, missDistancePx:0 }];
+          ev(okEv[0], okEv[1]);
+          done = true;
+        }
+      }
+      t += 1400; // celebration
+      results.push({ state: trial.state, kind: trial.kind,
+        firstAttemptCorrect: rec.firstAttemptCorrect, usedFallback: rec.usedFallback });
+    }
+
+    saveNodeProgress(node.key, np);
+    session.outcome = applyRunOutcome(node, level, results);
+    session.endTime = Math.round(t);
+    session.completed = true;
+    const all = Store.sessions(); all.push(session); Store.saveSessions(all);
+    return session;
+  },
+
+  /* Simulate `days` of usage. Backs up curriculum progress the first time so
+     "Remove simulated data" can restore the real state. */
+  run(profileKey, days){
+    const settings = Store.settings();
+    if (!settings.progressBackup){
+      settings.progressBackup = JSON.stringify(Store.progress());
+      Store.saveSettings(settings);
+    }
+    const rng = mulberry32(hashStr(profileKey + '|' + (settings.simRuns = (settings.simRuns||0)+1)));
+    Store.saveSettings(settings);
+    const now = Date.now();
+    let made = 0;
+    for (let d = days; d >= 1; d--){
+      const perDay = 1 + Math.floor(rng()*3);
+      for (let s = 0; s < perDay; s++){
+        const start = now - d*86400000 + (9 + s*4 + rng()*2)*3600000;
+        this.simulateSession(profileKey, rng, Math.round(start));
+        made++;
+      }
+    }
+    return made;
+  },
+
+  clear(){
+    Store.saveSessions(Store.sessions().filter(s => !s.simulated));
+    const settings = Store.settings();
+    if (settings.progressBackup){
+      try { Store.saveProgress(JSON.parse(settings.progressBackup)); } catch(e){}
+      delete settings.progressBackup;
+      Store.saveSettings(settings);
+    }
+  },
+};
+
+/* ═══════════════════ 9b · Insights from telemetry ═════════════════════════
+   Turns the raw event stream into the findings a designer iterates on. */
+function computeInsights(sessions){
+  const out = [];
+  if (sessions.length < 3) return out;
+  const stats = computeStats(sessions);
+
+  // 1 · Generalization transfer per node (memorization risk)
+  for (const n of NODES){
+    const p = stats.per[n.key];
+    if (!p || p.genN < 3 || p.testN < 3) continue;
+    const tr = p.testOk/p.testN, gr = p.genOk/p.genN;
+    if (tr - gr > .25){
+      out.push({ level:'serious', title:`Memorization risk on ${n.parentName}`,
+        body:`Test success is ${Math.round(tr*100)}% but generalization drops to ${Math.round(gr*100)}%. The visual pattern may be memorized rather than the concept acquired — consider more variety in the ${n.levels.find(l=>l.isGen).id} asset pool.` });
+    } else if (gr >= tr - .1){
+      out.push({ level:'good', title:`${n.parentName} transfers well`,
+        body:`Generalization success (${Math.round(gr*100)}%) keeps pace with tests (${Math.round(tr*100)}%) — evidence of true conceptual acquisition.` });
+    }
+  }
+
+  // 2 · Frustration hotspots by micro-level
+  const frusByLevel = {};
+  for (const s of sessions){
+    const f = countFrustration(s.events);
+    if (f) frusByLevel[s.levelId] = (frusByLevel[s.levelId]||0) + f;
+  }
+  const hot = Object.entries(frusByLevel).sort((a,b)=>b[1]-a[1])[0];
+  if (hot && hot[1] >= 3){
+    out.push({ level:'serious', title:`Frustration hotspot at level ${hot[0]}`,
+      body:`${hot[1]} rapid-tap episodes concentrated on micro-level ${hot[0]}. Its difficulty step may be too steep — widen the snap radius, cut a distractor, or soften the prompt pacing.` });
+  }
+
+  // 3 · TTFT trend (early vs late sessions)
+  const ordered = sessions.slice().sort((a,b)=>a.startTime-b.startTime);
+  const half = Math.floor(ordered.length/2);
+  if (half >= 3){
+    const t1 = median(computeStats(ordered.slice(0,half)).all.ttfts);
+    const t2 = median(computeStats(ordered.slice(half)).all.ttfts);
+    if (t1 && t2){
+      const delta = (t2-t1)/t1;
+      if (delta < -.15) out.push({ level:'good', title:'Processing speed improving',
+        body:`Median time-to-first-touch fell from ${fmtMs(t1)} to ${fmtMs(t2)} between the first and second half of sessions — prompts are being understood faster.` });
+      else if (delta > .25) out.push({ level:'warning', title:'Responses slowing down',
+        body:`Median time-to-first-touch rose from ${fmtMs(t1)} to ${fmtMs(t2)}. Recent levels may demand more scanning than earlier ones — check whether the current micro-level jumped too far.` });
+    }
+  }
+
+  // 4 · Miss profile: motor vs conceptual errors
+  const a = stats.all;
+  if (a.missNear + a.missFar >= 5){
+    const nearRatio = a.missNear/(a.missNear+a.missFar);
+    if (nearRatio > .6) out.push({ level:'warning', title:'Misses are motor, not conceptual',
+      body:`${Math.round(nearRatio*100)}% of first-attempt misses land within 48px of the correct target — the intent is right but the targets are hard to hit. Consider enlarging touch targets before lowering difficulty.` });
+    else if (nearRatio < .3) out.push({ level:'warning', title:'Wrong choices dominate misses',
+      body:`${Math.round((1-nearRatio)*100)}% of first-attempt misses are far from the target — these are conceptual, not motor. The DDA step-down path is the right lever here.` });
+  }
+
+  // 5 · DDA repair loops
+  const downs = {};
+  for (const s of sessions) if (s.outcome==='down') downs[s.node] = (downs[s.node]||0)+1;
+  for (const [k,v] of Object.entries(downs)){
+    if (v >= 2){
+      const n = NODES.find(x=>x.key===k);
+      out.push({ level:'warning', title:`Repair loop active on ${n.parentName}`,
+        body:`The difficulty engine has stepped ${n.parentName} down ${v} times to rebuild the foundation — expected behavior, but if it persists, the level below may not be isolating the right variable.` });
+    }
+  }
+
+  const rank = { serious:0, warning:1, good:2 };
+  return out.sort((x,y)=>rank[x.level]-rank[y.level]);
+}
+
+/* ═══════════════════════ 10 · Home ════════════════════════════════════════ */
+function nodeUnlocked(node){
+  if (Store.settings().unlockAll) return true;
+  const p = Store.progress();
+  return node.prereqs.every(k => {
+    const np = p[k];
+    return np && np.mastered && np.mastered.length >= NODES.find(n=>n.key===k).levels.length;
+  });
+}
+function renderHome(){
+  const grid = $('#concept-grid');
+  grid.innerHTML = '';
+  for (const node of NODES){
+    const np = nodeProgress(node.key);
+    const unlocked = nodeUnlocked(node);
+    const btn = document.createElement('button');
+    btn.className = 'ccard' + (unlocked ? '' : ' locked');
+    const ladder = node.levels.map((lv,i) => {
+      const done = np.mastered.includes(lv.id);
+      const cur = i === np.levelIdx && !done;
+      return `<i class="${done?'done':cur?'cur':''}"></i>`;
+    }).join('');
+    const allDone = np.mastered.length >= node.levels.length;
+    btn.innerHTML = `
+      ${NICON[node.key]}
+      <span class="cname">${node.title}</span>
+      <span class="clevel">${allDone ? 'All levels done ★' : 'Level ' + node.levels[np.levelIdx].id}</span>
+      <span class="ladder">${ladder}</span>
+      <span class="lock"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg></span>`;
+    btn.addEventListener('pointerdown', () => Audio2.unlock());
+    btn.addEventListener('click', () => {
+      if (!unlocked){
+        const first = node.prereqs[0];
+        const pre = NODES.find(n=>n.key===first);
+        Audio2.speak('First, let\'s finish ' + pre.title + '!');
+        btn.classList.add('wobble'); setTimeout(()=>btn.classList.remove('wobble'), 500);
+        return;
+      }
+      const np2 = nodeProgress(node.key);
+      Engine.startLevel(node, node.levels[clamp(np2.levelIdx, 0, node.levels.length-1)]);
+    });
+    grid.appendChild(btn);
+  }
+}
+
+/* ═══════════════════════ 10 · Dashboard ═══════════════════════════════════ */
+function fmtMs(ms){
+  if (ms === null || ms === undefined || isNaN(ms)) return '—';
+  return (ms/1000).toFixed(1) + 's';
+}
+function computeStats(sessions){
+  const per = {}; // node → aggregates
+  const all = { ttfts:[], testN:0, testOk:0, genN:0, genOk:0, frus:0, missNear:0, missFar:0 };
+  for (const s of sessions){
+    const node = s.node;
+    per[node] = per[node] || { ttfts:[], testN:0, testOk:0, genN:0, genOk:0, frus:0 };
+    per[node].frus += countFrustration(s.events);
+    all.frus += countFrustration(s.events);
+    for (const t of s.trials){
+      if (t.state !== 'TEST' && t.state !== 'GENERALIZE') continue;
+      const evs = s.events.filter(e => e.trialId === t.id);
+      const first = evs.find(e => e.type==='TAP' || e.type==='DRAG_START');
+      if (first && first.timeSincePromptMs !== null){
+        per[node].ttfts.push(first.timeSincePromptMs);
+        all.ttfts.push(first.timeSincePromptMs);
+      }
+      const firstAttempt = evs.find(e => e.type==='TAP' || e.type==='DRAG_END');
+      if (firstAttempt && !firstAttempt.isCorrectIntent && firstAttempt.missDistancePx !== null){
+        if (firstAttempt.missDistancePx < 48) all.missNear++; else all.missFar++;
+      }
+      const ok = t.firstAttemptCorrect === true;
+      if (t.state === 'TEST'){ per[node].testN++; all.testN++; if (ok){ per[node].testOk++; all.testOk++; } }
+      else { per[node].genN++; all.genN++; if (ok){ per[node].genOk++; all.genOk++; } }
+    }
+  }
+  return { per, all };
+}
+
+let tipEl = null;
+function attachTips(container){
+  tipEl = container.querySelector('.viz-tip');
+  container.querySelectorAll('[data-tip]').forEach(n => {
+    n.addEventListener('pointerenter', () => {
+      const r = n.getBoundingClientRect(), cr = container.getBoundingClientRect();
+      tipEl.innerHTML = n.dataset.tip;
+      tipEl.style.left = (r.left + r.width/2 - cr.left)+'px';
+      tipEl.style.top = (r.top - cr.top)+'px';
+      tipEl.style.opacity = '1';
+    });
+    n.addEventListener('pointerleave', () => { tipEl.style.opacity = '0'; });
+  });
+}
+
+function barChartTTFT(stats){
+  const data = NODES.map(n => ({ name: n.parentName, v: median(stats.per[n.key] ? stats.per[n.key].ttfts : []) }))
+    .filter(d => d.v !== null);
+  if (!data.length) return '';
+  const W=640, Hh=210, padL=40, padB=26, padT=14;
+  const maxV = Math.max(...data.map(d=>d.v), 2000);
+  const top = Math.ceil(maxV/1000)*1000;
+  const bw = 34, gap = (W-padL-20)/data.length;
+  const y = v => padT + (Hh-padT-padB) * (1 - v/top);
+  const grid = [0, top/2, top].map(v =>
+    `<line x1="${padL}" y1="${y(v)}" x2="${W-8}" y2="${y(v)}" stroke="var(--d-grid)" stroke-width="1"/>
+     <text x="${padL-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--d-muted)">${(v/1000)}s</text>`).join('');
+  const bars = data.map((d,i) => {
+    const cx = padL + gap*i + gap/2;
+    const h = Hh-padB - y(d.v);
+    return `
+      <path d="M${cx-bw/2} ${Hh-padB} L${cx-bw/2} ${y(d.v)+4} Q${cx-bw/2} ${y(d.v)} ${cx-bw/2+4} ${y(d.v)} L${cx+bw/2-4} ${y(d.v)} Q${cx+bw/2} ${y(d.v)} ${cx+bw/2} ${y(d.v)+4} L${cx+bw/2} ${Hh-padB} Z" fill="var(--s1)"/>
+      <rect x="${cx-gap/2}" y="${padT}" width="${gap}" height="${Hh-padT-padB}" fill="transparent" data-tip="<b>${d.name}</b> · median ${fmtMs(d.v)}"/>
+      <text x="${cx}" y="${y(d.v)-6}" text-anchor="middle" font-size="11" fill="var(--d-ink2)">${fmtMs(d.v)}</text>
+      <text x="${cx}" y="${Hh-8}" text-anchor="middle" font-size="12" fill="var(--d-ink2)">${d.name}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${Hh}" style="width:100%;height:auto" role="img" aria-label="Median time to first touch by concept">
+    ${grid}<line x1="${padL}" y1="${Hh-padB}" x2="${W-8}" y2="${Hh-padB}" stroke="var(--d-axis)" stroke-width="1"/>${bars}</svg>`;
+}
+
+function barChartTransfer(stats){
+  const data = NODES.map(n => {
+    const p = stats.per[n.key];
+    if (!p || (p.testN===0 && p.genN===0)) return null;
+    return { name: n.parentName,
+      test: p.testN ? p.testOk/p.testN : null,
+      gen:  p.genN ? p.genOk/p.genN : null };
+  }).filter(Boolean);
+  if (!data.length) return '';
+  const W=640, Hh=210, padL=40, padB=26, padT=14;
+  const y = v => padT + (Hh-padT-padB) * (1 - v);
+  const gap = (W-padL-20)/data.length, bw=22;
+  const grid = [0,.5,1].map(v =>
+    `<line x1="${padL}" y1="${y(v)}" x2="${W-8}" y2="${y(v)}" stroke="var(--d-grid)" stroke-width="1"/>
+     <text x="${padL-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--d-muted)">${v*100}%</text>`).join('');
+  const bar = (cx, v, color, label) => v===null ? '' : `
+    <path d="M${cx-bw/2} ${Hh-padB} L${cx-bw/2} ${Math.min(y(v)+4, Hh-padB)} Q${cx-bw/2} ${y(v)} ${cx-bw/2+4} ${y(v)} L${cx+bw/2-4} ${y(v)} Q${cx+bw/2} ${y(v)} ${cx+bw/2} ${Math.min(y(v)+4, Hh-padB)} L${cx+bw/2} ${Hh-padB} Z" fill="${color}"/>
+    <rect x="${cx-bw/2-2}" y="${padT}" width="${bw+4}" height="${Hh-padT-padB}" fill="transparent" data-tip="${label} · ${Math.round(v*100)}%"/>`;
+  const bars = data.map((d,i) => {
+    const cx = padL + gap*i + gap/2;
+    return bar(cx-bw/2-1, d.test, 'var(--s1)', `<b>${d.name}</b> test`) +
+           bar(cx+bw/2+1, d.gen, 'var(--s2)', `<b>${d.name}</b> generalize`) +
+           `<text x="${cx}" y="${Hh-8}" text-anchor="middle" font-size="12" fill="var(--d-ink2)">${d.name}</text>`;
+  }).join('');
+  return `
+    <div class="legend"><span><i style="background:var(--s1)"></i>Test success</span>
+    <span><i style="background:var(--s2)"></i>Generalize success</span></div>
+    <svg viewBox="0 0 ${W} ${Hh}" style="width:100%;height:auto" role="img" aria-label="Test versus generalization success by concept">
+    ${grid}<line x1="${padL}" y1="${Hh-padB}" x2="${W-8}" y2="${Hh-padB}" stroke="var(--d-axis)" stroke-width="1"/>${bars}</svg>`;
+}
+
+function renderDash(){
+  const body = $('#dash-body');
+  const sessions = Store.sessions();
+  const settings = Store.settings();
+
+  const nodeMap = NODES.map(n => {
+    const np = nodeProgress(n.key);
+    const steps = n.levels.map((lv,i) =>
+      `<i class="${np.mastered.includes(lv.id)?'done':i===np.levelIdx?'cur':''}" title="${lv.id} ${lv.name}"></i>`).join('');
+    const cur = n.levels[clamp(np.levelIdx,0,n.levels.length-1)];
+    const doneAll = np.mastered.length >= n.levels.length;
+    return `<div class="nodecard"><div class="nn">${n.num} · ${n.parentName}</div>
+      <div class="nl">${doneAll ? 'Complete' : 'On ' + cur.id + ' — ' + cur.name}</div>
+      <div class="steps">${steps}</div></div>`;
+  }).join('');
+
+  const simCount = sessions.filter(s=>s.simulated).length;
+  const controls = `
+    <h2>Usage simulator</h2>
+    <p class="h2-sub">A test harness for the telemetry loop: synthetic sessions run through the same level generators, event schema, and difficulty engine as real play, so you can preview how the dashboard and insights respond to different learner profiles.</p>
+    <div class="sim-card">
+      <div class="sim-row">
+        <select id="sim-profile" aria-label="Learner profile">
+          ${Object.entries(PROFILES).map(([k,p])=>`<option value="${k}">${p.label}</option>`).join('')}
+        </select>
+        <button id="btn-sim-week" class="btn-primary">Simulate 7 days</button>
+        <button id="btn-sim-day" class="btn-quiet">Simulate 1 day</button>
+        ${simCount ? `<button id="btn-sim-clear" class="btn-quiet">Remove simulated data (${simCount})</button>` : ''}
+      </div>
+      <div class="sim-note">Simulated sessions advance the curriculum exactly as real play would. Removing them also restores the curriculum position from before the first simulation.</div>
+    </div>
+
+    <h2>Settings &amp; data</h2>
+    <div class="dash-controls">
+      <div class="ctl"><button id="sw-unlock" class="switch ${settings.unlockAll?'on':''}" role="switch" aria-checked="${settings.unlockAll}" aria-label="Unlock every game"></button>
+        <span>Unlock every game (skip prerequisites)</span></div>
+      <button id="btn-wipe" class="danger">Erase all data</button>
+    </div>`;
+
+  if (!sessions.length){
+    body.innerHTML = `
+      <h2>Curriculum position</h2>
+      <p class="h2-sub">Where your child sits on each node's micro-level ladder.</p>
+      <div class="nodemap">${nodeMap}</div>
+      <div class="empty"><b>No sessions yet</b>Hand the device to your child and play a game — every touch lands here as data.</div>
+      ${controls}`;
+  } else {
+    const stats = computeStats(sessions);
+    const a = stats.all;
+    const transferRatio = (a.testN && a.genN) ? (a.genOk/a.genN) / Math.max(.0001,(a.testOk/a.testN)) : null;
+    const recent = sessions.slice(-12).reverse();
+    const rows = recent.map(s => {
+      const tests = s.trials.filter(t => t.state==='TEST'||t.state==='GENERALIZE');
+      const ok = tests.filter(t=>t.firstAttemptCorrect).length;
+      const tt = [];
+      for (const t of tests){
+        const first = s.events.find(e => e.trialId===t.id && (e.type==='TAP'||e.type==='DRAG_START'));
+        if (first && first.timeSincePromptMs!==null) tt.push(first.timeSincePromptMs);
+      }
+      const d = new Date(s.startTime);
+      const when = d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' ' +
+                   d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+      return `<tr>
+        <td>${when}</td>
+        <td>${s.nodeTitle} <span class="pill ${s.isGen?'gen':'test'}">${s.levelId}</span>${s.simulated?' <span class="pill sim">sim</span>':''}</td>
+        <td class="num">${ok}/${tests.length}</td>
+        <td class="num">${fmtMs(median(tt))}</td>
+        <td class="num">${countFrustration(s.events)}</td>
+      </tr>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="tiles">
+        <div class="tile"><div class="tv">${sessions.length}</div><div class="tl">Sessions</div>
+          <div class="th">${sessions.filter(s=>s.completed).length} finished full runs</div></div>
+        <div class="tile"><div class="tv">${fmtMs(median(a.ttfts))}</div><div class="tl">Median time to first touch</div>
+          <div class="th">From the end of the spoken prompt to the first touch — a proxy for processing speed.</div></div>
+        <div class="tile"><div class="tv">${transferRatio===null?'—':Math.round(transferRatio*100)+'%'}</div><div class="tl">Generalization transfer</div>
+          <div class="th">Success on generalization levels relative to standard tests. Near 100% suggests real acquisition, not visual memorization.</div></div>
+        <div class="tile"><div class="tv">${a.frus}</div><div class="tl">Frustration episodes</div>
+          <div class="th">Bursts of 4+ rapid unproductive taps within a second. Each one triggers an automatic step-down.</div></div>
+      </div>
+
+      ${(() => {
+        const ins = computeInsights(sessions);
+        if (!ins.length) return '';
+        const icon = { good:'✓', warning:'!', serious:'!' };
+        const tag = { good:'On track', warning:'Watch', serious:'Action' };
+        return `<h2>Insights</h2>
+          <p class="h2-sub">Findings derived automatically from the event stream — the feedback loop for tuning levels, targets, and pacing.</p>
+          <div class="insights">${ins.map(i => `
+            <div class="insight ${i.level}">
+              <span class="ic" aria-hidden="true">${icon[i.level]}</span>
+              <div><div class="it">${i.title}<span class="tag">${tag[i.level]}</span></div>
+              <div class="ib">${i.body}</div></div>
+            </div>`).join('')}</div>`;
+      })()}
+
+      <h2>Curriculum position</h2>
+      <p class="h2-sub">Where your child sits on each node's micro-level ladder. Green = mastered, blue = current.</p>
+      <div class="nodemap">${nodeMap}</div>
+
+      <h2>Time to first touch</h2>
+      <p class="h2-sub">Median latency between prompt end and first touch, per concept node. Falling latency over time indicates faster comprehension.</p>
+      <div class="chart-card" id="chart-ttft">${barChartTTFT(stats)}<div class="viz-tip"></div></div>
+
+      <h2>Test vs. generalize</h2>
+      <p class="h2-sub">First-attempt success on standard tests against generalization levels. A large gap means the pattern was memorized, not the concept.</p>
+      <div class="chart-card" id="chart-transfer">${barChartTransfer(stats)}<div class="viz-tip"></div></div>
+
+      <h2>Recent sessions</h2>
+      <p class="h2-sub">Miss-distance detail: ${a.missNear} near-misses under 48px (motor slips) vs ${a.missFar} far misses (wrong choice) on first attempts.</p>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>When</th><th>Level</th><th class="num">First-try correct</th><th class="num">Median TTFT</th><th class="num">Frustration</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      ${controls}`;
+
+    attachTips($('#chart-ttft'));
+    attachTips($('#chart-transfer'));
+  }
+
+  const profileSel = $('#sim-profile');
+  if (profileSel && settings.lastProfile) profileSel.value = settings.lastProfile;
+  const runSim = days => {
+    const key = profileSel.value;
+    const s = Store.settings(); s.lastProfile = key; Store.saveSettings(s);
+    Simulator.run(key, days);
+    renderDash(); renderHome();
+  };
+  $('#btn-sim-week').addEventListener('click', () => runSim(7));
+  $('#btn-sim-day').addEventListener('click', () => runSim(1));
+  const simClear = $('#btn-sim-clear');
+  if (simClear) simClear.addEventListener('click', () => { Simulator.clear(); renderDash(); renderHome(); });
+
+  $('#sw-unlock').addEventListener('click', () => {
+    const s = Store.settings(); s.unlockAll = !s.unlockAll; Store.saveSettings(s);
+    renderDash();
+  });
+  const wipe = $('#btn-wipe');
+  wipe.addEventListener('click', () => {
+    if (!wipe.classList.contains('armed')){
+      wipe.classList.add('armed'); wipe.textContent = 'Tap again to erase everything';
+      setTimeout(()=>{ wipe.classList.remove('armed'); wipe.textContent='Erase all data'; }, 3500);
+    } else {
+      Store.wipe(); renderDash(); renderHome();
+    }
+  });
+}
+
+/* ═══════════════════════ 11 · Shell / routing ═════════════════════════════ */
+function showView(name){
+  $('#view-home').classList.toggle('hidden', name!=='home');
+  $('#view-play').classList.toggle('hidden', name!=='play');
+  $('#view-dash').classList.toggle('hidden', name!=='dash');
+}
+
+function init(){
+  FX.init();
+  renderHome();
+
+  // stage input
+  const stage = $('#stage');
+  stage.addEventListener('pointerdown', e => Engine.onPointerDown(e));
+  window.addEventListener('pointermove', e => Engine.onPointerMove(e));
+  window.addEventListener('pointerup', e => Engine.onPointerUp(e));
+  window.addEventListener('pointercancel', e => Engine.onPointerUp(e));
+
+  $('#btn-replay').addEventListener('click', () => { Audio2.unlock(); Engine.speakPrompt(); });
+  $('#btn-home').addEventListener('click', () => { Engine.abort(); showView('home'); renderHome(); });
+  $('#btn-dash-back').addEventListener('click', () => { showView('home'); renderHome(); });
+
+  // parent gate: press and hold 2.2s
+  const gw = $('#btn-grownups');
+  let holdT = 0;
+  const startHold = e => {
+    e.preventDefault();
+    gw.classList.add('holding');
+    holdT = setTimeout(() => { gw.classList.remove('holding'); renderDash(); showView('dash'); }, 2250);
+  };
+  const stopHold = () => { gw.classList.remove('holding'); clearTimeout(holdT); };
+  gw.addEventListener('pointerdown', startHold);
+  gw.addEventListener('pointerup', stopHold);
+  gw.addEventListener('pointerleave', stopHold);
+  gw.addEventListener('pointercancel', stopHold);
+
+  // audio unlock on any first interaction
+  window.addEventListener('pointerdown', () => Audio2.unlock(), { once:true });
+
+  // scripting hook for the test harness (drive trials, run simulations headlessly)
+  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES,
+    computeStats, computeInsights, renderDash, renderHome, showView };
+}
+init();
+</script>
