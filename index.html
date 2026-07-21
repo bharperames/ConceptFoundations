@@ -113,8 +113,8 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .ccard svg.cicon{width:86px;height:86px;display:block;margin:0 auto}
 .ccard .cname{display:block;font-size:19px;font-weight:800;margin-top:8px}
 .ccard .clevel{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px;font-weight:600}
-.ccard .ladder{display:flex;justify-content:center;gap:5px;margin-top:10px}
-.ladder i{width:9px;height:9px;border-radius:50%;background:var(--stone)}
+.ccard .ladder{display:flex;justify-content:center;gap:7px;margin-top:10px}
+.ladder i{width:12px;height:12px;border-radius:50%;background:var(--stone);cursor:pointer}
 .ladder i.done{background:var(--grass)}
 .ladder i.cur{background:var(--sun);transform:scale(1.25)}
 .ccard.locked{opacity:.55;filter:saturate(.4)}
@@ -761,18 +761,26 @@ const NODES = [
     { id:'4.1', name:'Gross proximity', focus:'Ball into a big box', fallback:'demoDrag',
       make(rng){
         const bc = pick(rng, ['coral','grass','grape']);
-        const mkTest = () => dragTrial({ state:'TEST', prompt:'Put the ball in the box', say:'Put the ball in the box!',
-          elements:[
-            elShape('box', BOX(), 63, 50, 44, {scenery:true}),
-            elShape('ball', BALL(C[bc]), 16, 62, 15, {piece:true}),
-          ],
-          pieces:[{ el:'ball', slot:'box', snap: 16, dropIn:true }]});
+        // "repetitive with change": same task three times, but the box moves
+        // sides, shrinks a little, and the ball starts farther away — a small
+        // fresh struggle each round instead of an identical replay
+        const mkTest = i => {
+          const boxRight = rng() < .5;
+          const boxS = [46, 42, 38][i];
+          const color = pick(rng, ['coral','grass','grape','sun']);
+          return dragTrial({ state:'TEST', prompt:'Put the ball in the box', say:'Put the ball in the box!',
+            elements:[
+              elShape('box', BOX(), boxRight ? 64 : 36, 50, boxS, {scenery:true}),
+              elShape('ball', BALL(C[color]), boxRight ? 18 - i*3 : 82 + i*3, [60, 64, 66][i], 15, {piece:true}),
+            ],
+            pieces:[{ el:'ball', slot:'box', snap: [16, 14, 12][i], dropIn:true }]});
+        };
         return {
           expose: watchTrial({ state:'EXPOSE', prompt:'In', say:'The ball is in the box.',
             elements:[ elShape('box', BOX(), 50, 50, 44, {scenery:true}), elShape('ball', BALL(C[bc]), 50, 56, 15) ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'Out', say:'Now the ball is out of the box.',
             elements:[ elShape('box', BOX(), 60, 50, 44, {scenery:true}), elShape('ball', BALL(C[bc]), 18, 62, 15) ]}),
-          tests:[mkTest(), mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
     { id:'4.2', name:'Stacking', focus:'On top of — 2-inch wood cube physics', fallback:'demoDrag',
@@ -858,46 +866,46 @@ const NODES = [
     { id:'5.1', name:'Symmetrical halves', focus:'Two halves meet', fallback:'magnetSnap',
       make(rng){
         const cc = pick(rng, ['tang','grape','grass']);
-        const mkTest = () => dragTrial({ state:'TEST', prompt:'Put them together', say:'Put the two halves together!',
+        const mkTest = i => dragTrial({ state:'TEST', prompt:'Put them together', say:'Put the two halves together!',
           elements:[
-            elShape('left', HALF_L(C[cc]), 40, 50, 26, {scenery:true, anchor:true}),
-            elShape('right', HALF_R(C[cc]), 78, 58, 26, {piece:true}),
+            elShape('left', HALF_L(C[cc]), [40, 44, 37][i], [50, 46, 54][i], 26, {scenery:true, anchor:true}),
+            elShape('right', HALF_R(C[cc]), [78, 72, 82][i], [58, 46, 64][i], 26, {piece:true}),
           ],
-          pieces:[{ el:'right', slot:'left', snap: 8, overlay:true }]});
+          pieces:[{ el:'right', slot:'left', snap: [8, 7, 6][i], overlay:true }]});
         return {
           expose: watchTrial({ state:'EXPOSE', prompt:'Whole', say:'A whole circle.',
             elements:[ elShape('a', SHAPES.circle(C[cc]), 50, 50, 26) ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'Pieces', say:'Now it is in pieces.',
             elements:[ elShape('a', HALF_L(C[cc]), 36, 50, 26), elShape('b', HALF_R(C[cc]), 68, 54, 26) ]}),
-          tests:[mkTest(), mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
     { id:'5.2', name:'Asymmetrical pieces', focus:'Puzzle-cut square', fallback:'flashWhole',
       make(rng){
         const cc = pick(rng, ['sea','coral','sun']);
-        const mkTest = () => dragTrial({ state:'TEST', prompt:'Finish the square', say:'Finish the square! Put the piece in.',
+        const mkTest = i => dragTrial({ state:'TEST', prompt:'Finish the square', say:'Finish the square! Put the piece in.',
           elements:[
-            elShape('left', PUZ_L(C[cc]), 40, 50, 28, {scenery:true, anchor:true}),
-            elShape('right', PUZ_R2(C[cc]), 79, 56, 28, {piece:true}),
+            elShape('left', PUZ_L(C[cc]), [40, 43, 37][i], [50, 46, 54][i], 28, {scenery:true, anchor:true}),
+            elShape('right', PUZ_R2(C[cc]), [79, 73, 83][i], [56, 46, 62][i], 28, {piece:true}),
           ],
-          pieces:[{ el:'right', slot:'left', snap: 6, overlay:true }],
+          pieces:[{ el:'right', slot:'left', snap: [6, 5.5, 5][i], overlay:true }],
           whole: SHAPES.square(C[cc])});
         return {
           expose: watchTrial({ state:'EXPOSE', prompt:'Whole', say:'A whole square.',
             elements:[ elShape('a', SHAPES.square(C[cc]), 50, 50, 26) ]}),
           contrast: watchTrial({ state:'CONTRAST', prompt:'Pieces', say:'It broke into puzzle pieces!',
             elements:[ elShape('a', PUZ_L(C[cc]), 36, 50, 28), elShape('b', PUZ_R2(C[cc]), 70, 54, 28) ]}),
-          tests:[mkTest(), mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1), mkTest(2)],
         };
       }},
     { id:'5.3', name:'Generalization', focus:'Build a house from 3 parts', isGen:true, fallback:'lockMost',
       make(rng){
-        const mkTest = () => dragTrial({ state:'GENERALIZE', prompt:'Build the house', say:'Build the house! Put every piece in its place.',
+        const mkTest = i => dragTrial({ state:'GENERALIZE', prompt:'Build the house', say:'Build the house! Put every piece in its place.',
           elements:[
-            elShape('outline', HOUSE.outline(), 62, 48, 36, {scenery:true, anchor:true}),
-            elShape('roof', HOUSE.roof(), 15, 26, 36, {piece:true}),
-            elShape('body', HOUSE.body(), 13, 58, 36, {piece:true}),
-            elShape('door', HOUSE.door(), 22, 84, 36, {piece:true}),
+            elShape('outline', HOUSE.outline(), i ? 38 : 62, 48, 36, {scenery:true, anchor:true}),
+            elShape('roof', HOUSE.roof(), i ? 85 : 15, i ? 78 : 26, 36, {piece:true}),
+            elShape('body', HOUSE.body(), i ? 87 : 13, i ? 30 : 58, 36, {piece:true}),
+            elShape('door', HOUSE.door(), i ? 78 : 22, i ? 55 : 84, 36, {piece:true}),
           ],
           pieces:[
             { el:'body', slot:'outline', snap: 8, overlay:true },
@@ -911,7 +919,7 @@ const NODES = [
           contrast: watchTrial({ state:'CONTRAST', prompt:'Pieces', say:'The house is in pieces.',
             elements:[
               elShape('r', HOUSE.roof(), 26, 34, 32), elShape('b', HOUSE.body(), 56, 60, 32), elShape('d', HOUSE.door(), 80, 34, 32) ]}),
-          tests:[mkTest(), mkTest()],
+          tests:[mkTest(0), mkTest(1)],
         };
       }},
   ],
@@ -972,7 +980,7 @@ function quantityLevel(rng, {a, b, ask, item}){
     const target = ask === 'more' ? zb : za;
     target.target = true;
     return tapTrial({ state: ask==='less' ? 'GENERALIZE' : 'TEST',
-      prompt:`Tap the side with ${ask}`, say:`Which side has ${ask}? Tap it!`,
+      prompt:`Tap the side with ${ask}`, say:`Which side has ${ask}?`,
       elements:[za, zb] });
   };
   return {
@@ -1168,6 +1176,7 @@ const Engine = {
     this.trialIdx = idx;
     this.cur = this.trials[idx];
     this.locked = false; this.wrongCount = 0; this.usedFallback = false;
+    this.hintCount = 0;
     this.drag = null;
     const st = $('#stones').children[idx]; if (st) st.classList.add('cur');
 
@@ -1455,11 +1464,11 @@ const Engine = {
     } else {
       Audio2.wrong();
       this.wrongCount++;
-      // glide back to origin spot
-      const orig = this.cur.elements.find(el => el.id === d.id);
-      d.el.classList.add('returning');
-      d.el.style.left = orig.x+'%'; d.el.style.top = orig.y+'%';
-      setTimeout(()=>d.el.classList.remove('returning'), 550);
+      // objects are real: the piece stays where it was set down (clamped to
+      // the stage), so the child can work toward the goal incrementally
+      // instead of watching it zap back and starting over
+      d.el.style.left = clamp(parseFloat(d.el.style.left), 4, 96)+'%';
+      d.el.style.top = clamp(parseFloat(d.el.style.top), 6, 94)+'%';
       if (this.wrongCount >= 2 && !this.usedFallback) this.applyFallback();
     }
   },
@@ -1496,7 +1505,7 @@ const Engine = {
     const st = {
       x: pr.left + pr.width/2, y: pr.top + pr.height/2,
       vx: clamp(d.vx || 0, -vcap, vcap), vy: clamp(d.vy || 0, -vcap, vcap),
-      ang: 0, va: 0, pa: 0, dir: 1, pivotX: 0, r: size * Math.SQRT1_2,
+      ang: 0, va: 0, pa: 0, pa0: 0, dir: 1, pivotX: 0, r: size * Math.SQRT1_2,
       mode: 'fall', bounces: 0,
     };
     // released while sunk into the base from the side: shove out to the near edge
@@ -1556,20 +1565,27 @@ const Engine = {
         const overBase = (st.x + size/2 > br.left + 2) && (st.x - size/2 < br.right - 2);
 
         if (st.vy > 0 && overBase && bottom >= br.top && st.y < br.top){
-          if (Math.abs(st.x - baseCx) <= br.width/2){
-            // center of mass supported → it lands and stays
-            st.y = br.top - size/2;
-            if (st.vy > 0.15*PX_M) Audio2.clack(Math.min(1, st.vy / PX_M));
+          const relX = st.x - baseCx;
+          const overhang = Math.abs(relX) + size/2 - br.width/2;
+          st.y = br.top - size/2;
+          if (st.vy > 0.15*PX_M) Audio2.clack(Math.min(1, st.vy / PX_M));
+          if (overhang < size*0.12){
+            // (near-)fully supported face landing: bounce once, then rest
             if (st.vy > V_SETTLE && st.bounces < 2){ st.vy = -REST * st.vy; st.bounces++; }
             else { settle(true); return true; }
           } else {
-            // CoM past the support edge → topple about that edge (rigid cube:
-            // α = (3g / 2√2·a)·sinθ, θ from vertical through the pivot corner)
-            st.mode = 'topple';
-            st.dir = st.x < baseCx ? -1 : 1;
+            // partial contact → the block pivots on the base's edge corner.
+            // CoM inside the edge rocks and settles; outside, it rolls off.
+            st.mode = 'pivot';
+            st.dir = relX < 0 ? -1 : 1;
             st.pivotX = st.dir === -1 ? br.left : br.right;
-            st.pa = Math.asin(clamp(Math.abs(st.x - st.pivotX) / st.r, 0, 0.99));
-            st.va = Math.max(st.vy / st.r, 0.5);
+            const dxOut = (st.x - st.pivotX) * st.dir;   // + outside, − inside
+            st.r = Math.hypot(dxOut, size/2);
+            st.pa0 = Math.atan2(dxOut, size/2);          // face-flat angle from vertical
+            st.pa = st.pa0;
+            // impact impulse at the corner tips it outward, more so with speed
+            // and overhang asymmetry
+            st.va = clamp(st.vy * Math.max(overhang, 8) / (size*size), 0.15, 2.4);
           }
         } else if (bottom >= floorY){
           st.y = floorY - size/2;
@@ -1583,17 +1599,27 @@ const Engine = {
             settle(false); return true;
           }
         }
-      } else if (st.mode === 'topple'){
-        st.va += 1.06 * (G / size) * Math.sin(st.pa) * dt;
+      } else if (st.mode === 'pivot'){
+        // rigid-body rotation about the support edge:
+        // α = m·g·r·sinφ / I_edge,  I_edge = m(a²/6 + r²),  φ from vertical
+        const I = size*size/6 + st.r*st.r;
+        st.va += (G * st.r * Math.sin(st.pa) / I) * dt;
         st.pa += st.va * dt;
+        if (st.pa <= st.pa0 && st.va < 0){
+          // face slaps back down flat — rocking decays like real wood
+          st.pa = st.pa0;
+          if (Math.abs(st.va) > 0.5){ st.va = -0.35 * st.va; Audio2.clack(0.18); }
+          else { settle(true); return true; }
+        }
         st.x = st.pivotX + st.dir * st.r * Math.sin(st.pa);
         st.y = br.top - st.r * Math.cos(st.pa);
-        st.ang = st.dir * st.pa * 180/Math.PI;
-        if (st.pa > 1.2){
+        st.ang = st.dir * (st.pa - st.pa0) * 180/Math.PI;
+        if (st.pa > 1.35){
+          // rolled past the corner — off it goes
           st.mode = 'fall';
-          st.vx = st.dir * st.va * st.r * 0.7;
-          st.vy = Math.max(st.va * st.r * 0.5, 0.2*PX_M);
-          st.va = st.dir * st.va * 180/Math.PI * 0.5;
+          st.vx = st.dir * st.va * st.r * Math.cos(st.pa);
+          st.vy = Math.max(st.va * st.r * Math.sin(st.pa), 0.15*PX_M);
+          st.va = st.dir * st.va * 180/Math.PI * 0.6;
           st.bounces = 0;
         }
       }
@@ -1633,7 +1659,13 @@ const Engine = {
     if (this.curRecord.firstAttemptCorrect === null) this.curRecord.firstAttemptCorrect = false;
     if (!this.usedFallback) this.applyFallback();
     else this.hintPulse();
-    this.timeoutTimer = setTimeout(() => this.onTimeout(), this.cur.timeoutMs);
+    // repeat the prompt at most 3 times, with exponential backoff between
+    // repeats — after that, only the speaker button repeats it
+    this.hintCount++;
+    if (this.hintCount < 3){
+      this.timeoutTimer = setTimeout(() => this.onTimeout(),
+        this.cur.timeoutMs * Math.pow(1.5, this.hintCount));
+    }
   },
 
   onFrustration(){
@@ -1691,12 +1723,12 @@ const Engine = {
         const spec = Engine.cur.pieces.find(p => p.el === piece.dataset.el);
         const slot = stage.querySelector(`[data-el="${spec.slot}"]`);
         const sr = stage.getBoundingClientRect(), slr = slot.getBoundingClientRect();
-        const orig = Engine.cur.elements.find(el => el.id === piece.dataset.el);
+        const backL = piece.style.left, backT = piece.style.top;  // wherever it rests now
         piece.classList.add('demo-move');
         piece.style.left = ((slr.left+slr.width/2 - sr.left)/sr.width*100)+'%';
         piece.style.top = ((slr.top+slr.height/2 - sr.top + (spec.slotDy||0)*sr.height/100)/sr.height*100)+'%';
         setTimeout(() => {
-          piece.style.left = orig.x+'%'; piece.style.top = orig.y+'%';
+          piece.style.left = backL; piece.style.top = backT;
           setTimeout(()=>piece.classList.remove('demo-move'), 1100);
         }, 1400);
         speakAgain();
@@ -2050,7 +2082,7 @@ function renderHome(){
     const ladder = node.levels.map((lv,i) => {
       const done = np.mastered.includes(lv.id);
       const cur = i === np.levelIdx && !done;
-      return `<i class="${done?'done':cur?'cur':''}"></i>`;
+      return `<i data-lv="${i}" title="Level ${lv.id} — ${lv.name}" class="${done?'done':cur?'cur':''}"></i>`;
     }).join('');
     const allDone = np.mastered.length >= node.levels.length;
     btn.innerHTML = `
@@ -2060,7 +2092,7 @@ function renderHome(){
       <span class="ladder">${ladder}</span>
       <span class="lock"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg></span>`;
     btn.addEventListener('pointerdown', () => Audio2.unlock());
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', e => {
       if (!unlocked){
         const first = node.prereqs[0];
         const pre = NODES.find(n=>n.key===first);
@@ -2069,7 +2101,17 @@ function renderHome(){
         return;
       }
       const np2 = nodeProgress(node.key);
-      Engine.startLevel(node, node.levels[clamp(np2.levelIdx, 0, node.levels.length-1)]);
+      let idx = clamp(np2.levelIdx, 0, node.levels.length-1);
+      // ladder dots choose a specific level: any level already reached or
+      // mastered (every level when "Unlock every game" is on)
+      const dot = e.target.closest('.ladder i');
+      if (dot){
+        const want = parseInt(dot.dataset.lv, 10);
+        const reachable = Store.settings().unlockAll || want <= np2.levelIdx ||
+          np2.mastered.includes(node.levels[want].id);
+        if (reachable) idx = want;
+      }
+      Engine.startLevel(node, node.levels[idx]);
     });
     grid.appendChild(btn);
   }

@@ -42,6 +42,14 @@ from the drag gesture, so flinging the block sideways behaves like flinging a
 real block. The sim advances by real elapsed time in collision-safe substeps,
 so outcomes are identical at 60fps or under browser timer throttling.
 
+Tests follow "repetitive with change": the same task three times, with the
+layout, sides, and colors varied and the challenge tightening slightly each
+round. Dragged objects are treated as real: a missed drop leaves the piece
+where it was set down (never snapping back), so goals can be reached
+incrementally. Spoken prompts repeat at most 3 times, with exponential backoff
+between repeats. Tap a ladder dot on a game card to play any level already
+reached (every level when "Unlock every game" is on).
+
 Each level has its own failure fallback (pulse target, reduce field to 1v1,
 expand snap radius, auto-demo the drag, magnetic snap, flash the completed
 shape, lock all but one piece, …). Three fallbacks in a row trigger a DDA
