@@ -1315,9 +1315,14 @@ const Engine = {
   },
 
   hintPulse(){
-    const t = this.stage().querySelector('[data-target]') ||
-              this.stage().querySelector('[data-piece]:not(.placed)');
-    if (t){ t.classList.add('pulse'); setTimeout(()=>t.classList.remove('pulse'), 2600); }
+    // pulse the sample together with the target so the hint reads as
+    // "THIS one ... is the same as THIS one", not just "tap here"
+    const els = [
+      this.stage().querySelector('.sample-card'),
+      this.stage().querySelector('[data-target]') ||
+        this.stage().querySelector('[data-piece]:not(.placed)'),
+    ].filter(Boolean);
+    els.forEach(t => { t.classList.add('pulse'); setTimeout(()=>t.classList.remove('pulse'), 2600); });
     this.speakPrompt();
   },
 
