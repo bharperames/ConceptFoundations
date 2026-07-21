@@ -1465,9 +1465,12 @@ const Engine = {
     const d = this.drag;
     const now = performance.now();
     const dt = (now - d.hist.t) / 1000;
-    if (dt > 0.004){
-      d.vx = (e.clientX - d.hist.x) / dt;
-      d.vy = (e.clientY - d.hist.y) / dt;
+    if (dt > 0){
+      // exponentially-smoothed gesture velocity: event bursts (coalesced
+      // pointer moves) barely register; sustained motion dominates
+      const a = clamp(dt / 0.05, 0, 1);
+      d.vx = d.vx * (1 - a) + ((e.clientX - d.hist.x) / dt) * a;
+      d.vy = d.vy * (1 - a) + ((e.clientY - d.hist.y) / dt) * a;
       d.hist = { x: e.clientX, y: e.clientY, t: now };
     }
     const sr = this.stage().getBoundingClientRect();
@@ -1570,9 +1573,13 @@ const Engine = {
     const floorY = this.stackFloorY();
     const vcap = 1.5 * PX_M;           // a toddler toss tops out around 1.5 m/s
 
+    // a hand that held still before letting go imparts no toss — only count
+    // gesture velocity if the pointer was moving right up to the release
+    const idleMs = d.hist ? performance.now() - d.hist.t : Infinity;
+    const toss = idleMs <= 100 ? 1 : 0;
     const st = {
       x: pr.left + pr.width/2, y: pr.top + pr.height/2,
-      vx: clamp(d.vx || 0, -vcap, vcap), vy: clamp(d.vy || 0, -vcap, vcap),
+      vx: clamp((d.vx || 0) * toss, -vcap, vcap), vy: clamp((d.vy || 0) * toss, -vcap, vcap),
       ang: 0, va: 0, pa: 0, pa0: 0, dir: 1, pivotX: 0, r: size * Math.SQRT1_2,
       mode: 'fall', bounces: 0,
     };

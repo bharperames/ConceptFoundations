@@ -78,6 +78,16 @@ coordinates, `hitElementId`, `isCorrectIntent`, `timeSincePromptMs`, plus
 
 Open the dashboard with the "Hold for grown-ups" button (2.2s press-and-hold).
 
+## Automated tests
+
+`make test-setup` once (installs Playwright + headless Chromium and WebKit),
+then `make test` runs the suite against both engines — WebKit being the
+iPad's actual browser engine. The tests drive the app with real pointer
+input plus the `window.CF` harness hooks: full teaching-loop runs, drag and
+drop-in acceptance, stacking physics outcomes (landing and roll-off),
+persistent missed drops, the long-press level picker, and the simulator +
+dashboard. No browser extension or visible browser involved.
+
 ## Test harness
 
 The dashboard's **Usage simulator** runs synthetic sessions through the *same*

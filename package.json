@@ -1,0 +1,11 @@
+{
+  "name": "concept-foundations",
+  "private": true,
+  "description": "Cognitive primitives teaching app — tests only; the app itself is dependency-free index.html",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
+}
