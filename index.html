@@ -319,6 +319,12 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 @keyframes cheerin{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
 .cheer .big{font-size:15vmin}
 .cheer .msg{font-size:clamp(28px,5vw,44px);font-weight:800}
+.celebrate{position:fixed;inset:0;z-index:90;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.cel-canvas{position:absolute;inset:0;width:100%;height:100%}
+.cel-center{position:relative;text-align:center;animation:celpop .6s cubic-bezier(.2,1.5,.4,1) both;animation-delay:.25s}
+.cel-badge svg{filter:drop-shadow(0 8px 22px rgba(0,0,0,.4))}
+.cel-msg{margin-top:4px;font-family:var(--round);font-weight:800;font-size:clamp(30px,6vw,56px);color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.55);letter-spacing:-.5px}
+@keyframes celpop{0%{transform:scale(0) rotate(-12deg);opacity:0}60%{transform:scale(1.12) rotate(4deg)}100%{transform:scale(1) rotate(0);opacity:1}}
 
 /* ═══════════════ Dashboard ═══════════════ */
 .dash{overflow-y:auto;background:var(--d-page);font-family:var(--sans);color:var(--d-ink);-webkit-user-select:text;user-select:text}
@@ -1395,6 +1401,93 @@ const FX = {
   },
 };
 
+/* Full-screen finale: a canvas fireworks particle sim behind a bouncing
+   trophy ("You won!" — node complete) or award rosette ("You did it!"). */
+const TROPHY = `<svg viewBox="0 0 120 122" width="150" height="152" aria-hidden="true">
+  <defs><linearGradient id="cgold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFE79A"/><stop offset=".5" stop-color="#F5B831"/><stop offset="1" stop-color="#D8922A"/></linearGradient></defs>
+  <path d="M28 22 Q6 22 10 44 Q13 60 34 58" fill="none" stroke="url(#cgold)" stroke-width="7"/>
+  <path d="M92 22 Q114 22 110 44 Q107 60 86 58" fill="none" stroke="url(#cgold)" stroke-width="7"/>
+  <path d="M26 16 L94 16 L90 52 Q86 76 60 78 Q34 76 30 52 Z" fill="url(#cgold)"/>
+  <ellipse cx="60" cy="16" rx="34" ry="7" fill="#FFEDB6"/>
+  <path d="M60 30 l4.7 9.5 10.5 1.5 -7.6 7.4 1.8 10.4 -9.4-4.9 -9.4 4.9 1.8-10.4 -7.6-7.4 10.5-1.5 Z" fill="#FFF6D2"/>
+  <rect x="54" y="78" width="12" height="13" fill="url(#cgold)"/>
+  <path d="M40 91 L80 91 L86 104 L34 104 Z" fill="url(#cgold)"/>
+  <rect x="30" y="104" width="60" height="11" rx="3" fill="url(#cgold)"/></svg>`;
+const RIBBON = `<svg viewBox="0 0 120 148" width="150" height="185" aria-hidden="true">
+  <path d="M46 90 L38 138 L52 126 L58 140 L64 94 Z" fill="#2E6FCE"/>
+  <path d="M74 90 L82 138 L68 126 L62 140 L56 94 Z" fill="#3D8BFF"/>
+  <g>${Array.from({length:16},(_,i)=>{const a=i/16*Math.PI*2;return `<circle cx="${(60+Math.cos(a)*33).toFixed(1)}" cy="${(50+Math.sin(a)*33).toFixed(1)}" r="12" fill="${i%2?'#2E6FCE':'#6BA6F5'}"/>`;}).join('')}</g>
+  <circle cx="60" cy="50" r="30" fill="#3D8BFF"/><circle cx="60" cy="50" r="24" fill="#EAF3FF"/>
+  <path d="M60 34 l4.7 9.5 10.5 1.5 -7.6 7.4 1.8 10.4 -9.4-4.9 -9.4 4.9 1.8-10.4 -7.6-7.4 10.5-1.5 Z" fill="#F5B831"/></svg>`;
+
+const Celebrate = {
+  raf: 0, active: false,
+  run(kind, msg){
+    FX.confetti();
+    const layer = document.createElement('div');
+    layer.className = 'celebrate';
+    layer.innerHTML = `<canvas class="cel-canvas"></canvas>
+      <div class="cel-center"><div class="cel-badge">${kind==='trophy'?TROPHY:RIBBON}</div>
+      <div class="cel-msg">${msg}</div></div>`;
+    document.body.appendChild(layer);
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce) this.fireworks(layer.querySelector('canvas'));
+    setTimeout(() => { this.active = false; cancelAnimationFrame(this.raf); layer.remove(); }, 3600);
+  },
+  fireworks(canvas){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = window.innerWidth, H = window.innerHeight;
+    canvas.width = W*dpr; canvas.height = H*dpr;
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    const COLORS = ['#FFC02E','#FF5D55','#3D8BFF','#33C06A','#9B6DF2','#FF8A3C','#FFFFFF'];
+    const G = 620, shells = [], parts = [];
+    const launch = () => shells.push({
+      x: W*(0.18 + Math.random()*0.64), y: H+10,
+      vx: (Math.random()-0.5)*60, vy: -(Math.sqrt(2*G*(H*(0.42+Math.random()*0.28)))),
+      color: COLORS[Math.floor(Math.random()*COLORS.length)] });
+    const boom = (x, y, color) => {
+      const n = 46 + (Math.random()*34|0);
+      for (let i=0;i<n;i++){
+        const a = Math.random()*Math.PI*2, sp = 60 + Math.random()*230;
+        parts.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+          life: 0.9 + Math.random()*0.8, max: 1.7,
+          color: Math.random()<0.22 ? '#FFFFFF' : color, r: 1.4 + Math.random()*1.8 });
+      }
+    };
+    this.active = true;
+    let last = performance.now(), sinceLaunch = 0, launched = 0;
+    const frame = (t) => {
+      if (!this.active) return;
+      const dt = Math.min((t-last)/1000, 0.05); last = t;
+      sinceLaunch += dt;
+      if (launched < 9 && sinceLaunch > 0.32){ sinceLaunch = 0; launch(); launched++; if(launched<3){launch();launched++;} }
+      // dark night-sky backdrop + motion trails
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(12,18,32,0.30)'; ctx.fillRect(0,0,W,H);
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i=shells.length-1;i>=0;i--){
+        const sh = shells[i]; sh.vy += G*dt; sh.x += sh.vx*dt; sh.y += sh.vy*dt;
+        ctx.globalAlpha = 1; ctx.fillStyle = sh.color;
+        ctx.beginPath(); ctx.arc(sh.x, sh.y, 2.2, 0, 7); ctx.fill();
+        if (sh.vy >= -30){ boom(sh.x, sh.y, sh.color); shells.splice(i,1); }
+      }
+      for (let i=parts.length-1;i>=0;i--){
+        const q = parts[i]; q.vy += G*0.4*dt; q.vx *= (1-1.1*dt); q.vy *= (1-1.1*dt);
+        q.x += q.vx*dt; q.y += q.vy*dt; q.life -= dt;
+        if (q.life <= 0){ parts.splice(i,1); continue; }
+        ctx.globalAlpha = Math.max(0, q.life/q.max);
+        ctx.fillStyle = q.color;
+        ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      this.raf = requestAnimationFrame(frame);
+    };
+    this.raf = requestAnimationFrame(frame);
+  },
+};
+
+
 /* ═══════════════════════ 8 · Trial Engine ═════════════════════════════════ */
 const Engine = {
   node:null, level:null, trials:[], trialIdx:0, cur:null, curRecord:null,
@@ -2237,10 +2330,10 @@ const Engine = {
     Telemetry.end(true, outcome);
 
     Audio2.fanfare();
-    FX.confetti();
-    FX.cheer(msg);
     Audio2.speak('Hooray!');
-    setTimeout(() => { showView('home'); renderHome(); }, 2500);
+    Celebrate.run(outcome === 'complete' ? 'trophy' : 'ribbon',
+                  outcome === 'complete' ? 'You won!' : 'You did it!');
+    setTimeout(() => { showView('home'); renderHome(); }, 3600);
   },
 
   abort(){
@@ -2960,7 +3053,7 @@ function init(){
   }
 
   // scripting hook for the test harness (drive trials, run simulations headlessly)
-  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES,
+  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate,
     computeStats, computeInsights, renderDash, renderHome, showView };
 }
 init();
