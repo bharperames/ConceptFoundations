@@ -122,6 +122,10 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 @keyframes wobble{0%,100%{transform:translate(-50%,-50%) rotate(0)}25%{transform:translate(-50%,-50%) rotate(-7deg)}75%{transform:translate(-50%,-50%) rotate(7deg)}}
 .el.glowring{filter:drop-shadow(0 0 6px var(--sun)) drop-shadow(0 0 16px var(--sun))}
 .el.muted{opacity:.25;transition:opacity .4s}
+.el.sample-card{
+  background:#fff;border-radius:22px;padding:1.6vmin;
+  box-shadow:0 5px 16px rgba(61,107,153,.18), inset 0 0 0 3px var(--line);
+}
 .el.grayout{filter:grayscale(1) opacity(.45);transition:filter .4s}
 .el.dragging{z-index:40;transition:none !important;filter:drop-shadow(0 10px 16px rgba(34,56,74,.25)) scale(1.04)}
 .el.returning{transition:left .5s cubic-bezier(.3,1.2,.4,1), top .5s cubic-bezier(.3,1.2,.4,1)}
@@ -526,6 +530,7 @@ const HOUSE = {
   door: () => wrap(`<rect ${H} x="43" y="60" width="14" height="26" rx="3" fill="#3D8BFF"/>`),
 };
 
+const CHEVRON = () => wrap(`<path d="M28 30 L50 62 L72 30" fill="none" stroke="#A9C6E0" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>`);
 const BOX = () => wrap(`<g>
   <rect x="6" y="16" width="88" height="74" rx="10" fill="#E5EFF8" stroke="#A9C6E0" stroke-width="5"/>
   <rect x="2" y="10" width="96" height="12" rx="6" fill="#C6DAEB"/></g>`);
@@ -588,11 +593,14 @@ const NODES = [
         for (let t=0;t<3;t++){
           const sides = shuffle(rng, [true,false]);
           const xs = rowXs(2);
-          tests.push(tapTrial({ state:'TEST', prompt:'Tap the same one', say:'Which one is the same? Tap it!',
+          tests.push(tapTrial({ state:'TEST', prompt:'Tap the one that’s the same', say:'See this one? Tap the one that is the same!',
             elements:[
-              elShape('sample', mk(ck,sk), 50, 20, 13, {scenery:true, ring:true}),
-              elShape('target', mk(ck,sk), xs[sides[0]?0:1], 62, 19, {target:true, tappable:true}),
-              elShape('d1', mk(ck2,sk2), xs[sides[0]?1:0], 62, 19, {tappable:true}),
+              // card padding is 1.6vmin/side — s of 22.2 renders the glyph at 19,
+              // exactly matching the options below (1.1 is EXACT visual match)
+              elShape('sample', mk(ck,sk), 50, 19, 22.2, {scenery:true, sampleCard:true}),
+              elShape('arrow', CHEVRON(), 50, 40, 8, {scenery:true, decor:true}),
+              elShape('target', mk(ck,sk), xs[sides[0]?0:1], 64, 19, {target:true, tappable:true}),
+              elShape('d1', mk(ck2,sk2), xs[sides[0]?1:0], 64, 19, {tappable:true}),
             ]}));
         }
         return {
@@ -1075,6 +1083,9 @@ const Engine = {
 
   speakPrompt(){
     this.promptEndAt = 0;
+    // a reference sample ("same as this") pulses while the prompt names it
+    const sc = this.stage().querySelector('.sample-card');
+    if (sc){ sc.classList.add('pulse'); setTimeout(() => sc.classList.remove('pulse'), 2600); }
     Audio2.speak(this.cur.say, () => {
       if (!this.promptEndAt) this.promptEndAt = Date.now();
       this.armTimers();
@@ -1110,6 +1121,7 @@ const Engine = {
       el.style.left = spec.x+'%'; el.style.top = spec.y+'%';
       el.style.setProperty('--s', spec.s);
       if (spec.ring) el.style.filter = 'drop-shadow(0 0 8px rgba(61,139,255,.55))';
+      if (spec.sampleCard) el.classList.add('sample-card');
       if (spec.decor) el.style.opacity = '.85';
       if (this.cur.kind === 'drag' && spec.piece) el.classList.add('painted-hit');
       stage.appendChild(el);
