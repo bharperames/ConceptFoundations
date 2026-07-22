@@ -129,6 +129,39 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .ccard.locked .lock{display:flex}
 
 .home-hint{text-align:center;color:var(--ink-soft);font-size:13px;font-weight:600;margin:22px 0 0;opacity:.75}
+.home-corner{
+  position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;z-index:5;
+  display:flex;align-items:center;gap:7px;border:none;border-radius:999px;padding:9px 15px;
+  background:var(--btn-bg);color:var(--ink-soft);font-family:var(--round);font-weight:700;font-size:13px;
+  box-shadow:0 3px 12px rgba(61,107,153,.14);cursor:pointer;
+}
+.home-corner:active{transform:scale(.96)}
+
+/* ═══════════════ Level map ═══════════════ */
+.map{overflow-y:auto}
+.map-header{max-width:920px;margin:0 auto;padding:24px 20px 4px}
+.map-header h1{font-size:26px;font-weight:800;letter-spacing:-.3px;margin:10px 0 4px;color:var(--ink)}
+.map-hint{color:var(--ink-soft);font-size:14px;font-weight:600;margin:0;max-width:60ch}
+#map-body{max-width:920px;margin:0 auto;padding:10px 20px 70px}
+.map-section{margin:24px 0}
+.map-sec-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.map-sec-head .cicon{width:42px;height:42px;flex:none}
+.ms-title{font-weight:800;font-size:17px;color:var(--ink);letter-spacing:-.2px}
+.ms-sub{font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:1px}
+.map-lvls{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.map-lvl{
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;
+  border:none;border-radius:14px;padding:12px 14px;cursor:pointer;
+  background:var(--card);box-shadow:inset 0 0 0 2px var(--line);color:var(--ink);transition:transform .12s ease;
+}
+.map-lvl:active{transform:scale(.96)}
+.map-lvl .ml-id{font-weight:800;font-size:15px}
+.map-lvl .ml-name{font-size:12px;color:var(--ink-soft);font-weight:600}
+.map-lvl.done{box-shadow:inset 0 0 0 2px var(--grass)}
+.map-lvl.done .ml-id::after{content:' ★';color:var(--sun)}
+.map-lvl.cur{box-shadow:inset 0 0 0 2px var(--sea)}
+.map-lvl.locked{opacity:.42;cursor:default}
+.map-lvl.mini{box-shadow:inset 0 0 0 2px rgba(126,200,240,.5)}
 .mini-head{text-align:center;color:var(--ink-soft);font-size:15px;font-weight:800;letter-spacing:.03em;margin:26px 0 2px;text-transform:uppercase}
 .mini-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;max-width:900px;margin:14px auto 0}
 .minicard{
@@ -481,6 +514,10 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
     <h1>Concept Foundations</h1>
     <p class="home-sub">Tap a game to start</p>
   </header>
+  <button id="btn-map" class="home-corner" aria-label="See all levels">
+    <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M3 4h8v7H3zM13 4h8v7h-8zM3 13h8v7H3zM13 13h8v7h-8z"/></svg>
+    <span>All levels</span>
+  </button>
   <div id="concept-grid" class="concept-grid"></div>
   <p class="home-hint">Grown-ups: press and hold a game to choose a level</p>
   <h2 class="mini-head">Mini games</h2>
@@ -536,6 +573,16 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
       <button id="btn-bub-again" class="btn-primary bub-again">Play again</button>
     </div>
   </div>
+</main>
+
+<!-- ══════════ LEVEL MAP (all sections & sub-levels) ══════════ -->
+<main id="view-map" class="view map hidden">
+  <header class="map-header">
+    <button id="btn-map-back" class="dash-back">&larr; Back to games</button>
+    <h1>All levels</h1>
+    <p class="map-hint">Every game and its levels — tap any level you've reached to jump straight in.</p>
+  </header>
+  <div id="map-body"></div>
 </main>
 
 <!-- ══════════ DASHBOARD ══════════ -->
@@ -2977,6 +3024,44 @@ function openPicker(node){
 }
 function closePicker(){ $('#level-picker').classList.add('hidden'); }
 
+/* Level map: every node (section) and all its micro-levels (subsection). */
+function renderMap(){
+  const body = $('#map-body');
+  const sections = NODES.map(node => {
+    const np = nodeProgress(node.key);
+    const chips = node.levels.map((lv, i) => {
+      const done = np.mastered.includes(lv.id);
+      const cur = i === np.levelIdx && !done;
+      const reachable = levelReachable(node, np, i);
+      const cls = done ? 'done' : cur ? 'cur' : reachable ? 'open' : 'locked';
+      return `<button class="map-lvl ${cls}" data-node="${node.key}" data-i="${i}" ${reachable?'':'aria-disabled="true"'}>
+        <span class="ml-id">${lv.id}</span><span class="ml-name">${lv.name}</span></button>`;
+    }).join('');
+    return `<section class="map-section">
+      <div class="map-sec-head">${NICON[node.key] || ''}
+        <div><div class="ms-title">${node.num} · ${node.title}</div>
+        <div class="ms-sub">${node.parentName} · ${np.mastered.length}/${node.levels.length} done</div></div></div>
+      <div class="map-lvls">${chips}</div></section>`;
+  }).join('');
+  const mini = `<section class="map-section">
+    <div class="map-sec-head"><div><div class="ms-title">Mini games</div></div></div>
+    <div class="map-lvls"><button class="map-lvl mini open" data-mini="bubbles">
+      <span class="ml-id">Bubble Pop</span><span class="ml-name">Pop them before they land!</span></button></div></section>`;
+  body.innerHTML = sections + mini;
+  body.querySelectorAll('.map-lvl').forEach(el => {
+    el.addEventListener('click', () => {
+      if (el.dataset.mini === 'bubbles'){ Audio2.unlock(); BubbleGame.start(); return; }
+      const node = NODES.find(n => n.key === el.dataset.node);
+      const i = parseInt(el.dataset.i, 10);
+      if (!levelReachable(node, nodeProgress(node.key), i)){
+        el.classList.add('wobble'); setTimeout(() => el.classList.remove('wobble'), 500); return;
+      }
+      Audio2.unlock();
+      Engine.startLevel(node, node.levels[i]);
+    });
+  });
+}
+
 function renderHome(){
   const grid = $('#concept-grid');
   grid.innerHTML = '';
@@ -3328,6 +3413,7 @@ function showView(name){
   $('#view-play').classList.toggle('hidden', name!=='play');
   $('#view-dash').classList.toggle('hidden', name!=='dash');
   $('#view-bubbles').classList.toggle('hidden', name!=='bubbles');
+  $('#view-map').classList.toggle('hidden', name!=='map');
 }
 
 function init(){
@@ -3355,6 +3441,8 @@ function init(){
   $('#lp-scrim').addEventListener('click', closePicker);
   $('#btn-home').addEventListener('click', () => { Engine.abort(); showView('home'); renderHome(); });
   $('#btn-dash-back').addEventListener('click', () => { showView('home'); renderHome(); });
+  $('#btn-map').addEventListener('click', () => { renderMap(); showView('map'); });
+  $('#btn-map-back').addEventListener('click', () => { showView('home'); renderHome(); });
 
   // mini games
   document.querySelectorAll('.minicard').forEach(card => {

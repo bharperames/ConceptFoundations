@@ -252,3 +252,14 @@ test('bubble pop: popping scores, a grounded bubble ends the round', async ({ pa
   await expect(page.locator('#bub-over')).toBeVisible();
   expect(await page.locator('#bub-final').textContent()).toBe('1');
 });
+
+test('level map lists every section and jumps into a reached level', async ({ page }) => {
+  await boot(page);   // unlockAll → everything reachable
+  await page.locator('#btn-map').click();
+  await expect(page.locator('#view-map')).toBeVisible();
+  await expect(page.locator('.map-section')).toHaveCount(7);   // 6 nodes + mini games
+  await expect(page.locator('.map-lvl')).toHaveCount(24);      // 23 levels + Bubble Pop
+  await page.locator('.map-lvl[data-node="peekaboo"][data-i="0"]').click();
+  await expect(page.locator('#view-play')).toBeVisible();
+  expect(await page.evaluate(() => CF.Engine.level.id)).toBe('6.1');
+});
