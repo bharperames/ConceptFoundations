@@ -318,11 +318,17 @@ test('causality 7.1: placing the bug on the spout triggers the wash-out effect',
   await boot(page);
   await startLevel(page, 'causality', 0);
   await waitForInteractive(page, 'drag');
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
   const spout = await page.locator('[data-el="spout"]').boundingBox();
   await dragTo(page, '[data-el="bug"]', spout.x + spout.width/2, spout.y + spout.height*0.78);
   await waitDragEnds(page, 1);
   const ends = await dragEnds(page);
   expect(ends[0].ok).toBe(true);   // dropping the bug on the spout is the cause
-  // the effect runs (locked during the climb→rain→washout), then the trial completes
   expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
+  // the effect locks input during the climb→rain→washout; the trial must then
+  // actually COMPLETE and advance (regression: the lock used to swallow it, so
+  // spout levels never progressed — starkest on the last level of the node)
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 9000 });
+  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
 });

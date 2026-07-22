@@ -11,24 +11,34 @@
   ],
   "requests": [
     {
-      "phrase": "up",
-      "norm": "up",
-      "used_in": ["causality/7.1 — the spider climbs UP the spout (the first of the Up!/Down!/Out! beats; the other two are curated already)"],
-      "priority": "high",
+      "phrase": "Up the water spout it goes!",
+      "norm": "up the water spout it goes",
+      "used_in": ["causality/7.x — the spider climbs the spout (beat 1 of 3)"],
+      "priority": "medium",
       "currently": "tts",
-      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; must sit with 'down' (asset_380f5856d810) and 'out' (asset_d703e812fbff), ideally same itsy-bitsy-spider recording" },
+      "constraints": { "max_duration_s": 2.0, "has_music": "either", "voice": "warm nursery-rhyme reading; the three spout beats should share one voice" },
       "candidate_asset_ids": [],
-      "note": "Now LIVE-but-TTS: the spider climb speaks 'Up!' — the only one of the three spout beats still on TTS ('Down!' and 'Out!' are gold). Bumped to high. If the itsy-bitsy source has an 'up', that would match 'down'/'out' perfectly (both from raw_audio/itsybitsy.mp3)."
+      "note": "Full-phrase replacement for the single-word 'Up!'. The three itsy-bitsy-spider beats went back to full voiced phrases (the single words were too choppy). Curate these three together so they sound like one rhyme."
     },
     {
-      "phrase": "in",
-      "norm": "in",
-      "used_in": ["spatial/4.1 — put the ball IN the box", "peekaboo — the animal is hiding IN"],
-      "priority": "low",
+      "phrase": "Down came the rain!",
+      "norm": "down came the rain",
+      "used_in": ["causality/7.x — rain falls on the spider (beat 2 of 3)"],
+      "priority": "medium",
       "currently": "tts",
-      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; sits with the promoted 'out'" },
+      "constraints": { "max_duration_s": 2.0, "has_music": "either", "voice": "same voice as the other two spout beats" },
       "candidate_asset_ids": [],
-      "note": "Completes in/out. Lower priority than up/down since 'in the box' reads fine as a full TTS phrase today."
+      "note": "Replaces the single-word 'Down!' (was gold asset_380f5856d810 — that single word is now retired from use; this full phrase supersedes it)."
+    },
+    {
+      "phrase": "And washed it out!",
+      "norm": "and washed it out",
+      "used_in": ["causality/7.x — the spider washes out (beat 3 of 3)"],
+      "priority": "medium",
+      "currently": "tts",
+      "constraints": { "max_duration_s": 2.0, "has_music": "either", "voice": "same voice as the other two spout beats" },
+      "candidate_asset_ids": [],
+      "note": "Replaces the single-word 'Out!' (was gold asset_d703e812fbff — retired from use in favour of this full phrase)."
     },
     {
       "phrase": "you did it",

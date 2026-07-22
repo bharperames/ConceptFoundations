@@ -50,14 +50,14 @@
         "text": "This is the uh-oh song.",
         "source_file": "raw_audio/dinoplay.mp3",
         "start": 116.669,
-        "end": 117.497,
-        "duration": 0.828,
+        "end": 117.454,
+        "duration": 0.785,
         "has_music": 0,
         "voice_id": null,
-        "updated_at": "2026-07-22T15:23:41Z"
+        "updated_at": "2026-07-22T18:39:15Z"
       },
-      "src_sha256": "ee1122dbceb95222c462e102dfc960e479a1dec9cddd12792858fdc7a4bffd09",
-      "dest_sha256": "96f5a85cea1cf8793cb3f4ff7c800ee7268c103aa55fccd52658590aacc25898",
+      "src_sha256": "053e53b03a77db98207e2a01a80cf8a736867e6a309cd3ccd288171433358ad9",
+      "dest_sha256": "1bc734ab6790514bb01ddafba161ad04f84ae1f6809963889d61ee68610a14a1",
       "normalized": "-14.0 LUFS + limiter"
     },
     {
@@ -153,44 +153,6 @@
       },
       "src_sha256": "71d5aa2e5c9ad34b2c975020f7e42fdce91fb10032b0d34fcf4aae11a607316f",
       "dest_sha256": "9f3093292063cfb2d26f37f184bf24965d222fde2503fb1c6a8957e635226d2c",
-      "normalized": "-14.0 LUFS + limiter"
-    },
-    {
-      "dest": "down.mp3",
-      "phrase": "down",
-      "asset_id": "asset_380f5856d810",
-      "asset": {
-        "name": "Down",
-        "text": "Down",
-        "source_file": "raw_audio/itsybitsy.mp3",
-        "start": 31.393,
-        "end": 31.941,
-        "duration": 0.548,
-        "has_music": 0,
-        "voice_id": null,
-        "updated_at": "2026-07-22T18:21:22Z"
-      },
-      "src_sha256": "c854b9e94b6c8e9d502c4e14269413add681cf0cb14352705632f13fe32fbcb2",
-      "dest_sha256": "0048b2022073b16a6349b17277ea2b1b82286186e9be7918d224b6e7150fceda",
-      "normalized": "-14.0 LUFS + limiter"
-    },
-    {
-      "dest": "out.mp3",
-      "phrase": "out",
-      "asset_id": "asset_d703e812fbff",
-      "asset": {
-        "name": "Out",
-        "text": "Out",
-        "source_file": "raw_audio/itsybitsy.mp3",
-        "start": 11.762,
-        "end": 12.251,
-        "duration": 0.489,
-        "has_music": 1,
-        "voice_id": null,
-        "updated_at": "2026-07-22T18:14:03Z"
-      },
-      "src_sha256": "e435be6ddc702270e122bbc2035e257359794c2b190acc709a3bdfc3c154bdf4",
-      "dest_sha256": "13b6947f8bf09cca0dd91e2b5f278262a51b93100f352bba756c934271b0fe91",
       "normalized": "-14.0 LUFS + limiter"
     }
   ]
