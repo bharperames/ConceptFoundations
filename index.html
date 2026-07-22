@@ -1940,29 +1940,39 @@ const PuzzleGame = {
         svg.style.left = (-c*100) + '%'; svg.style.top = (-r*100) + '%';
         prism.appendChild(face);
       }
-      const t = { prism, f: 0, faces: [...prism.children] };
+      const t = { prism, tile, deg: 0, f: 0, faces: [...prism.children] };
       tile.appendChild(prism);
-      tile.addEventListener('click', () => this.rotate(t));
+      tile.addEventListener('click', ev => this.rotate(t, ev));
       grid.appendChild(tile); this.tiles.push(t);
     }
     // shuffle initial faces until the puzzle is NOT already solved
     let tries = 0;
-    do { this.tiles.forEach(t => { t.f = Math.floor(Math.random()*3); this.apply(t, true); }); }
+    do { this.tiles.forEach(t => { const rf = Math.floor(Math.random()*3); t.deg = -120*rf; t.f = rf; this.apply(t, true); }); }
     while (this.solved() && ++tries < 20);
     this.tiles.forEach(t => this.hideBack(t));
   },
+  // continuous angle → always turns the short way; front face derived from it
+  faceOf(deg){ return (((-Math.round(deg/120)) % 3) + 3) % 3; },
   apply(t, instant){
     if (instant) t.prism.style.transition = 'none';
-    t.prism.style.transform = `rotateX(${-120*t.f}deg)`;
+    t.prism.style.transform = `rotateX(${t.deg}deg)`;
     if (instant){ void t.prism.offsetWidth; t.prism.style.transition = ''; }
   },
   // at rest only the front face shows (a clean tile); all three show mid-tumble
   showAll(t){ t.faces.forEach(f => f.style.visibility = 'visible'); },
   hideBack(t){ t.faces.forEach((f, i) => f.style.visibility = i === t.f ? 'visible' : 'hidden'); },
-  rotate(t){
+  rotate(t, ev){
     if (this.won) return;
+    // the prism spins on its horizontal centre axle: pushing the TOP half rolls
+    // the top back (one way), the BOTTOM half rolls the bottom back (the other)
+    let delta = -120;   // default (no event): roll forward one face
+    if (ev){
+      const r = t.tile.getBoundingClientRect();
+      delta = ev.clientY < r.top + r.height/2 ? 120 : -120;
+    }
     this.showAll(t);
-    t.f = (t.f + 1) % 3;
+    t.deg += delta;
+    t.f = this.faceOf(t.deg);
     this.apply(t);
     Audio2.snapSnd();
     setTimeout(() => { if (!this.won) this.hideBack(t); }, 560);
