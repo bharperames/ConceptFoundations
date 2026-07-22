@@ -6,57 +6,73 @@
       "dest": "great_job.mp3",
       "phrase": "great job",
       "uid": "clip_57f891574005",
-      "sha256": "1ab30881418b51016e0eb091f10bcd76c83084125b5724ab7e243229fd1b63d5",
-      "source_file": "clips/clip_57f891574005__great_job.mp3"
+      "source_file": "clips/clip_57f891574005__great_job.mp3",
+      "src_sha256": "1ab30881418b51016e0eb091f10bcd76c83084125b5724ab7e243229fd1b63d5",
+      "dest_sha256": "e7c727784d11191b7a7f1cf35a11fedd205a803d4d8da852146b98439cc7b4e6",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "yay.mp3",
       "phrase": "yay",
       "uid": "clip_0d4a4464a206",
-      "sha256": "b131ae228e3b9d41b5c37f6c01a4da6b255f8d6628880c919d3f972bf8080832",
-      "source_file": "clips/clip_0d4a4464a206__yay.mp3"
+      "source_file": "clips/clip_0d4a4464a206__yay.mp3",
+      "src_sha256": "b131ae228e3b9d41b5c37f6c01a4da6b255f8d6628880c919d3f972bf8080832",
+      "dest_sha256": "b9d247dd518611a0a98626f4ce19e6a1efd9fb923e6b4b209c8d9158470ec188",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "hooray.mp3",
       "phrase": "hooray",
       "uid": "clip_9940ecf63caf",
-      "sha256": "3d133ea9116ea0b125e4db4509492c3e2b5091af6e7f8dfa39890379406b9bf1",
-      "source_file": "clips/clip_9940ecf63caf__hooray.mp3"
+      "source_file": "clips/clip_9940ecf63caf__hooray.mp3",
+      "src_sha256": "3d133ea9116ea0b125e4db4509492c3e2b5091af6e7f8dfa39890379406b9bf1",
+      "dest_sha256": "c8026fd264d4fe31c8ee5c99baed9c9037556f24e53c9c891fa8ed8cd0d752e1",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "we_did_it.mp3",
       "phrase": "we did it",
       "uid": "clip_ed372817a473",
-      "sha256": "ba8d6418e22dd73c95409548bfd5b759747eddd575ecf1d2b5c9e52304c9d827",
-      "source_file": "clips/clip_ed372817a473__we_did_it.mp3"
+      "source_file": "clips/clip_ed372817a473__we_did_it.mp3",
+      "src_sha256": "ba8d6418e22dd73c95409548bfd5b759747eddd575ecf1d2b5c9e52304c9d827",
+      "dest_sha256": "2876f52a7f6a9e33d0132059cf4be6e90eb4f1044ca0290afd3eb96585b79b88",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "peekaboo.mp3",
       "phrase": "peekaboo",
       "uid": "clip_1fd439c9eacd",
-      "sha256": "19d97a9e906ca757d4423aae33a0665615085e209f3ed8f32bc86240802fbeba",
-      "source_file": "clips/clip_1fd439c9eacd__peek_a_boo.mp3"
+      "source_file": "clips/clip_1fd439c9eacd__peek_a_boo.mp3",
+      "src_sha256": "19d97a9e906ca757d4423aae33a0665615085e209f3ed8f32bc86240802fbeba",
+      "dest_sha256": "6ab37f30c65e7c395fe9e7a163f21a0f36fbef870e9905af1689011884b463ce",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "lets_play_hide_and_seek.mp3",
       "phrase": "lets play hide and seek",
       "uid": "clip_61b926deafa3",
-      "sha256": "52f7a671ee824fe86be7cc52a5086fb987021a5d88531a8103a3ab06e358adbe",
-      "source_file": "clips/clip_61b926deafa3__let_s_play_hide_and_seek.mp3"
+      "source_file": "clips/clip_61b926deafa3__let_s_play_hide_and_seek.mp3",
+      "src_sha256": "52f7a671ee824fe86be7cc52a5086fb987021a5d88531a8103a3ab06e358adbe",
+      "dest_sha256": "dce72b4e31400a3e17da7ba1e07f237b4e14d654ad956ebde0afa5db072423d3",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "uh_oh.mp3",
       "phrase": "uh oh",
       "uid": "clip_e298bfd34a3f",
-      "sha256": "971a766da12a3564176de76ef5ab11448dd61cb46d433d9288d13c591ef59823",
-      "source_file": "clips/clip_e298bfd34a3f__uh_oh.mp3"
+      "source_file": "clips/clip_e298bfd34a3f__uh_oh.mp3",
+      "src_sha256": "971a766da12a3564176de76ef5ab11448dd61cb46d433d9288d13c591ef59823",
+      "dest_sha256": "ea2212d98a7591ec6e7019d84b847733597bea12b76d882164bf4f3a3301bfb7",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "bubble_pop.mp3",
       "phrase": "bubble bubble bubble bubble bubble pop",
       "uid": "clip_f5f0ad4c1f94",
-      "sha256": "f4e5659709580c04642fec47888e8e5283fc8916f666d68f7cfe96fadac4b0f1",
-      "source_file": "clips/clip_f5f0ad4c1f94__bubble_bubble_bubble_bubble_bubble_pop.mp3"
+      "source_file": "clips/clip_f5f0ad4c1f94__bubble_bubble_bubble_bubble_bubble_pop.mp3",
+      "src_sha256": "f4e5659709580c04642fec47888e8e5283fc8916f666d68f7cfe96fadac4b0f1",
+      "dest_sha256": "dfb1302292e62e1195a9103fa37c637fee77b918f374b0077a00d3e06359a56a",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }

@@ -98,7 +98,10 @@ touches curriculum progress or telemetry.
 Spoken lines play recorded audio clips when the phrase is mapped
 (`CLIP_MAP` → `clips/*.mp3`, decoded via Web Audio); everything unmapped falls
 back to the device's speech synthesis. Add a clip by dropping the mp3 in
-`clips/` and adding one map entry. `?noclips=1` forces TTS everywhere; captions
+`clips/` and adding one map entry. `make sync-clips` re-copies mapped clips
+from the companion DB and **loudness-normalizes** them (gain to ~-14 LUFS + a
+peak limiter) so recorded clips are consistent with each other and sit at the
+same level as the TTS voice. `?noclips=1` forces TTS everywhere; captions
 (`?cc=1`) and mute (`?mute=1`) are unaffected.
 
 The Peekaboo game's picture cards in `assets/cards/*.webp` (36 named subjects)
