@@ -63,22 +63,30 @@ def main():
     if not os.path.exists(libp):
         print(f'! companion library not found: {libp}\n  set CLIP_SOURCE=/path/to/MR_AudioClips'); sys.exit(2)
     lib = json.load(open(libp))
-    uid2file = {}
+    uid2rec = {}   # stable uid -> full clip record from the producer index
     for ph in lib.get('phrases', []):
         for c in ph.get('clips', []):
-            uid2file[c['uid']] = os.path.join(src_root, c['file'])
+            uid2rec[c['uid']] = c
+
+    # the provenance we keep per clip (the "clip that clips it" metadata)
+    def clip_meta(c):
+        return {k: c.get(k) for k in
+                ('source_uid', 'source', 'start', 'end', 'duration', 'text', 'quality', 'has_music')}
 
     updated, missing, ok = [], [], []
     for e in m['clips']:
         dest = os.path.join(APP, 'clips', e['dest'])
-        src = uid2file.get(e['uid'])
+        rec = uid2rec.get(e['uid'])
+        src = os.path.join(src_root, rec['file']) if rec else None
         if not src or not os.path.exists(src):
             missing.append(e); continue
         src_hash = sha(src)
-        # fresh when the dest exists and the SOURCE hasn't changed since last sync
-        # (dest content differs from source because it's normalized, so we track
-        # the source hash, not a dest==source comparison)
-        fresh = os.path.exists(dest) and e.get('src_sha256') == src_hash
+        meta = clip_meta(rec)
+        # fresh when the dest exists, the SOURCE bytes are unchanged, AND the
+        # producer's clip metadata (trim boundaries, text, …) is unchanged.
+        # (dest differs from source because it's normalized, so we compare the
+        # source hash + metadata, never dest==source.)
+        fresh = os.path.exists(dest) and e.get('src_sha256') == src_hash and e.get('clip') == meta
         if fresh:
             ok.append(e); continue
         if check_only:
@@ -89,10 +97,10 @@ def main():
                 normalize(src, tmp); shutil.move(tmp, dest)
         else:
             shutil.copy2(src, dest)
-        e.pop('sha256', None)          # migrate old key
+        e.pop('sha256', None); e.pop('source_file', None)   # migrate old keys
+        e['clip'] = meta                                    # provenance / trim metadata
         e['src_sha256'] = src_hash
         e['dest_sha256'] = sha(dest)
-        e['source_file'] = os.path.relpath(src, src_root)
         e['normalized'] = f'{TARGET_LUFS} LUFS + limiter' if do_norm else 'raw'
         updated.append(e)
 
