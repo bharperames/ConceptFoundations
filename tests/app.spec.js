@@ -258,7 +258,7 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   await page.locator('#btn-map').click();
   await expect(page.locator('#view-map')).toBeVisible();
   await expect(page.locator('.map-section')).toHaveCount(8);        // 7 nodes + mini games
-  await expect(page.locator('#map-body .lp-card')).toHaveCount(27); // 26 levels + Bubble Pop
+  await expect(page.locator('#map-body .lp-card')).toHaveCount(28); // 26 levels + 2 mini games
   await expect(page.locator('#map-body .lp-preview').first()).toBeVisible();  // same preview cards as the picker
   await page.locator('#map-body .lp-card[data-node="peekaboo"][data-i="0"]').click();
   await expect(page.locator('#view-play')).toBeVisible();

@@ -3352,14 +3352,19 @@ function renderMap(){
   }).join('');
   const bubbleIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:64%">
     <svg viewBox="0 0 100 100"><circle cx="38" cy="42" r="22" fill="#5BB8EC" opacity=".7"/><circle cx="30" cy="34" r="6" fill="#fff" opacity=".95"/><circle cx="68" cy="60" r="15" fill="#9B7DE8" opacity=".7"/><circle cx="63" cy="54" r="4" fill="#fff" opacity=".95"/><circle cx="62" cy="28" r="10" fill="#4FCF98" opacity=".7"/><circle cx="59" cy="24" r="3" fill="#fff" opacity=".95"/></svg></span></div>`;
+  const puzzleIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:60%">
+    <svg viewBox="0 0 100 100"><rect x="14" y="14" width="34" height="34" rx="5" fill="#FFC02E"/><rect x="52" y="14" width="34" height="34" rx="5" fill="#FF5D55"/><rect x="14" y="52" width="34" height="34" rx="5" fill="#3D8BFF"/><rect x="52" y="52" width="34" height="34" rx="5" fill="#5FBF6A"/></svg></span></div>`;
   const mini = `<section class="map-section">
     <div class="map-sec-head"><div><div class="ms-title">Mini games</div></div></div>
-    <div class="lp-grid"><button class="lp-card" data-mini="bubbles">
-      ${bubbleIcon}<span class="lp-name">Bubble Pop</span><span class="lp-desc">Pop them before they land!</span></button></div></section>`;
+    <div class="lp-grid">
+      <button class="lp-card" data-mini="bubbles">${bubbleIcon}<span class="lp-name">Bubble Pop</span><span class="lp-desc">Pop them before they land!</span></button>
+      <button class="lp-card" data-mini="puzzle">${puzzleIcon}<span class="lp-name">Picture Puzzle</span><span class="lp-desc">Tap tiles to build a picture!</span></button>
+    </div></section>`;
   body.innerHTML = sections + mini;
   body.querySelectorAll('.lp-card').forEach(el => {
     el.addEventListener('click', () => {
       if (el.dataset.mini === 'bubbles'){ Audio2.unlock(); BubbleGame.start(); return; }
+      if (el.dataset.mini === 'puzzle'){ Audio2.unlock(); PuzzleGame.start(); return; }
       const node = NODES.find(n => n.key === el.dataset.node);
       const i = parseInt(el.dataset.i, 10);
       if (!levelReachable(node, nodeProgress(node.key), i)){
