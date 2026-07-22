@@ -220,6 +220,11 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .puz-slot .puz-slot-star{position:absolute;right:3px;bottom:0;font-size:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));z-index:2}
 .puz-slot.pop{animation:puzslotpop .62s cubic-bezier(.2,1.55,.4,1)}
 @keyframes puzslotpop{0%{transform:scale(.35);opacity:.2}55%{transform:scale(1.2)}100%{transform:scale(1)}}
+/* re-building an already-collected picture noticeably pulses its trophy */
+.puz-slot.pulse{animation:puzslotpulse .55s ease 2}
+@keyframes puzslotpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.26);box-shadow:inset 0 0 0 4px #FFB020, 0 8px 24px rgba(255,170,20,.95)}}
+/* after the finale, keep the shelf above the play-again scrim */
+.puz-gallery.above-win{position:relative;z-index:25}
 
 /* ═══════════════ Bubble Pop ═══════════════ */
 #view-bubbles{background:linear-gradient(180deg,#0C2036 0%,#123A5C 55%,#1C517A 100%);touch-action:none;overflow:hidden}
@@ -461,6 +466,11 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .cel-center{position:relative;text-align:center;animation:celpop .6s cubic-bezier(.2,1.5,.4,1) both;animation-delay:.25s}
 .cel-badge svg{filter:drop-shadow(0 8px 22px rgba(0,0,0,.4))}
 .cel-msg{margin-top:4px;font-family:var(--round);font-weight:800;font-size:clamp(30px,6vw,56px);color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.55);letter-spacing:-.5px}
+/* finished pictures carried into the celebration, above the fireworks */
+.cel-pics{display:flex;gap:14px;justify-content:center;margin-top:20px}
+.cel-pic{width:min(20vw,92px);height:min(20vw,92px);border-radius:15px;overflow:hidden;position:relative;box-shadow:inset 0 0 0 3px #FFC02E, 0 6px 20px rgba(0,0,0,.5);animation:celpop .6s cubic-bezier(.2,1.5,.4,1) both;animation-delay:.4s}
+.cel-pic svg{position:absolute;inset:0;width:100%;height:100%}
+.cel-pic .puz-slot-star{right:4px;bottom:1px;font-size:22px}
 @keyframes celpop{0%{transform:scale(0) rotate(-12deg);opacity:0}60%{transform:scale(1.12) rotate(4deg)}100%{transform:scale(1) rotate(0);opacity:1}}
 
 /* ═══════════════ Dashboard ═══════════════ */
@@ -1753,13 +1763,13 @@ const RIBBON = `<svg viewBox="0 0 120 148" width="150" height="185" aria-hidden=
 
 const Celebrate = {
   raf: 0, active: false,
-  run(kind, msg){
+  run(kind, msg, extraHTML=''){
     FX.confetti();
     const layer = document.createElement('div');
     layer.className = 'celebrate';
     layer.innerHTML = `<canvas class="cel-canvas"></canvas>
       <div class="cel-center"><div class="cel-badge">${kind==='trophy'?TROPHY:RIBBON}</div>
-      <div class="cel-msg">${msg}</div></div>`;
+      <div class="cel-msg">${msg}</div>${extraHTML}</div>`;
     document.body.appendChild(layer);
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!reduce) this.fireworks(layer.querySelector('canvas'));
@@ -2020,6 +2030,7 @@ const PuzzleGame = {
     $('#puzzle-grid').classList.remove('solved');
     this.won = false;
     this.done = new Set();          // scene indices the child has built
+    $('#puz-gallery').classList.remove('above-win');
     this.buildGallery();
     const grid = $('#puzzle-grid'); grid.innerHTML = ''; this.tiles = [];
     for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++){
@@ -2054,6 +2065,14 @@ const PuzzleGame = {
     slot.innerHTML = PUZZLE_SCENES[i] + '<span class="puz-slot-star">⭐</span>';
     slot.classList.add('filled', 'pop');
     slot.addEventListener('animationend', () => slot.classList.remove('pop'), { once: true });
+  },
+  // rebuilding a picture already on the shelf → pulse its existing trophy
+  pulseSlot(i){
+    const slot = $(`#puz-gallery .puz-slot[data-scene="${i}"]`);
+    if (!slot) return;
+    slot.classList.remove('pulse'); void slot.offsetWidth;   // restart the animation
+    slot.classList.add('pulse');
+    slot.addEventListener('animationend', () => slot.classList.remove('pulse'), { once: true });
   },
   // set up the next picture: steer most tiles toward an *uncollected* scene so
   // the child builds a new one each round; never start already-solved
@@ -2105,16 +2124,24 @@ const PuzzleGame = {
     const fresh = !this.done.has(scene);
     if (fresh) this.done.add(scene);
     $('#puzzle-grid').classList.add('solved');
-    setTimeout(() => { if (fresh) this.fillSlot(scene); }, 500);   // trophy pops onto the shelf
+    if (fresh) setTimeout(() => this.fillSlot(scene), 500);        // trophy pops onto the shelf
+    else       setTimeout(() => this.pulseSlot(scene), 350);       // its trophy pulses
 
     if (this.done.size >= 3){
-      // all three built → the big finale
+      // all three built → the big finale. Carry the finished pictures into the
+      // celebration foreground so they stay on screen over the fireworks.
       Audio2.fanfare();
-      setTimeout(() => Celebrate.run('trophy', 'You did it!'), 650);
+      const pics = '<div class="cel-pics">' + [...this.done].sort((a,b)=>a-b)
+        .map(i => `<div class="cel-pic">${PUZZLE_SCENES[i]}<span class="puz-slot-star">⭐</span></div>`)
+        .join('') + '</div>';
+      setTimeout(() => Celebrate.run('trophy', 'You did it!', pics), 700);
+      // the shelf itself also stays put; keep it above the play-again scrim,
+      // which appears once the fireworks have finished
+      $('#puz-gallery').classList.add('above-win');
       setTimeout(() => {
         $('#puzzle-grid').classList.remove('solved');
         $('#puz-win').classList.remove('hidden');
-      }, 2200);
+      }, 5500);
     } else {
       // a picture done, more to go → celebrate, then set up the next one
       Audio2.correct();

@@ -287,9 +287,31 @@ test('picture puzzle: build all three pictures to fill the shelf, then win', asy
     await expect(page.locator('.puz-slot.filled')).toHaveCount(scene + 1, { timeout: 3000 });
     if (scene < 2) await expect(page.locator('#puz-win')).toBeHidden();
   }
-  // all three built → the big finale overlay + a full shelf
-  await expect(page.locator('#puz-win')).toBeVisible({ timeout: 4000 });
+  // all three built → the finished pictures are carried into the fireworks
+  // celebration (stay on screen over the animation), then the play-again card
+  await expect(page.locator('.cel-pics .cel-pic')).toHaveCount(3, { timeout: 4000 });
+  await expect(page.locator('#puz-win')).toBeVisible({ timeout: 8000 });
   await expect(page.locator('.puz-slot.filled')).toHaveCount(3);
+});
+
+test('picture puzzle: rebuilding a completed picture pulses its trophy', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => CF.PuzzleGame.start());
+  // build scene 1 once → its shelf slot fills
+  await page.waitForFunction(() => CF.PuzzleGame.won === false);
+  await page.evaluate(() => CF.PuzzleGame.tiles.forEach(t => { t.f = 1; t.deg = -120; }));
+  await page.evaluate(() => CF.PuzzleGame.complete());
+  await expect(page.locator('#puz-gallery .puz-slot[data-scene="1"].filled')).toBeVisible({ timeout: 3000 });
+  // next round: build scene 1 AGAIN → the existing trophy pulses (not a new fill)
+  await page.waitForFunction(() => CF.PuzzleGame.won === false);
+  await page.evaluate(() => CF.PuzzleGame.tiles.forEach(t => { t.f = 1; t.deg = -120; }));
+  await page.evaluate(() => CF.PuzzleGame.complete());
+  await page.waitForFunction(() =>
+    document.querySelector('#puz-gallery .puz-slot[data-scene="1"]').classList.contains('pulse'),
+    { timeout: 3000 });
+  // still only one picture collected, no finale
+  expect(await page.evaluate(() => CF.PuzzleGame.done.size)).toBe(1);
+  await expect(page.locator('#puz-win')).toBeHidden();
 });
 
 test('causality 7.1: placing the bug on the spout triggers the wash-out effect', async ({ page }) => {
