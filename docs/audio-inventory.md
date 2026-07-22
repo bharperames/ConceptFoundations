@@ -11,9 +11,16 @@ recording).
 | 🗣️ | TTS — device speech synthesis (`speechSynthesis`) |
 | 🎛️ | Synthesized tone / SFX (Web Audio oscillator or noise burst) |
 
-The nine curated clips: `great_job`, `yay`, `hooray`, `we_did_it`, `peekaboo`,
-`lets_play_hide_and_seek`, `uh_oh`, `bubble_pop`, `out`. All nine are acquired from
-the producer's **gold** layer by durable `asset_id` (see `audio-clip-contract.md`).
+The ten curated clips: `great_job`, `yay`, `hooray`, `we_did_it`, `peekaboo`,
+`lets_play_hide_and_seek`, `uh_oh`, `bubble_pop`, `out`, `down`. All ten are
+acquired from the producer's **gold** layer by durable `asset_id` (see
+`audio-clip-contract.md`).
+
+**Causality (spider/spout) action beats.** The cause→effect moment speaks three
+concept words: **"Up!"** as the spider climbs (🗣️ TTS — `up` not yet in gold, high
+on the request ledger), **"Down!"** as the rain falls (🎙️ `down`), and **"Out!"**
+as it washes away (🎙️ `out`). `down` and `out` come from the same
+`raw_audio/itsybitsy.mp3` recording, so they sit together.
 
 ---
 

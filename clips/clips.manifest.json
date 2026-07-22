@@ -156,6 +156,25 @@
       "normalized": "-14.0 LUFS + limiter"
     },
     {
+      "dest": "down.mp3",
+      "phrase": "down",
+      "asset_id": "asset_380f5856d810",
+      "asset": {
+        "name": "Down",
+        "text": "Down",
+        "source_file": "raw_audio/itsybitsy.mp3",
+        "start": 31.393,
+        "end": 31.941,
+        "duration": 0.548,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-22T18:21:22Z"
+      },
+      "src_sha256": "c854b9e94b6c8e9d502c4e14269413add681cf0cb14352705632f13fe32fbcb2",
+      "dest_sha256": "0048b2022073b16a6349b17277ea2b1b82286186e9be7918d224b6e7150fceda",
+      "normalized": "-14.0 LUFS + limiter"
+    },
+    {
       "dest": "out.mp3",
       "phrase": "out",
       "asset_id": "asset_d703e812fbff",
@@ -168,7 +187,7 @@
         "duration": 0.489,
         "has_music": 1,
         "voice_id": null,
-        "updated_at": "2026-07-22T16:55:58Z"
+        "updated_at": "2026-07-22T18:14:03Z"
       },
       "src_sha256": "e435be6ddc702270e122bbc2035e257359794c2b190acc709a3bdfc3c154bdf4",
       "dest_sha256": "13b6947f8bf09cca0dd91e2b5f278262a51b93100f352bba756c934271b0fe91",

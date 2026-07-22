@@ -353,12 +353,22 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .el.glowring{filter:drop-shadow(0 0 6px var(--sun)) drop-shadow(0 0 16px var(--sun))}
 .el.muted{opacity:.25;transition:opacity .4s}
 .el.raining svg{filter:brightness(.86) saturate(.85)}
+/* drops fall a stage-relative distance (--rain-dist, set per drop from the
+   cloud's base down to the spout's base) — not a fixed viewport height */
 .raindrop{
-  position:absolute;top:26%;width:5px;height:13px;z-index:3;pointer-events:none;
-  border-radius:60% 60% 60% 60% / 82% 82% 40% 40%;background:#5FA8E8;opacity:0;
-  transform:translate(-50%,0);animation:raindrop-fall .8s linear infinite;
+  position:absolute;width:5px;height:14px;z-index:3;pointer-events:none;
+  border-radius:60% 60% 60% 60% / 82% 82% 40% 40%;
+  background:linear-gradient(#7CC0F5,#4E93DA);opacity:0;
+  transform:translate(-50%,0);animation:raindrop-fall .62s linear infinite;
 }
-@keyframes raindrop-fall{0%{transform:translate(-50%,0);opacity:0}12%{opacity:.9}100%{transform:translate(-50%,42vh);opacity:0}}
+@keyframes raindrop-fall{0%{transform:translate(-50%,0);opacity:0}12%{opacity:.95}82%{opacity:.9}100%{transform:translate(-50%,var(--rain-dist,120px));opacity:0}}
+/* placement hint: a gently pulsing, slowly spinning ring at the drop spot */
+.el.drop-target{pointer-events:none}
+.el.drop-target{animation:drop-pulse 1.4s ease-in-out infinite}
+.el.drop-target svg{animation:drop-spin 7s linear infinite}
+@keyframes drop-pulse{0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(1)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.09)}}
+@keyframes drop-spin{to{transform:rotate(360deg)}}
+.el.drop-target.fade{animation:none;opacity:0;transition:opacity .35s}
 .el.sample-card{
   background:var(--card);border-radius:22px;padding:1.6vmin;
   box-shadow:0 5px 16px rgba(61,107,153,.18), inset 0 0 0 3px var(--line);
@@ -815,6 +825,7 @@ const Audio2 = (() => {
     'uh oh': 'uh_oh.mp3',
     'bubble bubble bubble bubble bubble pop': 'bubble_pop.mp3',
     'out': 'out.mp3',
+    'down': 'down.mp3',
   };
   // strip apostrophes first (so "let's" → "lets", not "let s"), then the rest
   const normPhrase = t => t.toLowerCase().replace(/['’`]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
@@ -1010,12 +1021,18 @@ const HOUSE = {
 
 const CHEVRON = () => wrap(`<path d="M28 30 L50 62 L72 30" fill="none" stroke="#A9C6E0" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>`);
 /* Cause & effect — itsy-bitsy spider / water spout */
+// a metal downspout: banded pipe, dark open mouth, a hint of water inside
 const SPOUT = () => wrap(`<g>
-  <rect x="37" y="10" width="26" height="80" rx="9" fill="#8FA0AE"/>
-  <rect x="41" y="14" width="18" height="74" rx="6" fill="#B7C4CE"/>
-  <rect x="43" y="16" width="5" height="70" rx="2.5" fill="#D7E0E7"/>
-  <ellipse cx="50" cy="12" rx="13" ry="5" fill="#6E808E"/>
-  <ellipse cx="50" cy="12" rx="8.5" ry="3" fill="#4E5E6A"/></g>`);
+  <rect x="35" y="6" width="30" height="88" rx="11" fill="#8A9AA8"/>
+  <rect x="39" y="9" width="22" height="82" rx="8" fill="#B8C5D1"/>
+  <rect x="42" y="12" width="6" height="76" rx="3" fill="#E6EEF4"/>
+  <rect x="35" y="31" width="30" height="5" rx="2.5" fill="#798997" opacity=".55"/>
+  <rect x="35" y="60" width="30" height="5" rx="2.5" fill="#798997" opacity=".55"/>
+  <ellipse cx="50" cy="8" rx="15" ry="5.5" fill="#667886"/>
+  <ellipse cx="50" cy="8" rx="10" ry="3.4" fill="#3B4A56"/>
+  <ellipse cx="50" cy="9" rx="7" ry="2" fill="#5FA8E8" opacity=".55"/></g>`);
+// pulsing ring that shows where to drop the bug — the base of the spout
+const DROP_RING = () => wrap(`<g fill="none" stroke="#3D8BFF" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 9"><circle cx="50" cy="50" r="38"/></g>`);
 const SPIDER = () => wrap(`<g class="hit">
   <path d="M30 44 L12 34 M30 52 L9 52 M30 60 L13 70 M33 66 L25 84" stroke="#3E3020" stroke-width="4.5" fill="none" stroke-linecap="round"/>
   <path d="M70 44 L88 34 M70 52 L91 52 M70 60 L87 70 M67 66 L75 84" stroke="#3E3020" stroke-width="4.5" fill="none" stroke-linecap="round"/>
@@ -1553,13 +1570,16 @@ function spoutLevel(rng, {bug, isGen}){
     const sx = right ? 60 : 40;
     return dragTrial({ state: isGen ? 'GENERALIZE' : 'TEST',
       prompt:'Put the ' + name + ' on the spout',
-      say:'Put the ' + name + ' on the water spout!',
+      say:'Put the ' + name + ' at the bottom of the water spout!',
       elements:[
         elShape('cloud', CLOUD2(), sx, 20, 30, {scenery:true}),
         elShape('spout', SPOUT(), sx, 56, 34, {scenery:true}),
-        elShape('bug', BUG(), right ? 20 : 80, 82, 15, {piece:true}),
+        // the ring marks the drop spot — the base of the spout (matches the snap
+        // target: spout centre + slotDy). The bug climbs up from here.
+        elShape('drop', DROP_RING(), sx, 68, 24, {scenery:true, cls:'drop-target'}),
+        elShape('bug', BUG(), right ? 18 : 82, 84, 15, {piece:true}),
       ],
-      pieces:[{ el:'bug', slot:'spout', snap: 14, slotDy: 12, causeEffect: true }] });
+      pieces:[{ el:'bug', slot:'spout', snap: 16, slotDy: 12, causeEffect: true }] });
   };
   return {
     expose: watchTrial({ state:'EXPOSE', prompt:'Up it climbs', say:'The itsy bitsy ' + name + ' climbs up the water spout!',
@@ -2299,47 +2319,70 @@ const Engine = {
     Audio2.speak('Peekaboo!');
   },
 
-  // cause → effect: the bug climbs the spout, rain falls, it washes out
+  // cause → effect: the bug climbs the spout, rain comes DOWN, washes it OUT.
+  // three concept-word beats — "Up!" (climb), "Down!" (rain), "Out!" (wash).
   spoutCauseEffect(bug, spout, cb){
     const stage = this.stage();
     const sr = stage.getBoundingClientRect(), pr = spout.getBoundingClientRect();
     const cx = (pr.left + pr.width/2 - sr.left) / sr.width * 100;
-    const top = (pr.top - sr.top) / sr.height * 100 + 5;
-    const bot = (pr.bottom - sr.top) / sr.height * 100 + 8;
+    const top = (pr.top - sr.top) / sr.height * 100 + 6;
+    const bot = (pr.bottom - sr.top) / sr.height * 100 + 6;
     const washDir = cx > 50 ? -1 : 1;
+    // fade the placement ring away once the bug is on the spout
+    const ring = stage.querySelector('[data-el="drop"]');
+    if (ring) ring.classList.add('fade');
     bug.style.zIndex = '4'; bug.classList.remove('snapping');
     // 1) climb up
     bug.style.transition = 'top 1.1s cubic-bezier(.4,0,.5,1), left .5s ease';
     bug.style.left = cx + '%'; bug.style.top = top + '%';
-    Audio2.speak('Up the spout it goes!');
+    Audio2.speak('Up!');
     setTimeout(() => {
       if (!this.active) return;
-      // 2) rain
+      // 2) down came the rain (a real, spout-aligned shower)
       const cloud = stage.querySelector('[data-el="cloud"]');
       if (cloud) cloud.classList.add('raining');
-      this.rain(cx);
+      this.startRain(cx);
+      Audio2.speak('Down!');
       setTimeout(() => {
         if (!this.active) return;
-        // 3) wash out
+        // 3) washed the bug out — down the spout and away
         bug.style.transition = 'top .8s cubic-bezier(.5,0,.85,1), left .8s ease-in, opacity .8s ease-in';
         bug.style.top = bot + '%';
-        bug.style.left = (cx + washDir * 26) + '%';
+        bug.style.left = (cx + washDir * 24) + '%';
         bug.style.opacity = '0';
         Audio2.speak('Out!');
-        setTimeout(() => { if (this.active) cb(); }, 850);
-      }, 1150);
+        setTimeout(() => { this.stopRain(); if (this.active) cb(); }, 850);
+      }, 900);
     }, 1150);
   },
-  rain(cxPct){
+  // one shower burst: drops fall from the cloud's base to the spout's base,
+  // measured in stage pixels so the fall lands correctly at any size
+  rainBurst(cxPct){
     const stage = this.stage();
-    for (let i = 0; i < 11; i++){
+    const sr = stage.getBoundingClientRect();
+    const dist = ((72 - 30) / 100 * sr.height).toFixed(0) + 'px';   // cloud base → spout base
+    for (let i = 0; i < 16; i++){
       const d = document.createElement('span');
       d.className = 'raindrop';
-      d.style.left = (cxPct + (Math.random()*11 - 5.5)) + '%';
-      d.style.animationDelay = (Math.random()*0.5).toFixed(2) + 's';
+      d.style.left = (cxPct + (Math.random()*14 - 7)) + '%';
+      d.style.top = '30%';
+      d.style.setProperty('--rain-dist', dist);
+      d.style.animationDelay = (Math.random()*0.6).toFixed(2) + 's';
+      d.style.animationDuration = (0.55 + Math.random()*0.2).toFixed(2) + 's';
       stage.appendChild(d);
-      setTimeout(() => d.remove(), 1600);
+      setTimeout(() => d.remove(), 1700);
     }
+  },
+  startRain(cxPct){
+    this.stopRain();
+    this.rainBurst(cxPct);
+    this.rainTimer = setInterval(() => {
+      if (!this.active){ this.stopRain(); return; }
+      this.rainBurst(cxPct);
+    }, 820);
+  },
+  stopRain(){
+    if (this.rainTimer){ clearInterval(this.rainTimer); this.rainTimer = 0; }
   },
 
   speakPrompt(force){
@@ -2376,7 +2419,9 @@ const Engine = {
 
   renderTrial(){
     const stage = this.stage();
+    this.stopRain();
     stage.innerHTML = '';
+    let rainAt = null;
     for (const spec of this.cur.elements){
       let el;
       if (spec.zone){
@@ -2397,10 +2442,14 @@ const Engine = {
       if (spec.sampleCard) el.classList.add('sample-card');
       if (spec.groundBar) el.classList.add('ground-bar');
       if (spec.decor) el.style.opacity = '.85';
+      if (spec.cls) el.classList.add(spec.cls);
+      if (spec.raining){ el.classList.add('raining'); rainAt = spec.x; }
       if ((this.cur.kind === 'drag' || this.cur.kind === 'stack') && spec.piece) el.classList.add('painted-hit');
       stage.appendChild(el);
     }
     if (this.cur.stackScene) this.layoutStack();
+    // a cloud flagged raining actually rains (e.g. the contrast demo)
+    if (rainAt != null) this.startRain(rainAt);
   },
 
   /* px-precise vertical alignment for stacking scenes (positions are % of the

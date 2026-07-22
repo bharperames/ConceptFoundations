@@ -13,22 +13,12 @@
     {
       "phrase": "up",
       "norm": "up",
-      "used_in": ["causality/7.1 — spider climbs UP the spout", "spatial — up/down relation"],
-      "priority": "medium",
+      "used_in": ["causality/7.1 — the spider climbs UP the spout (the first of the Up!/Down!/Out! beats; the other two are curated already)"],
+      "priority": "high",
       "currently": "tts",
-      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; sits with the promoted 'out'" },
+      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; must sit with 'down' (asset_380f5856d810) and 'out' (asset_d703e812fbff), ideally same itsy-bitsy-spider recording" },
       "candidate_asset_ids": [],
-      "note": "Completes the in/out/up/down concept vocabulary. 'out' is already gold (asset_d703e812fbff) in your new Words group; up/down/in are the natural siblings the causality and spatial scenes want."
-    },
-    {
-      "phrase": "down",
-      "norm": "down",
-      "used_in": ["causality/7.1 — water washes the spider DOWN", "spatial — up/down relation"],
-      "priority": "medium",
-      "currently": "tts",
-      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; sits with the promoted 'out'" },
-      "candidate_asset_ids": [],
-      "note": "Pairs with 'up'. Same Words group."
+      "note": "Now LIVE-but-TTS: the spider climb speaks 'Up!' — the only one of the three spout beats still on TTS ('Down!' and 'Out!' are gold). Bumped to high. If the itsy-bitsy source has an 'up', that would match 'down'/'out' perfectly (both from raw_audio/itsybitsy.mp3)."
     },
     {
       "phrase": "in",
