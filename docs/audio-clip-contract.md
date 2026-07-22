@@ -177,3 +177,47 @@ Producer catalog row → consumer manifest entry:
 
 We join on `asset_id`; if the producer refines the trim or renames the file, the
 id is unchanged and the next acquire re-pulls automatically off `updated_at`.
+
+---
+
+## 8 · The back-channel — registering usage & requests (demand)
+
+The catalog is the producer→consumer direction (supply). This is the
+consumer→producer direction (demand). It's built on the **same discipline** the
+`assets.json` removal established: *never keep two copies of one fact that can
+drift.* So there is **no generated projection** — the producer reads our source
+files directly, exactly as we read `assets.db` directly. Three source files, each
+owned by one side, none duplicating another:
+
+| File | Owner | Direction | Says |
+|---|---|---|---|
+| `assets.db` (`meta`+`catalog`) | producer | supply | what exists |
+| `clips/clips.manifest.json` | consumer | demand · in-use | which `asset_id`s we depend on ("don't de-curate these") |
+| `audio-requests.json` | consumer | demand · wanted | phrases we need that gold lacks |
+
+**In-use is not re-published.** The manifest already lists every `asset_id` we
+ship; that *is* the dependency signal. The producer reads it before removing an
+asset (gold has no tombstones, so this is how they know who's holding a reference).
+
+**The requests ledger has no status field.** Presence == open. Fulfillment is
+*migration*, not a flag: when a phrase is promoted, its `asset_id` moves into the
+manifest and the request is **deleted** from the ledger. "Done" == "gone", so a
+request can never be marked-done-yet-still-listed — the exact drift the
+`assets.json` mirror could suffer, designed out by construction.
+
+**Reconcile, don't mirror.** `scripts/export_requests.py` (`make audio-requests`)
+is to demand what `sync_clips.py` is to supply: it *writes nothing*, reads the
+ledger + the manifest + live gold, and reports each request as `OPEN` (gold lacks
+it), `READY` (gold has a match now → wire it into the manifest, delete the
+request), or `STALE` (already in the manifest → delete the request). `--check`
+exits non-zero on any `READY`/`STALE`, so CI catches us drifting behind gold.
+
+**The TTS backlog is a report, not a contract file.** "Every line the app speaks,
+flagged curated-vs-TTS" is a *projection* of `index.html`, so it is generated on
+demand — never committed as a second source that could drift from the app.
+
+Lifecycle of one request (`out`, already completed): named in the ledger → producer
+promotes silver → mints `asset_id` → consumer wires it into the manifest and
+**removes it from the ledger** → `export_requests.py` would flag it `STALE` if left
+behind. The four July-22 promotions (`yay`, `we did it`, `peekaboo`, `out`) ran
+this loop; the ledger now holds only the still-open `up` / `down` / `in`.

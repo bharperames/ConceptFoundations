@@ -1,6 +1,6 @@
 PORT ?= 8743
 
-.PHONY: serve test test-setup sync-clips
+.PHONY: serve test test-setup sync-clips audio-requests
 
 # one-time: install the test runner and headless browsers (Chromium + WebKit)
 test-setup:
@@ -11,10 +11,15 @@ test-setup:
 test:
 	npx playwright test
 
-# re-copy mapped audio clips from the companion DB, replacing stale ones
-# (matched by stable UID + sha256). CLIP_SOURCE overrides the source path.
+# re-acquire mapped audio clips from the producer's gold catalog (assets.db),
+# matched by durable asset_id + sha256. CLIP_SOURCE overrides the source path.
 sync-clips:
 	python3 scripts/sync_clips.py
+
+# reconcile our demand ledger (audio-requests.json) against live gold —
+# reports OPEN / READY / STALE. --check (in CI) fails on READY/STALE.
+audio-requests:
+	python3 scripts/export_requests.py
 
 serve:
 	@lsof -ti tcp:$(PORT) | xargs kill 2>/dev/null || true

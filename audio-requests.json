@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "consumer": "ConceptFoundations",
+  "produces_for": "MR_AudioClips",
+  "about": "The consumer's demand ledger — phrases the app needs that the GOLD catalog (assets.db) does not have yet. This is the mirror of the producer's assets.db: they publish supply, we publish demand, each side owns exactly one source file. See docs/audio-clip-contract.md §8.",
+  "invariants": [
+    "This file lists ONLY open requests. There is no status field: presence here == open.",
+    "Fulfillment is migration, not a flag. When the producer promotes a phrase, its asset_id moves into clips/clips.manifest.json and the request is DELETED from here. 'Done' == 'gone', so a request can never be marked-done-yet-still-listed (the drift trap the assets.json removal designed out).",
+    "In-use dependencies are NOT duplicated here. clips/clips.manifest.json is the authoritative list of asset_ids we depend on; read that for 'don't de-curate these'.",
+    "Run scripts/export_requests.py to reconcile this ledger against current gold (OPEN / READY / STALE)."
+  ],
+  "requests": [
+    {
+      "phrase": "up",
+      "norm": "up",
+      "used_in": ["causality/7.1 — spider climbs UP the spout", "spatial — up/down relation"],
+      "priority": "medium",
+      "currently": "tts",
+      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; sits with the promoted 'out'" },
+      "candidate_asset_ids": [],
+      "note": "Completes the in/out/up/down concept vocabulary. 'out' is already gold (asset_d703e812fbff) in your new Words group; up/down/in are the natural siblings the causality and spatial scenes want."
+    },
+    {
+      "phrase": "down",
+      "norm": "down",
+      "used_in": ["causality/7.1 — water washes the spider DOWN", "spatial — up/down relation"],
+      "priority": "medium",
+      "currently": "tts",
+      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; sits with the promoted 'out'" },
+      "candidate_asset_ids": [],
+      "note": "Pairs with 'up'. Same Words group."
+    },
+    {
+      "phrase": "in",
+      "norm": "in",
+      "used_in": ["spatial/4.1 — put the ball IN the box", "peekaboo — the animal is hiding IN"],
+      "priority": "low",
+      "currently": "tts",
+      "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; sits with the promoted 'out'" },
+      "candidate_asset_ids": [],
+      "note": "Completes in/out. Lower priority than up/down since 'in the box' reads fine as a full TTS phrase today."
+    }
+  ]
+}
