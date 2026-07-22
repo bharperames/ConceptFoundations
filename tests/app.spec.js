@@ -264,3 +264,20 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   await expect(page.locator('#view-play')).toBeVisible();
   expect(await page.evaluate(() => CF.Engine.level.id)).toBe('6.1');
 });
+
+test('picture puzzle: tiles rotate through 3 faces and matching a scene wins', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => CF.PuzzleGame.start());
+  await expect(page.locator('#view-puzzle')).toBeVisible();
+  await expect(page.locator('.puz-tile')).toHaveCount(9);
+  await expect(page.locator('.puz-face')).toHaveCount(27);   // 9 tiles x 3 faces
+  // a tap advances that tile's face by one (mod 3)
+  const f0 = await page.evaluate(() => CF.PuzzleGame.tiles[0].f);
+  await page.evaluate(() => CF.PuzzleGame.rotate(CF.PuzzleGame.tiles[0]));
+  expect(await page.evaluate(() => CF.PuzzleGame.tiles[0].f)).toBe((f0 + 1) % 3);
+  // aligning every tile to one scene is a solved puzzle → win overlay
+  await page.evaluate(() => CF.PuzzleGame.tiles.forEach(t => t.f = 0));
+  expect(await page.evaluate(() => CF.PuzzleGame.solved())).toBe(true);
+  await page.evaluate(() => CF.PuzzleGame.win());
+  await expect(page.locator('#puz-win')).toBeVisible({ timeout: 3000 });
+});

@@ -182,6 +182,30 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .minicard .cname{display:block;font-size:19px;font-weight:800;margin-top:6px}
 .minicard .clevel{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px;font-weight:600}
 
+/* ═══════════════ Picture Puzzle (rotating prism tiles) ═══════════════ */
+#view-puzzle{display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+.puz-wrap{display:flex;flex-direction:column;align-items:center;gap:22px}
+#puzzle-grid{
+  --cell:min(27vw,132px);
+  display:grid;grid-template-columns:repeat(3,var(--cell));grid-template-rows:repeat(3,var(--cell));
+  gap:4px;
+}
+#puzzle-grid.solved{animation:puzglow .8s ease}
+@keyframes puzglow{0%,100%{filter:none}50%{filter:drop-shadow(0 0 16px rgba(255,192,46,.9)) brightness(1.08)}}
+.puz-tile{width:var(--cell);height:var(--cell);perspective:1000px;cursor:pointer}
+.puz-tile:active{transform:scale(.97)}
+.puz-prism{
+  position:relative;width:100%;height:100%;transform-style:preserve-3d;
+  transition:transform .55s cubic-bezier(.3,.95,.35,1);
+}
+.puz-face{
+  position:absolute;width:100%;height:100%;overflow:hidden;border-radius:9px;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.35), 0 2px 6px rgba(20,40,60,.25);
+}
+.puz-face > svg{position:absolute;width:300%;height:300%;pointer-events:none}
+.puz-hint{color:var(--ink-soft);font-family:var(--round);font-weight:700;font-size:16px;margin:0}
+.puz-win{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(30,50,74,.42)}
+
 /* ═══════════════ Bubble Pop ═══════════════ */
 #view-bubbles{background:linear-gradient(180deg,#0C2036 0%,#123A5C 55%,#1C517A 100%);touch-action:none;overflow:hidden}
 .bub-countdown{
@@ -542,6 +566,16 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
       <span class="cname">Bubble Pop</span>
       <span class="clevel">Pop them before they land!</span>
     </button>
+    <button class="minicard" data-mini="puzzle">
+      <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="14" y="14" width="34" height="34" rx="5" fill="#FFC02E"/>
+        <rect x="52" y="14" width="34" height="34" rx="5" fill="#FF5D55"/>
+        <rect x="14" y="52" width="34" height="34" rx="5" fill="#3D8BFF"/>
+        <rect x="52" y="52" width="34" height="34" rx="5" fill="#5FBF6A"/>
+      </svg>
+      <span class="cname">Picture Puzzle</span>
+      <span class="clevel">Tap tiles to build a picture!</span>
+    </button>
   </div>
   <button id="btn-grownups" class="grownups">
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg>
@@ -570,6 +604,23 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 </main>
 
 <!-- ══════════ BUBBLE POP (mini game) ══════════ -->
+<!-- ══════════ PICTURE PUZZLE (rotating-prism tiles) ══════════ -->
+<main id="view-puzzle" class="view hidden">
+  <button id="btn-puz-home" class="btn-round btn-exit" aria-label="Back to games">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.8 11h2.4v9h5.2v-6h3.2v6h5.2v-9h2.4z"/></svg>
+  </button>
+  <div class="puz-wrap">
+    <div id="puzzle-grid"></div>
+    <p class="puz-hint">Tap the tiles to make one picture</p>
+  </div>
+  <div id="puz-win" class="puz-win hidden">
+    <div class="bub-over-card">
+      <div class="bub-over-title">You made it! 🎉</div>
+      <button id="btn-puz-again" class="btn-primary bub-again">Play again</button>
+    </div>
+  </div>
+</main>
+
 <main id="view-bubbles" class="view hidden">
   <canvas id="bub-canvas"></canvas>
   <button id="btn-bub-home" class="btn-round btn-exit" aria-label="Back to games">
@@ -1840,6 +1891,90 @@ const BubbleGame = {
     $('#bub-final').textContent = this.score;
     $('#bub-over').classList.remove('hidden');
     Audio2.speak(this.score > 0 ? 'Great job!' : 'Uh oh');
+  },
+};
+
+/* ═══════════════ Picture Puzzle — rotating triangular-prism tiles ═══════════
+   Nine tiles in a 3x3 frame; each tile is a triangular prism whose three square
+   faces show the same cell from three different complete scenes. Tapping a tile
+   tumbles it 120° to the next face. Match all nine to one scene to build the
+   picture. */
+const PUZZLE_SCENES = [
+  // sunny hills
+  `<svg viewBox="0 0 300 300"><rect width="300" height="300" fill="#9BD6F7"/>
+    <circle cx="66" cy="66" r="40" fill="#FFC02E"/>
+    <path d="M0 205 Q80 158 155 198 T300 188 V300 H0Z" fill="#63C471"/>
+    <path d="M0 250 Q100 210 205 246 T300 240 V300 H0Z" fill="#3FA457"/></svg>`,
+  // smiley face
+  `<svg viewBox="0 0 300 300"><rect width="300" height="300" fill="#C4A2F0"/>
+    <circle cx="150" cy="150" r="112" fill="#FFD84D"/>
+    <circle cx="114" cy="128" r="17" fill="#3A2E2E"/><circle cx="186" cy="128" r="17" fill="#3A2E2E"/>
+    <path d="M98 182 Q150 232 202 182" fill="none" stroke="#3A2E2E" stroke-width="13" stroke-linecap="round"/></svg>`,
+  // little house
+  `<svg viewBox="0 0 300 300"><rect width="300" height="300" fill="#BEE7FF"/>
+    <circle cx="244" cy="58" r="26" fill="#FFC02E"/>
+    <rect x="62" y="150" width="176" height="120" fill="#FFC02E"/>
+    <path d="M44 156 L150 68 L256 156Z" fill="#FF5D55"/>
+    <rect x="130" y="202" width="40" height="68" fill="#3D8BFF"/>
+    <rect x="86" y="176" width="34" height="34" rx="3" fill="#9BD6F7"/><rect x="180" y="176" width="34" height="34" rx="3" fill="#9BD6F7"/></svg>`,
+];
+const PuzzleGame = {
+  tiles: [], won: false,
+  start(){
+    Audio2.unlock();
+    showView('puzzle');
+    $('#puz-win').classList.add('hidden');
+    $('#puzzle-grid').classList.remove('solved');
+    this.won = false;
+    const grid = $('#puzzle-grid'); grid.innerHTML = ''; this.tiles = [];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++){
+      const tile = document.createElement('div'); tile.className = 'puz-tile';
+      const prism = document.createElement('div'); prism.className = 'puz-prism';
+      for (let i = 0; i < 3; i++){
+        const face = document.createElement('div'); face.className = 'puz-face';
+        // three square faces of an equilateral prism: normals 120° apart, each
+        // an inradius (side / 2√3) out from the rotation axis
+        face.style.transform = `rotateX(${i*120}deg) translateZ(calc(var(--cell) / 3.4641))`;
+        face.innerHTML = PUZZLE_SCENES[i];
+        const svg = face.querySelector('svg');
+        svg.style.left = (-c*100) + '%'; svg.style.top = (-r*100) + '%';
+        prism.appendChild(face);
+      }
+      const t = { prism, f: 0, faces: [...prism.children] };
+      tile.appendChild(prism);
+      tile.addEventListener('click', () => this.rotate(t));
+      grid.appendChild(tile); this.tiles.push(t);
+    }
+    // shuffle initial faces until the puzzle is NOT already solved
+    let tries = 0;
+    do { this.tiles.forEach(t => { t.f = Math.floor(Math.random()*3); this.apply(t, true); }); }
+    while (this.solved() && ++tries < 20);
+    this.tiles.forEach(t => this.hideBack(t));
+  },
+  apply(t, instant){
+    if (instant) t.prism.style.transition = 'none';
+    t.prism.style.transform = `rotateX(${-120*t.f}deg)`;
+    if (instant){ void t.prism.offsetWidth; t.prism.style.transition = ''; }
+  },
+  // at rest only the front face shows (a clean tile); all three show mid-tumble
+  showAll(t){ t.faces.forEach(f => f.style.visibility = 'visible'); },
+  hideBack(t){ t.faces.forEach((f, i) => f.style.visibility = i === t.f ? 'visible' : 'hidden'); },
+  rotate(t){
+    if (this.won) return;
+    this.showAll(t);
+    t.f = (t.f + 1) % 3;
+    this.apply(t);
+    Audio2.snapSnd();
+    setTimeout(() => { if (!this.won) this.hideBack(t); }, 560);
+    if (this.solved()) setTimeout(() => this.win(), 400);   // let the tumble finish
+  },
+  solved(){ return this.tiles.every(t => t.f === this.tiles[0].f); },
+  win(){
+    if (this.won) return;
+    this.won = true;
+    $('#puzzle-grid').classList.add('solved');
+    Audio2.fanfare(); Audio2.speak('You did it!');
+    setTimeout(() => $('#puz-win').classList.remove('hidden'), 1100);
   },
 };
 
@@ -3452,6 +3587,7 @@ function showView(name){
   $('#view-play').classList.toggle('hidden', name!=='play');
   $('#view-dash').classList.toggle('hidden', name!=='dash');
   $('#view-bubbles').classList.toggle('hidden', name!=='bubbles');
+  $('#view-puzzle').classList.toggle('hidden', name!=='puzzle');
   $('#view-map').classList.toggle('hidden', name!=='map');
 }
 
@@ -3512,7 +3648,10 @@ function init(){
   // mini games
   document.querySelectorAll('.minicard').forEach(card => {
     card.addEventListener('pointerdown', () => Audio2.unlock());
-    card.addEventListener('click', () => { if (card.dataset.mini === 'bubbles') BubbleGame.start(); });
+    card.addEventListener('click', () => {
+      if (card.dataset.mini === 'bubbles') BubbleGame.start();
+      else if (card.dataset.mini === 'puzzle') PuzzleGame.start();
+    });
   });
   const bubStage = $('#bub-canvas');
   bubStage.addEventListener('pointerdown', e => {
@@ -3523,6 +3662,8 @@ function init(){
   $('#btn-bub-home').addEventListener('click', () => { BubbleGame.stop(); showView('home'); renderHome(); });
   $('#btn-bub-again').addEventListener('click', () => BubbleGame.start());
   window.addEventListener('resize', () => { if (BubbleGame.running) BubbleGame.size(); });
+  $('#btn-puz-home').addEventListener('click', () => { showView('home'); renderHome(); });
+  $('#btn-puz-again').addEventListener('click', () => PuzzleGame.start());
 
   // parent gate: press and hold 2.2s
   const gw = $('#btn-grownups');
@@ -3552,7 +3693,7 @@ function init(){
   }
 
   // scripting hook for the test harness (drive trials, run simulations headlessly)
-  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame,
+  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame,
     computeStats, computeInsights, renderDash, renderHome, showView };
 }
 init();

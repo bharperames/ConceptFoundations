@@ -90,8 +90,12 @@ screen holds standalone arcade interludes. **Bubble Pop** is a canvas game:
 realistically-rendered soap bubbles (iridescent rims, specular glints, soft
 refraction) drift down and speed up over time; tap to pop them (droplet burst
 + pop sound). If one reaches the ground the round ends. Score = bubbles popped.
-It runs its own game loop, independent of the E→C→T engine, so it never
-touches curriculum progress or telemetry.
+**Picture Puzzle** is a 3x3 frame of rotating tiles — each tile is a
+triangular prism (three square faces via CSS 3D) showing the same cell from
+three complete scenes; tap to tumble a tile 120° to the next scene, and match
+all nine to one scene to build the picture. Both mini-games run their own loop,
+independent of the E→C→T engine, so they never touch curriculum progress or
+telemetry.
 
 ## Audio & assets
 
