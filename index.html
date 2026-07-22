@@ -378,18 +378,22 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .fb-add{background:#4C86D8}
 .fb-reset{background:#8AA0B4;font-size:26px}
 .fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:9px}
-.fb-block{position:absolute;pointer-events:none;z-index:6;touch-action:none}
-#view-stacker{overflow:hidden;touch-action:none;background:linear-gradient(180deg,#EAF3FB 0%,#D7E7F4 60%,#C9DDEE 100%)}
+.fb-block{position:absolute;pointer-events:none;z-index:6;touch-action:none;filter:drop-shadow(0 3px 3px rgba(30,20,8,.28))}
+.fb-block svg{display:block;width:100%;height:100%}
+#view-stacker{overflow:hidden;touch-action:none;background:linear-gradient(180deg,#BFE3F5 0%,#DCF0FA 45%,#EAF7FC 100%)}
 .stacker-area{position:absolute;inset:0;overflow:hidden}
-.stk-ground{position:absolute;left:0;right:0;bottom:0;height:18%;background:linear-gradient(180deg,#BDCEDE 0%,#A6BCD0 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.4)}
+.stk-ground{position:absolute;left:0;right:0;bottom:0;height:20%;background:linear-gradient(180deg,#72AB3E 0%,#5F9434 52%,#4E7C29 100%)}
+.stk-ground::before{content:"";position:absolute;left:0;right:0;top:-13px;height:15px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='15'%3E%3Cpath d='M0 15 L4 3 L8 15Z' fill='%2377B03C'/%3E%3Cpath d='M8 15 L13 1 L18 15Z' fill='%236AA034'/%3E%3Cpath d='M18 15 L22 4 L26 15Z' fill='%2377B03C'/%3E%3Cpath d='M25 15 L28 7 L30 15Z' fill='%236AA034'/%3E%3C/svg%3E") repeat-x bottom;
+  background-size:30px 15px}
 @media (prefers-color-scheme:dark){
-  #view-stacker{background:linear-gradient(180deg,#182A40 0%,#0E1826 100%)}
-  .stk-ground{background:linear-gradient(180deg,#2B3C4F 0%,#1E2C3B 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.06)}
+  #view-stacker{background:linear-gradient(180deg,#16324A 0%,#1E4058 55%,#264C64 100%)}
+  .stk-ground{background:linear-gradient(180deg,#4E7A32 0%,#3E6228 55%,#2F4C1F 100%)}
 }
-:root[data-theme="light"] #view-stacker{background:linear-gradient(180deg,#EAF3FB 0%,#D7E7F4 60%,#C9DDEE 100%)}
-:root[data-theme="light"] .stk-ground{background:linear-gradient(180deg,#BDCEDE 0%,#A6BCD0 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.4)}
-:root[data-theme="dark"] #view-stacker{background:linear-gradient(180deg,#182A40 0%,#0E1826 100%)}
-:root[data-theme="dark"] .stk-ground{background:linear-gradient(180deg,#2B3C4F 0%,#1E2C3B 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.06)}
+:root[data-theme="light"] #view-stacker{background:linear-gradient(180deg,#BFE3F5 0%,#DCF0FA 45%,#EAF7FC 100%)}
+:root[data-theme="light"] .stk-ground{background:linear-gradient(180deg,#72AB3E 0%,#5F9434 52%,#4E7C29 100%)}
+:root[data-theme="dark"] #view-stacker{background:linear-gradient(180deg,#16324A 0%,#1E4058 55%,#264C64 100%)}
+:root[data-theme="dark"] .stk-ground{background:linear-gradient(180deg,#4E7A32 0%,#3E6228 55%,#2F4C1F 100%)}
 .el.sample-card{
   background:var(--card);border-radius:22px;padding:1.6vmin;
   box-shadow:0 5px 16px rgba(61,107,153,.18), inset 0 0 0 3px var(--line);
@@ -767,6 +771,9 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 <button id="play-vol" class="play-vol hidden" aria-label="Mute"></button>
 <div id="fx-layer" aria-hidden="true"></div>
 
+<!-- Matter.js: real rigid-body physics for the Block Stacker mini-game (loaded
+     lazily; the game falls back to simple physics if this fails to load). -->
+<script defer src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 <script type="module">
 /* ════════════════════════════════ 1 · Utilities ═══════════════════════════ */
 const $ = s => document.querySelector(s);
@@ -2236,38 +2243,108 @@ const PuzzleGame = {
 };
 
 
-/* ═══════════════ Block Stacker — free-build sandbox mini-game ═══════════════
-   Drop wooden blocks (shapes built from 2-inch cube "slices"), grab and restack
-   them. Simple, bounce-free AABB physics: a block falls and rests on the highest
-   thing its footprint overlaps; lifting a block lets whatever it held fall. */
+/* ═══════════════ Block Stacker — realistic wooden-block sandbox ═══════════════
+   A grassy field where random shaded wooden shapes (cube, brick, plank, tall,
+   triangle, cylinder, ball) drop, stack, topple, roll, and can be grabbed and
+   restacked. Physics: Matter.js when it's loaded (real rigid-body dynamics —
+   rotation, friction, toppling, rolling); a simple bounce-free AABB fallback
+   otherwise. Blocks are crisp shaded SVG, synced to the simulation each frame. */
 const StackerGame = {
+  TONES: ['#D8A05B','#C88A45','#E0B274','#BE8038','#CF9550','#D6A868','#B87636'],
   SHAPES: [
-    { key:'cube',   tone:'#DFA75F', cells:[[0,0]],                   w:1, h:1 },
-    { key:'bar',    tone:'#E8B36B', cells:[[0,0],[1,0]],             w:2, h:1 },
-    { key:'square', tone:'#C08847', cells:[[0,0],[1,0],[0,1],[1,1]], w:2, h:2 },
-    { key:'ell',    tone:'#D69A54', cells:[[0,0],[0,1],[1,1]],       w:2, h:2 },
-    { key:'bar3',   tone:'#E8B36B', cells:[[0,0],[1,0],[2,0]],       w:3, h:1 },
+    { key:'cube',  w:1,    h:1    },
+    { key:'brick', w:2,    h:1    },
+    { key:'plank', w:2.7,  h:0.62 },
+    { key:'tall',  w:0.72, h:1.95 },
+    { key:'tri',   w:1.45, h:1.2  },
+    { key:'cyl',   w:0.92, h:1.5  },
+    { key:'ball',  w:1,    h:1    },
   ],
   MAX: 16,
-  blocks: [], raf: 0, drag: null, shapeIdx: 0, U: 0, floorY: 0, W: 0, H: 0, active: false, bound: false,
+  blocks: [], raf: 0, drag: null, U: 0, W: 0, H: 0, floorY: 0, active: false, bound: false,
+  eng: null, useMatter: false, lastClack: 0,
   area(){ return $('#stacker-area'); },
-  blockSVG(shape){
-    const cells = shape.cells.map(([cx,cy]) =>
-      `<g transform="translate(${cx*10},${cy*10})">
-        <rect x=".5" y=".5" width="9" height="9" rx="1.4" fill="${shape.tone}"/>
-        <rect x=".5" y=".5" width="9" height="2.6" rx="1.4" fill="#fff" opacity=".18"/>
-        <rect x=".5" y=".5" width="9" height="9" rx="1.4" fill="none" stroke="#8A5A2B" stroke-width=".5" opacity=".35"/>
-      </g>`).join('');
-    return `<svg viewBox="0 0 ${shape.w*10} ${shape.h*10}" width="100%" height="100%" style="overflow:visible">${cells}</svg>`;
+
+  ensureDefs(){
+    if ($('#stk-defs')) return;
+    const el = document.createElement('div');
+    el.id = 'stk-defs'; el.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+    el.innerHTML = `<svg width="0" height="0"><defs>
+      <linearGradient id="stkTop" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".52" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <linearGradient id="stkBot" x1="0" y1="0" x2="0" y2="1">
+        <stop offset=".5" stop-color="#3a2510" stop-opacity="0"/><stop offset="1" stop-color="#3a2510" stop-opacity=".34"/></linearGradient>
+      <linearGradient id="stkCyl" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#000" stop-opacity=".24"/><stop offset=".3" stop-color="#fff" stop-opacity=".3"/>
+        <stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".26"/></linearGradient>
+      <radialGradient id="stkBall" cx=".36" cy=".3" r=".8">
+        <stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+        <stop offset="1" stop-color="#3a2510" stop-opacity=".3"/></radialGradient>
+    </defs></svg>`;
+    this.area().appendChild(el);
+  },
+  grain(vw, vh){
+    const n = x => (+x).toFixed(1);
+    return `<g fill="none" stroke="#7c4f22" stroke-linecap="round" opacity=".24">
+      <path d="M${n(vw*.18)} ${n(vh*.4)} Q${n(vw*.5)} ${n(vh*.33)} ${n(vw*.83)} ${n(vh*.42)}" stroke-width="${n(vh*.03)}"/>
+      <path d="M${n(vw*.26)} ${n(vh*.64)} Q${n(vw*.52)} ${n(vh*.58)} ${n(vw*.72)} ${n(vh*.64)}" stroke-width="${n(vh*.024)}"/></g>`;
+  },
+  blockSVG(shape, tone){
+    const s = 52, n = x => (+x).toFixed(1), vw = +n(shape.w*s), vh = +n(shape.h*s);
+    let body;
+    if (shape.key === 'tri'){
+      const p = `M6 ${n(vh-6)} L${n(vw/2)} 6 L${n(vw-6)} ${n(vh-6)} Z`;
+      body = `<path d="${p}" fill="${tone}" stroke="${tone}" stroke-width="7" stroke-linejoin="round"/>`
+        + `<path d="${p}" fill="url(#stkTop)"/><path d="${p}" fill="url(#stkBot)"/>`;
+    } else if (shape.key === 'ball'){
+      const r = n(vw/2 - 2);
+      body = `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="${tone}"/>`
+        + `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="url(#stkBall)"/>`
+        + `<path d="M${n(vw*.5)} ${n(vh*.13)} Q${n(vw*.22)} ${n(vh*.5)} ${n(vw*.5)} ${n(vh*.87)}" fill="none" stroke="#7c4f22" stroke-width="${n(vw*.03)}" opacity=".2"/>`;
+    } else if (shape.key === 'cyl'){
+      const ry = vw*0.17, rx = n(vw/2 - 2), rr = n(vw*.09);
+      body = `<rect x="2" y="${n(ry)}" width="${n(vw-4)}" height="${n(vh-ry-2)}" rx="${rr}" fill="${tone}"/>`
+        + `<rect x="2" y="${n(ry)}" width="${n(vw-4)}" height="${n(vh-ry-2)}" rx="${rr}" fill="url(#stkCyl)"/>`
+        + `<ellipse cx="${n(vw/2)}" cy="${n(ry)}" rx="${rx}" ry="${n(ry)}" fill="${tone}"/>`
+        + `<ellipse cx="${n(vw/2)}" cy="${n(ry)}" rx="${rx}" ry="${n(ry)}" fill="url(#stkTop)"/>`;
+    } else {
+      const rx = n(Math.min(vw,vh)*0.16);
+      const R = a => `<rect x="1.5" y="1.5" width="${n(vw-3)}" height="${n(vh-3)}" rx="${rx}" fill="${a}"/>`;
+      body = `${R(tone)}${R('url(#stkTop)')}${R('url(#stkBot)')}${this.grain(vw, vh)}`;
+    }
+    return `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="none" style="overflow:visible">${body}</svg>`;
+  },
+
+  walls(){
+    const M = window.Matter, w = (x,y,ww,hh) => M.Bodies.rectangle(x,y,ww,hh,{ isStatic:true, friction:.9 });
+    return [ w(this.W/2, this.floorY + 400, this.W + 600, 800),
+             w(-45, this.H/2, 90, this.H*3), w(this.W+45, this.H/2, 90, this.H*3) ];
   },
   start(){
-    Audio2.unlock();
-    showView('stacker');
+    Audio2.unlock(); showView('stacker'); this.ensureDefs();
     const r = this.area().getBoundingClientRect();
     const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
-    this.U = 13 * vmin; this.W = r.width; this.H = r.height; this.floorY = r.height * 0.82;
-    this.shapeIdx = 0; this.reset(); this.active = true;
-    this.renderOps();
+    this.U = 15 * vmin; this.W = r.width; this.H = r.height; this.floorY = r.height * 0.82;
+    this.useMatter = !!window.Matter;
+    if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
+    this.blocks = []; this.drag = null;
+    this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
+    if (this.useMatter){
+      const M = window.Matter;
+      this.eng = M.Engine.create({ enableSleeping: true });
+      this.eng.world.gravity.y = 1.0;
+      M.World.add(this.eng.world, this.walls());
+      M.Events.off(this.eng, 'collisionStart');
+      M.Events.on(this.eng, 'collisionStart', ev => {
+        const now = performance.now();
+        if (now - this.lastClack < 55) return;
+        for (const p of ev.pairs){
+          const v = (p.bodyA.speed + p.bodyB.speed);
+          if (v > 1.4){ this.lastClack = now; Audio2.clack(Math.min(1, v/9)); break; }
+        }
+      });
+    }
+    this.active = true; this.renderOps(); this.loop();
     if (!this.bound){
       this.area().addEventListener('pointerdown', e => this.onDown(e));
       window.addEventListener('pointermove', e => this.onMove(e));
@@ -2276,35 +2353,71 @@ const StackerGame = {
       this.bound = true;
     }
   },
-  stop(){ this.active = false; this.reset(); },
-  reset(){
+  stop(){
+    this.active = false;
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
+    this.blocks = []; this.drag = null;
+    if (this.eng && window.Matter){ window.Matter.World.clear(this.eng.world, false); this.eng = null; }
+    this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
+  },
+  reset(){
+    if (this.useMatter && this.eng && window.Matter)
+      for (const b of this.blocks) window.Matter.World.remove(this.eng.world, b.body);
     this.blocks = []; this.drag = null;
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
     if (this.active) this.renderOps();
   },
   renderOps(){
-    const ops = $('#stk-ops');
-    const shape = this.SHAPES[this.shapeIdx], full = this.blocks.length >= this.MAX;
-    ops.innerHTML =
-      `<button class="fb-btn fb-reset" aria-label="Clear the blocks">↺</button>` +
-      `<button class="fb-btn fb-add" aria-label="Drop a block"${full ? ' disabled' : ''}>＋</button>` +
-      `<button class="fb-btn fb-shape" aria-label="Change block shape">${this.blockSVG(shape)}</button>`;
+    const ops = $('#stk-ops'), full = this.blocks.length >= this.MAX;
+    ops.innerHTML = `<button class="fb-btn fb-reset" aria-label="Clear the blocks">↺</button>`
+      + `<button class="fb-btn fb-add" aria-label="Drop a block"${full ? ' disabled' : ''}>＋</button>`;
     ops.querySelector('.fb-reset').onclick = () => this.reset();
     const add = ops.querySelector('.fb-add'); if (add && !full) add.onclick = () => this.drop();
-    ops.querySelector('.fb-shape').onclick = () => { this.shapeIdx = (this.shapeIdx + 1) % this.SHAPES.length; this.renderOps(); };
+  },
+  makeBody(shape, x, y, w, h){
+    const M = window.Matter;
+    if (shape.key === 'ball') return M.Bodies.circle(x, y, w/2, { friction:.4, frictionStatic:.5, restitution:.3, density:.0016 });
+    if (shape.key === 'tri'){
+      const v = [{ x:-w/2, y:h/2 }, { x:0, y:-h/2 }, { x:w/2, y:h/2 }];
+      return M.Bodies.fromVertices(x, y, [v], { friction:.6, frictionStatic:.9, restitution:.04, density:.0017 });
+    }
+    return M.Bodies.rectangle(x, y, w, h, { friction:.55, frictionStatic:.9, restitution:.06, density:.0017, chamfer:{ radius: Math.min(w,h)*0.1 } });
   },
   drop(){
     if (this.blocks.length >= this.MAX) return;
-    const shape = this.SHAPES[this.shapeIdx], U = this.U, w = shape.w*U, h = shape.h*U;
+    const shape = this.SHAPES[Math.floor(Math.random()*this.SHAPES.length)];
+    const tone = this.TONES[Math.floor(Math.random()*this.TONES.length)];
+    const U = this.U, w = shape.w*U, h = shape.h*U;
     const el = document.createElement('div');
     el.className = 'fb-block'; el.style.width = w + 'px'; el.style.height = h + 'px';
-    el.innerHTML = this.blockSVG(shape);
+    el.innerHTML = this.blockSVG(shape, tone);
     this.area().appendChild(el);
-    const b = { el, w, h, x: this.W*0.5 + (Math.random()*2-1)*U*0.9, y: -h*0.6, vy: 0, done: false, held: false };
-    this.blocks.push(b); this.paint(b); this.renderOps(); this.loop();
+    const x = this.W*0.5 + (Math.random()*2-1)*U*1.1, y = -h*0.6;
+    const b = { el, shape, w, h };
+    if (this.useMatter){
+      b.body = this.makeBody(shape, x, y, w, h);
+      window.Matter.Body.setAngle(b.body, (Math.random()-0.5)*0.25);
+      window.Matter.World.add(this.eng.world, b.body);
+    } else {
+      Object.assign(b, { x, y, vy: 0, done: false, held: false });
+    }
+    this.blocks.push(b); this.renderOps(); this.sync(); this.loop();
   },
-  paint(b){ b.el.style.left = b.x + 'px'; b.el.style.top = b.y + 'px'; b.el.style.transform = 'translate(-50%,-50%)'; },
+  sync(){
+    if (this.useMatter){
+      for (const b of this.blocks){
+        const p = b.body.position;
+        b.el.style.left = Math.round(p.x - b.w/2) + 'px';
+        b.el.style.top  = Math.round(p.y - b.h/2) + 'px';
+        b.el.style.transform = `rotate(${b.body.angle}rad)`;
+      }
+    } else {
+      for (const b of this.blocks){
+        b.el.style.left = Math.round(b.x - b.w/2) + 'px';
+        b.el.style.top  = Math.round(b.y - b.h/2) + 'px';
+      }
+    }
+  },
   supportTop(b){
     let top = this.floorY;
     const over = (l, r) => l < b.x + b.w/2 - 1 && r > b.x - b.w/2 + 1;
@@ -2314,23 +2427,29 @@ const StackerGame = {
   },
   loop(){
     if (this.raf) return;
-    const PX_M = this.U / 0.0508, G = 9.81 * PX_M;
     let last = performance.now();
     const frame = (t) => {
       if (!this.active){ this.raf = 0; return; }
-      const dt = Math.min((t - last)/1000, 0.032); last = t;
-      let falling = false;
-      for (const b of this.blocks){
-        if (b.done || b.held) continue;
-        b.vy += G * dt; b.y += b.vy * dt;
-        const top = this.supportTop(b);
-        if (b.y + b.h/2 >= top){
-          const impact = b.vy; b.y = top - b.h/2; b.done = true; b.vy = 0;
-          if (impact > 0.15*PX_M) Audio2.clack(Math.min(1, impact / PX_M));
-        } else falling = true;
-        this.paint(b);
+      const dt = Math.min(t - last, 32); last = t;
+      if (this.useMatter){
+        window.Matter.Engine.update(this.eng, dt);
+        this.sync();
+        this.raf = requestAnimationFrame(frame);
+      } else {
+        const PX_M = this.U / 0.0508, G = 9.81 * PX_M, sdt = Math.min(dt/1000, 0.032);
+        let falling = false;
+        for (const b of this.blocks){
+          if (b.done || b.held) continue;
+          b.vy += G * sdt; b.y += b.vy * sdt;
+          const top = this.supportTop(b);
+          if (b.y + b.h/2 >= top){
+            const im = b.vy; b.y = top - b.h/2; b.done = true; b.vy = 0;
+            if (im > 0.15*PX_M) Audio2.clack(Math.min(1, im/PX_M));
+          } else falling = true;
+        }
+        this.sync();
+        this.raf = falling ? requestAnimationFrame(frame) : 0;
       }
-      this.raf = falling ? requestAnimationFrame(frame) : 0;
     };
     this.raf = requestAnimationFrame(frame);
   },
@@ -2343,23 +2462,35 @@ const StackerGame = {
   },
   onDown(e){
     if (!this.active || (e.target.closest && e.target.closest('.fb-ops'))) return;
-    const r = this.area().getBoundingClientRect();
-    const b = this.hit(e.clientX - r.left, e.clientY - r.top);
-    if (!b) return;
+    const r = this.area().getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    if (this.useMatter){
+      const hits = window.Matter.Query.point(this.blocks.map(b => b.body), { x: px, y: py });
+      if (!hits.length) return;
+      const body = hits[hits.length - 1], b = this.blocks.find(x => x.body === body);
+      this.drag = { b, ox: px - body.position.x, oy: py - body.position.y };
+      window.Matter.Body.setStatic(body, true); b.el.style.zIndex = 9;
+    } else {
+      const b = this.hit(px, py); if (!b) return;
+      this.drag = { b, ox: px - b.x, oy: py - b.y }; b.held = true; b.done = false; b.el.style.zIndex = 9;
+    }
     Audio2.unlock();
-    this.drag = { b, ox: (e.clientX - r.left) - b.x, oy: (e.clientY - r.top) - b.y };
-    b.held = true; b.done = false; b.el.style.zIndex = 9;
   },
   onMove(e){
     if (!this.drag) return;
-    const r = this.area().getBoundingClientRect(), b = this.drag.b;
-    b.x = (e.clientX - r.left) - this.drag.ox; b.y = (e.clientY - r.top) - this.drag.oy;
-    this.paint(b);
+    const r = this.area().getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    if (this.useMatter){
+      const M = window.Matter, body = this.drag.b.body;
+      M.Body.setPosition(body, { x: px - this.drag.ox, y: py - this.drag.oy });
+      M.Body.setVelocity(body, { x: 0, y: 0 });
+    } else {
+      const b = this.drag.b; b.x = px - this.drag.ox; b.y = py - this.drag.oy; this.sync();
+    }
   },
   onUp(){
     if (!this.drag) return;
-    const b = this.drag.b; this.drag = null;
-    b.el.style.zIndex = ''; b.held = false; b.done = false; b.vy = 0; this.loop();
+    const b = this.drag.b; this.drag = null; b.el.style.zIndex = '';
+    if (this.useMatter){ window.Matter.Body.setStatic(b.body, false); window.Matter.Sleeping.set(b.body, false); }
+    else { b.held = false; b.done = false; b.vy = 0; this.loop(); }
   },
 };
 

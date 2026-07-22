@@ -192,19 +192,16 @@ test('5.3 tower: blocks stack anywhere and a pair moves as a group', async ({ pa
   expect(ends[1].ok).toBe(true);           // the carried pair landed on the base
 });
 
-test('block stacker mini-game: drop, switch shape, grab-move, cap, reset', async ({ page }) => {
+test('block stacker mini-game: random drop, grab-move, cap, reset', async ({ page }) => {
   await boot(page);
-  await page.evaluate(() => CF.StackerGame.start());
+  // force the simple-physics fallback so the test is deterministic regardless of
+  // whether the Matter.js CDN loaded in this environment
+  await page.evaluate(() => { window.Matter = undefined; CF.StackerGame.start(); });
   await expect(page.locator('#view-stacker')).toBeVisible();
   await expect(page.locator('#stk-ops .fb-add')).toBeVisible();
-  await expect(page.locator('#stk-ops .fb-shape')).toBeVisible();   // shapes always available here
-  // drop a few blocks
+  // random blocks fall — dropping adds shaped wooden blocks
   await page.evaluate(() => { for (let i = 0; i < 4; i++) CF.StackerGame.drop(); });
   await expect(page.locator('#stacker-area .fb-block')).toHaveCount(4);
-  // the switch cycles the shape to drop
-  const before = await page.evaluate(() => CF.StackerGame.shapeIdx);
-  await page.locator('#stk-ops .fb-shape').click();
-  expect(await page.evaluate(() => CF.StackerGame.shapeIdx)).not.toBe(before);
   // a settled block can be grabbed and moved (the whole point of the sandbox)
   const grab = await page.evaluate(() => {
     const g = CF.StackerGame, b = g.blocks[0], r = g.area().getBoundingClientRect();
