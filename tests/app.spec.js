@@ -192,41 +192,41 @@ test('5.3 tower: blocks stack anywhere and a pair moves as a group', async ({ pa
   expect(ends[1].ok).toBe(true);           // the carried pair landed on the base
 });
 
-test('tower free-build: drop caps at 10, shape switch appears at 5 pieces', async ({ page }) => {
+test('block stacker mini-game: drop, switch shape, grab-move, cap, reset', async ({ page }) => {
   await boot(page);
-  await startLevel(page, 'composition', 2);   // 5.3 tower — gives a sized #stage
-  // enter the sandbox with a clean slate (0 placed) and stop the level's timers
-  await page.evaluate(() => {
-    const E = CF.Engine;
-    clearTimeout(E.autoTimer); clearTimeout(E.timeoutTimer);
-    window.__adv = false;
-    E.cur = { kind: 'stack', elements: [] };
-    E.trials = [E.cur]; E.trialIdx = 0;
-    E.stage().innerHTML = '';
-    E.enterFreeBuild(() => { window.__adv = true; });
-  });
-  // the drop button is up; no shape switch yet (< 5 pieces)
-  await expect(page.locator('.fb-ops .fb-add')).toBeVisible();
-  await expect(page.locator('.fb-ops .fb-shape')).toHaveCount(0);
-  // dropping to 5 reveals the shape switch
-  await page.evaluate(() => { for (let i = 0; i < 5; i++) CF.Engine.fbDrop(); });
-  expect(await page.evaluate(() => CF.Engine.fbCount)).toBe(5);
-  await expect(page.locator('.fb-ops .fb-shape')).toHaveCount(1);
+  await page.evaluate(() => CF.StackerGame.start());
+  await expect(page.locator('#view-stacker')).toBeVisible();
+  await expect(page.locator('#stk-ops .fb-add')).toBeVisible();
+  await expect(page.locator('#stk-ops .fb-shape')).toBeVisible();   // shapes always available here
+  // drop a few blocks
+  await page.evaluate(() => { for (let i = 0; i < 4; i++) CF.StackerGame.drop(); });
+  await expect(page.locator('#stacker-area .fb-block')).toHaveCount(4);
   // the switch cycles the shape to drop
-  const before = await page.evaluate(() => CF.Engine.fbShapeIdx);
-  await page.locator('.fb-ops .fb-shape').click();
-  expect(await page.evaluate(() => CF.Engine.fbShapeIdx)).not.toBe(before);
-  // fill to the cap of 10, then the drop button disables and refuses more
-  await page.evaluate(() => { for (let i = 0; i < 5; i++) CF.Engine.fbDrop(); });
-  expect(await page.evaluate(() => CF.Engine.fbCount)).toBe(10);
-  await expect(page.locator('.fb-ops .fb-add')).toBeDisabled();
-  await page.evaluate(() => CF.Engine.fbDrop());
-  expect(await page.evaluate(() => CF.Engine.fbCount)).toBe(10);
-  // "done" advances the curriculum and clears the sandbox
-  await page.locator('.fb-ops .fb-go').click();
-  expect(await page.evaluate(() => window.__adv)).toBe(true);
-  await expect(page.locator('.fb-ops')).toHaveCount(0);
-  await expect(page.locator('.fb-block')).toHaveCount(0);
+  const before = await page.evaluate(() => CF.StackerGame.shapeIdx);
+  await page.locator('#stk-ops .fb-shape').click();
+  expect(await page.evaluate(() => CF.StackerGame.shapeIdx)).not.toBe(before);
+  // a settled block can be grabbed and moved (the whole point of the sandbox)
+  const grab = await page.evaluate(() => {
+    const g = CF.StackerGame, b = g.blocks[0], r = g.area().getBoundingClientRect();
+    b.done = true; b.held = false; b.y = g.floorY - b.h/2;
+    g.onDown({ clientX: r.left + b.x, clientY: r.top + b.y, target: g.area() });
+    const held = !!(g.drag && g.drag.b === b && b.held);
+    const x0 = b.x;
+    g.onMove({ clientX: r.left + b.x + 90, clientY: r.top + b.y });
+    const dx = b.x - x0;
+    g.onUp();
+    return { held, dx, released: !g.drag && !b.held };
+  });
+  expect(grab.held).toBe(true);
+  expect(grab.dx).toBeGreaterThan(50);
+  expect(grab.released).toBe(true);
+  // fill to the cap; the drop button disables and refuses more
+  const cap = await page.evaluate(() => { const g = CF.StackerGame; while (g.blocks.length < g.MAX) g.drop(); g.drop(); return g.MAX; });
+  expect(await page.evaluate(() => CF.StackerGame.blocks.length)).toBe(cap);
+  await expect(page.locator('#stk-ops .fb-add')).toBeDisabled();
+  // reset clears the field
+  await page.locator('#stk-ops .fb-reset').click();
+  await expect(page.locator('#stacker-area .fb-block')).toHaveCount(0);
 });
 
 test('4.3: a missed star stays where it was set down (no zap-back)', async ({ page }) => {
@@ -295,7 +295,7 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   await page.locator('#btn-map').click();
   await expect(page.locator('#view-map')).toBeVisible();
   await expect(page.locator('.map-section')).toHaveCount(8);        // 7 nodes + mini games
-  await expect(page.locator('#map-body .lp-card')).toHaveCount(28); // 26 levels + 2 mini games
+  await expect(page.locator('#map-body .lp-card')).toHaveCount(29); // 26 levels + 3 mini games
   await expect(page.locator('#map-body .lp-preview').first()).toBeVisible();  // same preview cards as the picker
   await page.locator('#map-body .lp-card[data-node="peekaboo"][data-i="0"]').click();
   await expect(page.locator('#view-play')).toBeVisible();

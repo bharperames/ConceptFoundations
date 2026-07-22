@@ -369,16 +369,27 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 @keyframes drop-pulse{0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(1)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.09)}}
 @keyframes drop-spin{to{transform:rotate(360deg)}}
 .el.drop-target.fade{animation:none;opacity:0;transition:opacity .35s}
-/* free-build sandbox (tower reward): drop + shape-switch controls, falling blocks */
-.fb-ops{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:30;display:flex;gap:12px;align-items:center}
+/* Block Stacker mini-game: drop + shape-switch + reset controls, falling blocks */
+.fb-ops{position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:30;display:flex;gap:12px;align-items:center}
 .fb-btn{width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
   font-family:var(--round);font-weight:800;font-size:30px;line-height:1;color:#fff;box-shadow:0 5px 14px rgba(30,60,90,.28);transition:transform .1s}
 .fb-btn:active{transform:scale(.9)}
 .fb-btn:disabled{opacity:.4;cursor:default}
 .fb-add{background:#4C86D8}
-.fb-go{background:#39B26B}
+.fb-reset{background:#8AA0B4;font-size:26px}
 .fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:9px}
-.fb-block{position:absolute;pointer-events:none;z-index:6}
+.fb-block{position:absolute;pointer-events:none;z-index:6;touch-action:none}
+#view-stacker{overflow:hidden;touch-action:none;background:linear-gradient(180deg,#EAF3FB 0%,#D7E7F4 60%,#C9DDEE 100%)}
+.stacker-area{position:absolute;inset:0;overflow:hidden}
+.stk-ground{position:absolute;left:0;right:0;bottom:0;height:18%;background:linear-gradient(180deg,#BDCEDE 0%,#A6BCD0 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.4)}
+@media (prefers-color-scheme:dark){
+  #view-stacker{background:linear-gradient(180deg,#182A40 0%,#0E1826 100%)}
+  .stk-ground{background:linear-gradient(180deg,#2B3C4F 0%,#1E2C3B 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.06)}
+}
+:root[data-theme="light"] #view-stacker{background:linear-gradient(180deg,#EAF3FB 0%,#D7E7F4 60%,#C9DDEE 100%)}
+:root[data-theme="light"] .stk-ground{background:linear-gradient(180deg,#BDCEDE 0%,#A6BCD0 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.4)}
+:root[data-theme="dark"] #view-stacker{background:linear-gradient(180deg,#182A40 0%,#0E1826 100%)}
+:root[data-theme="dark"] .stk-ground{background:linear-gradient(180deg,#2B3C4F 0%,#1E2C3B 100%);box-shadow:inset 0 3px 0 rgba(255,255,255,.06)}
 .el.sample-card{
   background:var(--card);border-radius:22px;padding:1.6vmin;
   box-shadow:0 5px 16px rgba(61,107,153,.18), inset 0 0 0 3px var(--line);
@@ -638,6 +649,16 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
       <span class="cname">Picture Puzzle</span>
       <span class="clevel">Tap tiles to build a picture!</span>
     </button>
+    <button class="minicard" data-mini="stacker">
+      <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="30" y="20" width="26" height="26" rx="4" fill="#DFA75F"/>
+        <rect x="24" y="48" width="26" height="26" rx="4" fill="#E8B36B"/>
+        <rect x="52" y="48" width="26" height="26" rx="4" fill="#C08847"/>
+        <rect x="18" y="76" width="64" height="10" rx="5" fill="#A9C6E0"/>
+      </svg>
+      <span class="cname">Block Stacker</span>
+      <span class="clevel">Drop blocks and build!</span>
+    </button>
   </div>
   <button id="btn-grownups" class="grownups">
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg>
@@ -699,6 +720,14 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
       <button id="btn-bub-again" class="btn-primary bub-again">Play again</button>
     </div>
   </div>
+</main>
+
+<main id="view-stacker" class="view hidden">
+  <button id="btn-stk-home" class="btn-round btn-exit" aria-label="Back to games">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.8 11h2.4v9h5.2v-6h3.2v6h5.2v-9h2.4z"/></svg>
+  </button>
+  <div id="stacker-area" class="stacker-area"><div class="stk-ground"></div></div>
+  <div id="stk-ops" class="fb-ops"></div>
 </main>
 
 <!-- ══════════ LEVEL MAP (all sections & sub-levels) ══════════ -->
@@ -1415,7 +1444,7 @@ const NODES = [
           const baseLeft = rng() < .5;
           return Object.assign({
             kind:'stack', state:'TEST', prompt:'Build a tower',
-            say:'Stack the blocks! Build a tall tower!', timeoutMs: 20000, freeBuild: true,
+            say:'Stack the blocks! Build a tall tower!', timeoutMs: 20000,
             elements:[
               elShape('ground', '', 50, 72, 76, {scenery:true, decor:true, groundBar:true}),
               // all three blocks are grabbable — no special immovable base; the
@@ -2207,6 +2236,134 @@ const PuzzleGame = {
 };
 
 
+/* ═══════════════ Block Stacker — free-build sandbox mini-game ═══════════════
+   Drop wooden blocks (shapes built from 2-inch cube "slices"), grab and restack
+   them. Simple, bounce-free AABB physics: a block falls and rests on the highest
+   thing its footprint overlaps; lifting a block lets whatever it held fall. */
+const StackerGame = {
+  SHAPES: [
+    { key:'cube',   tone:'#DFA75F', cells:[[0,0]],                   w:1, h:1 },
+    { key:'bar',    tone:'#E8B36B', cells:[[0,0],[1,0]],             w:2, h:1 },
+    { key:'square', tone:'#C08847', cells:[[0,0],[1,0],[0,1],[1,1]], w:2, h:2 },
+    { key:'ell',    tone:'#D69A54', cells:[[0,0],[0,1],[1,1]],       w:2, h:2 },
+    { key:'bar3',   tone:'#E8B36B', cells:[[0,0],[1,0],[2,0]],       w:3, h:1 },
+  ],
+  MAX: 16,
+  blocks: [], raf: 0, drag: null, shapeIdx: 0, U: 0, floorY: 0, W: 0, H: 0, active: false, bound: false,
+  area(){ return $('#stacker-area'); },
+  blockSVG(shape){
+    const cells = shape.cells.map(([cx,cy]) =>
+      `<g transform="translate(${cx*10},${cy*10})">
+        <rect x=".5" y=".5" width="9" height="9" rx="1.4" fill="${shape.tone}"/>
+        <rect x=".5" y=".5" width="9" height="2.6" rx="1.4" fill="#fff" opacity=".18"/>
+        <rect x=".5" y=".5" width="9" height="9" rx="1.4" fill="none" stroke="#8A5A2B" stroke-width=".5" opacity=".35"/>
+      </g>`).join('');
+    return `<svg viewBox="0 0 ${shape.w*10} ${shape.h*10}" width="100%" height="100%" style="overflow:visible">${cells}</svg>`;
+  },
+  start(){
+    Audio2.unlock();
+    showView('stacker');
+    const r = this.area().getBoundingClientRect();
+    const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
+    this.U = 13 * vmin; this.W = r.width; this.H = r.height; this.floorY = r.height * 0.82;
+    this.shapeIdx = 0; this.reset(); this.active = true;
+    this.renderOps();
+    if (!this.bound){
+      this.area().addEventListener('pointerdown', e => this.onDown(e));
+      window.addEventListener('pointermove', e => this.onMove(e));
+      window.addEventListener('pointerup', e => this.onUp(e));
+      window.addEventListener('pointercancel', e => this.onUp(e));
+      this.bound = true;
+    }
+  },
+  stop(){ this.active = false; this.reset(); },
+  reset(){
+    if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
+    this.blocks = []; this.drag = null;
+    this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
+    if (this.active) this.renderOps();
+  },
+  renderOps(){
+    const ops = $('#stk-ops');
+    const shape = this.SHAPES[this.shapeIdx], full = this.blocks.length >= this.MAX;
+    ops.innerHTML =
+      `<button class="fb-btn fb-reset" aria-label="Clear the blocks">↺</button>` +
+      `<button class="fb-btn fb-add" aria-label="Drop a block"${full ? ' disabled' : ''}>＋</button>` +
+      `<button class="fb-btn fb-shape" aria-label="Change block shape">${this.blockSVG(shape)}</button>`;
+    ops.querySelector('.fb-reset').onclick = () => this.reset();
+    const add = ops.querySelector('.fb-add'); if (add && !full) add.onclick = () => this.drop();
+    ops.querySelector('.fb-shape').onclick = () => { this.shapeIdx = (this.shapeIdx + 1) % this.SHAPES.length; this.renderOps(); };
+  },
+  drop(){
+    if (this.blocks.length >= this.MAX) return;
+    const shape = this.SHAPES[this.shapeIdx], U = this.U, w = shape.w*U, h = shape.h*U;
+    const el = document.createElement('div');
+    el.className = 'fb-block'; el.style.width = w + 'px'; el.style.height = h + 'px';
+    el.innerHTML = this.blockSVG(shape);
+    this.area().appendChild(el);
+    const b = { el, w, h, x: this.W*0.5 + (Math.random()*2-1)*U*0.9, y: -h*0.6, vy: 0, done: false, held: false };
+    this.blocks.push(b); this.paint(b); this.renderOps(); this.loop();
+  },
+  paint(b){ b.el.style.left = b.x + 'px'; b.el.style.top = b.y + 'px'; b.el.style.transform = 'translate(-50%,-50%)'; },
+  supportTop(b){
+    let top = this.floorY;
+    const over = (l, r) => l < b.x + b.w/2 - 1 && r > b.x - b.w/2 + 1;
+    for (const o of this.blocks)
+      if (o !== b && o.done && !o.held && over(o.x - o.w/2, o.x + o.w/2)) top = Math.min(top, o.y - o.h/2);
+    return top;
+  },
+  loop(){
+    if (this.raf) return;
+    const PX_M = this.U / 0.0508, G = 9.81 * PX_M;
+    let last = performance.now();
+    const frame = (t) => {
+      if (!this.active){ this.raf = 0; return; }
+      const dt = Math.min((t - last)/1000, 0.032); last = t;
+      let falling = false;
+      for (const b of this.blocks){
+        if (b.done || b.held) continue;
+        b.vy += G * dt; b.y += b.vy * dt;
+        const top = this.supportTop(b);
+        if (b.y + b.h/2 >= top){
+          const impact = b.vy; b.y = top - b.h/2; b.done = true; b.vy = 0;
+          if (impact > 0.15*PX_M) Audio2.clack(Math.min(1, impact / PX_M));
+        } else falling = true;
+        this.paint(b);
+      }
+      this.raf = falling ? requestAnimationFrame(frame) : 0;
+    };
+    this.raf = requestAnimationFrame(frame);
+  },
+  hit(px, py){
+    for (let i = this.blocks.length - 1; i >= 0; i--){
+      const b = this.blocks[i];
+      if (Math.abs(px - b.x) <= b.w/2 && Math.abs(py - b.y) <= b.h/2) return b;
+    }
+    return null;
+  },
+  onDown(e){
+    if (!this.active || (e.target.closest && e.target.closest('.fb-ops'))) return;
+    const r = this.area().getBoundingClientRect();
+    const b = this.hit(e.clientX - r.left, e.clientY - r.top);
+    if (!b) return;
+    Audio2.unlock();
+    this.drag = { b, ox: (e.clientX - r.left) - b.x, oy: (e.clientY - r.top) - b.y };
+    b.held = true; b.done = false; b.el.style.zIndex = 9;
+  },
+  onMove(e){
+    if (!this.drag) return;
+    const r = this.area().getBoundingClientRect(), b = this.drag.b;
+    b.x = (e.clientX - r.left) - this.drag.ox; b.y = (e.clientY - r.top) - this.drag.oy;
+    this.paint(b);
+  },
+  onUp(){
+    if (!this.drag) return;
+    const b = this.drag.b; this.drag = null;
+    b.el.style.zIndex = ''; b.held = false; b.done = false; b.vy = 0; this.loop();
+  },
+};
+
+
 /* ═══════════════════════ 8 · Trial Engine ═════════════════════════════════ */
 const Engine = {
   node:null, level:null, trials:[], trialIdx:0, cur:null, curRecord:null,
@@ -2453,7 +2610,6 @@ const Engine = {
   renderTrial(){
     const stage = this.stage();
     this.stopRain();
-    this.fbCleanup();
     stage.innerHTML = '';
     let rainAt = null;
     for (const spec of this.cur.elements){
@@ -3111,115 +3267,6 @@ const Engine = {
     (actions[fb] || actions.pulseTarget)();
   },
 
-  /* ---------- free-build sandbox (tower reward) ---------- */
-  // block shapes, each a combination of 2-inch cube "slices" (unit = one cube)
-  FB_SHAPES: [
-    { key:'cube',   tone:'#DFA75F', cells:[[0,0]],                     w:1, h:1 },
-    { key:'bar',    tone:'#E8B36B', cells:[[0,0],[1,0]],               w:2, h:1 },
-    { key:'square', tone:'#C08847', cells:[[0,0],[1,0],[0,1],[1,1]],   w:2, h:2 },
-    { key:'ell',    tone:'#D69A54', cells:[[0,0],[0,1],[1,1]],         w:2, h:2 },
-    { key:'bar3',   tone:'#E8B36B', cells:[[0,0],[1,0],[2,0]],         w:3, h:1 },
-  ],
-  fbBlockSVG(shape){
-    const cells = shape.cells.map(([cx,cy]) =>
-      `<g transform="translate(${cx*10},${cy*10})">
-        <rect x=".5" y=".5" width="9" height="9" rx="1.4" fill="${shape.tone}"/>
-        <rect x=".5" y=".5" width="9" height="2.6" rx="1.4" fill="#fff" opacity=".18"/>
-        <rect x=".5" y=".5" width="9" height="9" rx="1.4" fill="none" stroke="#8A5A2B" stroke-width=".5" opacity=".35"/>
-      </g>`).join('');
-    return `<svg viewBox="0 0 ${shape.w*10} ${shape.h*10}" width="100%" height="100%" style="overflow:visible">${cells}</svg>`;
-  },
-  // enter free-build on a just-completed tower: seed surfaces from the placed
-  // blocks, then let the child keep dropping shapes (up to 10 on screen)
-  enterFreeBuild(advance){
-    const stage = this.stage(), sr = stage.getBoundingClientRect();
-    const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
-    this.fbU = 14 * vmin;                 // one 2-inch cube, in px
-    this.fbFloorY = sr.height * 0.80;     // stage-local ground line
-    this.fbW = sr.width; this.fbH = sr.height;
-    this.fbAdvance = advance;
-    this.fbShapeIdx = 0; this.fbFalling = []; this.fbSettled = []; this.fbRaf = 0;
-    // seed surfaces from the just-built tower. At completion every block is in
-    // the stack (that's the success condition), so take them all — stack blocks
-    // don't carry a 'placed' class, and their current rects form the tower
-    let placed = 0;
-    for (const spec of (this.cur.elements || [])){
-      if (!(spec.piece || spec.id === 'base')) continue;
-      const el = stage.querySelector(`[data-el="${spec.id}"]`);
-      if (!el) continue;
-      const r = el.getBoundingClientRect(), s = (spec.s * vmin) || r.width;
-      const cx = r.left + r.width/2 - sr.left, cy = r.top + r.height/2 - sr.top;
-      this.fbSettled.push({ left: cx - s/2, right: cx + s/2, top: cy - s/2 });
-      placed++;
-    }
-    this.fbCount = placed;
-    this.fbRenderOps();
-  },
-  fbRenderOps(){
-    const stage = this.stage();
-    let ops = stage.querySelector('.fb-ops');
-    if (!ops){ ops = document.createElement('div'); ops.className = 'fb-ops'; stage.appendChild(ops); }
-    const shape = this.FB_SHAPES[this.fbShapeIdx];
-    const showSwitch = this.fbCount >= 5, full = this.fbCount >= 10;
-    ops.innerHTML =
-      `<button class="fb-btn fb-go" aria-label="All done">✓</button>` +
-      `<button class="fb-btn fb-add" aria-label="Drop a block"${full ? ' disabled' : ''}>＋</button>` +
-      (showSwitch ? `<button class="fb-btn fb-shape" aria-label="Change block shape">${this.fbBlockSVG(shape)}</button>` : '');
-    ops.querySelector('.fb-go').onclick = () => this.fbExit();
-    const add = ops.querySelector('.fb-add'); if (add && !full) add.onclick = () => this.fbDrop();
-    const sw = ops.querySelector('.fb-shape');
-    if (sw) sw.onclick = () => { this.fbShapeIdx = (this.fbShapeIdx + 1) % this.FB_SHAPES.length; this.fbRenderOps(); };
-  },
-  fbDrop(){
-    if (this.fbCount >= 10) return;
-    const shape = this.FB_SHAPES[this.fbShapeIdx], U = this.fbU;
-    const w = shape.w * U, h = shape.h * U;
-    const el = document.createElement('div');
-    el.className = 'fb-block'; el.style.width = w + 'px'; el.style.height = h + 'px';
-    el.innerHTML = this.fbBlockSVG(shape);
-    this.stage().appendChild(el);
-    const b = { el, w, h, x: this.fbW*0.5 + (Math.random()*2-1)*U*0.8, y: -h*0.6, vy: 0, done: false };
-    this.fbFalling.push(b); this.fbCount++;
-    this.fbPaint(b); this.fbRenderOps(); this.fbLoop();
-  },
-  fbPaint(b){ b.el.style.left = b.x + 'px'; b.el.style.top = b.y + 'px'; b.el.style.transform = 'translate(-50%,-50%)'; },
-  fbSupportTop(b){
-    let top = this.fbFloorY;
-    for (const s of this.fbSettled)
-      if (s.left < b.x + b.w/2 - 1 && s.right > b.x - b.w/2 + 1) top = Math.min(top, s.top);
-    return top;
-  },
-  fbLoop(){
-    if (this.fbRaf) return;
-    const PX_M = this.fbU / 0.0508, G = 9.81 * PX_M;
-    let last = performance.now();
-    const frame = (t) => {
-      const dt = Math.min((t - last)/1000, 0.032); last = t;
-      let falling = false;
-      for (const b of this.fbFalling){
-        if (b.done) continue;
-        b.vy += G * dt; b.y += b.vy * dt;
-        const top = this.fbSupportTop(b);
-        if (b.y + b.h/2 >= top){
-          b.y = top - b.h/2; b.done = true;
-          this.fbSettled.push({ left: b.x - b.w/2, right: b.x + b.w/2, top: b.y - b.h/2 });
-          if (b.vy > 0.15*PX_M) Audio2.clack(Math.min(1, b.vy / PX_M));
-        } else falling = true;
-        this.fbPaint(b);
-      }
-      this.fbRaf = falling ? requestAnimationFrame(frame) : 0;
-    };
-    this.fbRaf = requestAnimationFrame(frame);
-  },
-  fbExit(){ const adv = this.fbAdvance; this.fbCleanup(); if (adv) adv(); },
-  fbCleanup(){
-    if (this.fbRaf){ cancelAnimationFrame(this.fbRaf); this.fbRaf = 0; }
-    this.fbFalling = []; this.fbSettled = null; this.fbAdvance = null;
-    const stage = this.stage(); if (!stage) return;
-    const ops = stage.querySelector('.fb-ops'); if (ops) ops.remove();
-    stage.querySelectorAll('.fb-block').forEach(e => e.remove());
-  },
-
   /* ---------- trial + run completion ---------- */
   completeTrial(success, opts={}){
     if (this.locked) return;
@@ -3240,13 +3287,6 @@ const Engine = {
       const started = Date.now();
       let advanced = false;
       const go = () => { if (!advanced){ advanced = true; this.runTrial(this.trialIdx+1); } };
-      // tower reward: after building the final tower, hand off to the free-build
-      // sandbox (drop more blocks / switch shapes) instead of auto-advancing
-      if (this.cur.freeBuild && success && this.trialIdx + 1 >= this.trials.length){
-        Audio2.speak(praise);
-        this.enterFreeBuild(go);
-        return;
-      }
       Audio2.speak(praise, () => setTimeout(go, Math.max(0, 1300 - (Date.now()-started))));
       setTimeout(go, 4000);
     } else {
@@ -3299,7 +3339,6 @@ const Engine = {
     this.cur = null;
     clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
     this.stopPhysics();
-    this.fbCleanup();
     if (window.speechSynthesis) speechSynthesis.cancel();
     Telemetry.end(false, 'abandoned');
   },
@@ -3649,17 +3688,21 @@ function renderMap(){
     <svg viewBox="0 0 100 100"><circle cx="38" cy="42" r="22" fill="#5BB8EC" opacity=".7"/><circle cx="30" cy="34" r="6" fill="#fff" opacity=".95"/><circle cx="68" cy="60" r="15" fill="#9B7DE8" opacity=".7"/><circle cx="63" cy="54" r="4" fill="#fff" opacity=".95"/><circle cx="62" cy="28" r="10" fill="#4FCF98" opacity=".7"/><circle cx="59" cy="24" r="3" fill="#fff" opacity=".95"/></svg></span></div>`;
   const puzzleIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:60%">
     <svg viewBox="0 0 100 100"><rect x="14" y="14" width="34" height="34" rx="5" fill="#FFC02E"/><rect x="52" y="14" width="34" height="34" rx="5" fill="#FF5D55"/><rect x="14" y="52" width="34" height="34" rx="5" fill="#3D8BFF"/><rect x="52" y="52" width="34" height="34" rx="5" fill="#5FBF6A"/></svg></span></div>`;
+  const stackerIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:62%">
+    <svg viewBox="0 0 100 100"><rect x="30" y="20" width="26" height="26" rx="4" fill="#DFA75F"/><rect x="24" y="48" width="26" height="26" rx="4" fill="#E8B36B"/><rect x="52" y="48" width="26" height="26" rx="4" fill="#C08847"/><rect x="18" y="76" width="64" height="10" rx="5" fill="#A9C6E0"/></svg></span></div>`;
   const mini = `<section class="map-section">
     <div class="map-sec-head"><div><div class="ms-title">Mini games</div></div></div>
     <div class="lp-grid">
       <button class="lp-card" data-mini="bubbles">${bubbleIcon}<span class="lp-name">Bubble Pop</span><span class="lp-desc">Pop them before they land!</span></button>
       <button class="lp-card" data-mini="puzzle">${puzzleIcon}<span class="lp-name">Picture Puzzle</span><span class="lp-desc">Tap tiles to build a picture!</span></button>
+      <button class="lp-card" data-mini="stacker">${stackerIcon}<span class="lp-name">Block Stacker</span><span class="lp-desc">Drop blocks and build!</span></button>
     </div></section>`;
   body.innerHTML = sections + mini;
   body.querySelectorAll('.lp-card').forEach(el => {
     el.addEventListener('click', () => {
       if (el.dataset.mini === 'bubbles'){ Audio2.unlock(); BubbleGame.start(); return; }
       if (el.dataset.mini === 'puzzle'){ Audio2.unlock(); PuzzleGame.start(); return; }
+      if (el.dataset.mini === 'stacker'){ Audio2.unlock(); StackerGame.start(); return; }
       const node = NODES.find(n => n.key === el.dataset.node);
       const i = parseInt(el.dataset.i, 10);
       if (!levelReachable(node, nodeProgress(node.key), i)){
@@ -4023,9 +4066,10 @@ function showView(name){
   $('#view-dash').classList.toggle('hidden', name!=='dash');
   $('#view-bubbles').classList.toggle('hidden', name!=='bubbles');
   $('#view-puzzle').classList.toggle('hidden', name!=='puzzle');
+  $('#view-stacker').classList.toggle('hidden', name!=='stacker');
   $('#view-map').classList.toggle('hidden', name!=='map');
   // the quick mute control rides along on the play screens only
-  $('#play-vol').classList.toggle('hidden', !(name==='play' || name==='bubbles' || name==='puzzle'));
+  $('#play-vol').classList.toggle('hidden', !(name==='play' || name==='bubbles' || name==='puzzle' || name==='stacker'));
 }
 
 function init(){
@@ -4100,6 +4144,7 @@ function init(){
     card.addEventListener('click', () => {
       if (card.dataset.mini === 'bubbles') BubbleGame.start();
       else if (card.dataset.mini === 'puzzle') PuzzleGame.start();
+      else if (card.dataset.mini === 'stacker') StackerGame.start();
     });
   });
   const bubStage = $('#bub-canvas');
@@ -4113,6 +4158,7 @@ function init(){
   window.addEventListener('resize', () => { if (BubbleGame.running) BubbleGame.size(); });
   $('#btn-puz-home').addEventListener('click', () => { showView('home'); renderHome(); });
   $('#btn-puz-again').addEventListener('click', () => PuzzleGame.start());
+  $('#btn-stk-home').addEventListener('click', () => { StackerGame.stop(); showView('home'); renderHome(); });
 
   // parent gate: press and hold 2.2s
   const gw = $('#btn-grownups');
@@ -4142,7 +4188,7 @@ function init(){
   }
 
   // scripting hook for the test harness (drive trials, run simulations headlessly)
-  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame,
+  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame, StackerGame,
     computeStats, computeInsights, renderDash, renderHome, showView };
 }
 init();
