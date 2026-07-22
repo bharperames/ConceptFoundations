@@ -101,26 +101,78 @@
     {
       "dest": "yay.mp3",
       "phrase": "yay",
-      "asset_id": null,
-      "pending_gold": "Not in gold. Promote silver clip_0d4a4464a206 (\"Yay!\", raw_audio/icky_sticky_bubblegum.mp3 177.553-178.042). Keeping committed file meanwhile."
+      "asset_id": "asset_26bd51ec05cc",
+      "asset": {
+        "name": "Yay",
+        "text": "Yay!",
+        "source_file": "raw_audio/icky_sticky_bubblegum.mp3",
+        "start": 177.553,
+        "end": 178.042,
+        "duration": 0.489,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-22T16:55:58Z"
+      },
+      "src_sha256": "f8ae470e6304e75ab454d96164f03e4ae6e8b2f361c9b14d20a40913497a6073",
+      "dest_sha256": "e347708e9449d37171bd54cc9dc59873abdcee4b6cc7c8d4a1c006cf4966be37",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "we_did_it.mp3",
       "phrase": "we did it",
-      "asset_id": null,
-      "pending_gold": "Not in gold. Promote silver clip_ed372817a473 (\"We did it!\", raw_audio/firetruck.mp3 48.635-49.867), or point to gold asset_436386ea6a8f (\"Yeah, you did\"). Keeping committed file meanwhile."
+      "asset_id": "asset_98cf57f963af",
+      "asset": {
+        "name": "We Did It",
+        "text": "We did it!",
+        "source_file": "raw_audio/firetruck.mp3",
+        "start": 48.635,
+        "end": 49.867,
+        "duration": 1.232,
+        "has_music": 1,
+        "voice_id": null,
+        "updated_at": "2026-07-22T16:55:58Z"
+      },
+      "src_sha256": "e904a97fd1f7354fb1adaf78a6293bc71be51bfda5828f89fdda43cf6aa32da5",
+      "dest_sha256": "afebcdd99eb8f13df9d6e71a4c042727ab94309b0de8a14335e58bd93e8d057c",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "peekaboo.mp3",
       "phrase": "peekaboo",
-      "asset_id": null,
-      "pending_gold": "Not in gold. Promote silver clip_1fd439c9eacd (\"Peek-a-boo!\", raw_audio/hide_and_seek.mp3 150.409-151.571). Keeping committed file meanwhile."
+      "asset_id": "asset_9ed2a86acb62",
+      "asset": {
+        "name": "Peekaboo",
+        "text": "Peek-a-boo!",
+        "source_file": "raw_audio/hide_and_seek.mp3",
+        "start": 150.409,
+        "end": 151.571,
+        "duration": 1.162,
+        "has_music": 1,
+        "voice_id": null,
+        "updated_at": "2026-07-22T16:55:58Z"
+      },
+      "src_sha256": "71d5aa2e5c9ad34b2c975020f7e42fdce91fb10032b0d34fcf4aae11a607316f",
+      "dest_sha256": "9f3093292063cfb2d26f37f184bf24965d222fde2503fb1c6a8957e635226d2c",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "out.mp3",
       "phrase": "out",
-      "asset_id": null,
-      "pending_gold": "Not in gold. Promote silver clip_316e3fd2d5d3 (\"Out\", raw_audio/itsybitsy.mp3 11.762-12.251). Keeping committed file meanwhile."
+      "asset_id": "asset_d703e812fbff",
+      "asset": {
+        "name": "Out",
+        "text": "Out",
+        "source_file": "raw_audio/itsybitsy.mp3",
+        "start": 11.762,
+        "end": 12.251,
+        "duration": 0.489,
+        "has_music": 1,
+        "voice_id": null,
+        "updated_at": "2026-07-22T16:55:58Z"
+      },
+      "src_sha256": "e435be6ddc702270e122bbc2035e257359794c2b190acc709a3bdfc3c154bdf4",
+      "dest_sha256": "13b6947f8bf09cca0dd91e2b5f278262a51b93100f352bba756c934271b0fe91",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }

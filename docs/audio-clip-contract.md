@@ -132,17 +132,17 @@ The rule (producer's guidance): **when a phrase is missing, name it for promotio
 rather than working around it.** Promotion takes seconds and the clip very likely
 already exists in silver, unpromoted.
 
-**Current gaps** (flagged `pending_gold` in the manifest; committed files kept so
-the app still plays curated audio meanwhile):
+**No current gaps.** All four earlier gaps were promoted (2026-07-22) and are now
+gold-backed: `yay` → `asset_26bd51ec05cc`, `we did it` → `asset_98cf57f963af`,
+`peekaboo` → `asset_9ed2a86acb62`, `out` → `asset_d703e812fbff`. The original
+promotion request is preserved in `docs/message-to-mr-audioclips.md`.
 
-| Phrase | Used by | Silver clip to promote |
-|---|---|---|
-| `yay` | shared praise | `clip_0d4a4464a206` |
-| `we did it` | shared praise / puzzle win | `clip_ed372817a473` (or gold `asset_436386ea6a8f` "Yeah, you did") |
-| `peekaboo` | Peekaboo contrast | `clip_1fd439c9eacd` |
-| `out` | Causality spider wash-out | `clip_316e3fd2d5d3` |
-
-The promotion request is in `docs/message-to-mr-audioclips.md`.
+**Resolution is by `asset_id`, not by `norm`** — which sidesteps a normalization
+gotcha the producer flagged: `norm` follows the transcript, so "Peek-a-boo!"
+normalizes to `peek a boo`, not `peekaboo`. Anything that *discovers* an asset by
+phrase must FTS-match or use the transcript spelling; but once an `asset_id` is
+pinned in the manifest we join on it directly and the colloquial-vs-transcript
+spelling never enters into it.
 
 ### Failure signature to respect
 

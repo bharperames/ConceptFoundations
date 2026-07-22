@@ -12,10 +12,8 @@ recording).
 | 🎛️ | Synthesized tone / SFX (Web Audio oscillator or noise burst) |
 
 The nine curated clips: `great_job`, `yay`, `hooray`, `we_did_it`, `peekaboo`,
-`lets_play_hide_and_seek`, `uh_oh`, `bubble_pop`, `out`. All are acquired from the
-producer's **gold** layer by durable `asset_id` (see `audio-clip-contract.md`);
-`yay`, `we_did_it`, `peekaboo`, and `out` are kept as committed files pending gold
-promotion.
+`lets_play_hide_and_seek`, `uh_oh`, `bubble_pop`, `out`. All nine are acquired from
+the producer's **gold** layer by durable `asset_id` (see `audio-clip-contract.md`).
 
 ---
 
