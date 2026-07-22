@@ -163,6 +163,24 @@
         "quality": 1.2941,
         "has_music": false
       }
+    },
+    {
+      "dest": "out.mp3",
+      "phrase": "out",
+      "uid": "clip_316e3fd2d5d3",
+      "clip": {
+        "source_uid": "song_a09635644ff9",
+        "source": "raw_audio/itsybitsy.mp3",
+        "start": 11.762,
+        "end": 12.251,
+        "duration": 0.489,
+        "text": "Out",
+        "quality": 1.2301,
+        "has_music": true
+      },
+      "src_sha256": "7d0ac2e673fa90f3f0126b22e57dd65e2d09b24718c3c656eb773645e0cee9a2",
+      "dest_sha256": "b29e1fa42a6f8f81e46aca89a188359d5ed689be6750cb80398115622caa0c9e",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }

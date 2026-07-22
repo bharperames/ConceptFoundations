@@ -32,7 +32,8 @@ Six nodes, twenty-two micro-levels, each run as E→C→T(×3):
 | 3 · Quantity (More & Less) | 3.1–3.3 | tap (side clusters) | Identity |
 | 4 · Spatial (In & Out) | 4.1–4.4 | drag & drop, physics | Magnitude |
 | 5 · Composition (Build It) | 5.1–5.4 | drag / assembly / physics | Spatial |
-| 6 · Peekaboo | 6.1–6.3 | tap (object permanence) | Identity |
+| 6 · Peekaboo | 6.1–6.4 | tap (object permanence) | Identity |
+| 7 · Causality (Make It Happen) | 7.1–7.3 | drag + cause→effect | Spatial |
 
 Two levels use the block-physics engine. Spatial 4.2 ("On top") teaches the
 spatial *relation* — one block onto one other block. Composition 5.3 ("Tower")
@@ -56,6 +57,11 @@ between repeats. Press and hold a game card to open the
 level picker — large cards with generated previews of each micro-level; tap
 any level already reached (every level when "Unlock every game" is on). The
 small ladder dots on each card are tappable shortcuts too.
+
+Causality (Node 7) teaches cause→effect on the itsy-bitsy-spider spout: the
+child drags the bug onto the water spout (the cause), which triggers the effect —
+the bug climbs up, rain falls from the cloud, and it washes out ("Out!"). It's the
+first node about *the child's action producing a result*, the root of reasoning.
 
 Each level has its own failure fallback (pulse target, reduce field to 1v1,
 expand snap radius, auto-demo the drag, magnetic snap, flash the completed

@@ -63,7 +63,7 @@ test('loads clean with five concept cards', async ({ page }) => {
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await boot(page, { unlockAll: false });
-  await expect(page.locator('.ccard')).toHaveCount(6);
+  await expect(page.locator('.ccard')).toHaveCount(7);
   expect(errors).toEqual([]);
 });
 
@@ -257,8 +257,8 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   await boot(page);   // unlockAll → everything reachable
   await page.locator('#btn-map').click();
   await expect(page.locator('#view-map')).toBeVisible();
-  await expect(page.locator('.map-section')).toHaveCount(7);        // 6 nodes + mini games
-  await expect(page.locator('#map-body .lp-card')).toHaveCount(24); // 23 levels + Bubble Pop
+  await expect(page.locator('.map-section')).toHaveCount(8);        // 7 nodes + mini games
+  await expect(page.locator('#map-body .lp-card')).toHaveCount(27); // 26 levels + Bubble Pop
   await expect(page.locator('#map-body .lp-preview').first()).toBeVisible();  // same preview cards as the picker
   await page.locator('#map-body .lp-card[data-node="peekaboo"][data-i="0"]').click();
   await expect(page.locator('#view-play')).toBeVisible();
@@ -280,4 +280,17 @@ test('picture puzzle: tiles rotate through 3 faces and matching a scene wins', a
   expect(await page.evaluate(() => CF.PuzzleGame.solved())).toBe(true);
   await page.evaluate(() => CF.PuzzleGame.win());
   await expect(page.locator('#puz-win')).toBeVisible({ timeout: 3000 });
+});
+
+test('causality 7.1: placing the bug on the spout triggers the wash-out effect', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'causality', 0);
+  await waitForInteractive(page, 'drag');
+  const spout = await page.locator('[data-el="spout"]').boundingBox();
+  await dragTo(page, '[data-el="bug"]', spout.x + spout.width/2, spout.y + spout.height*0.78);
+  await waitDragEnds(page, 1);
+  const ends = await dragEnds(page);
+  expect(ends[0].ok).toBe(true);   // dropping the bug on the spout is the cause
+  // the effect runs (locked during the climb→rain→washout), then the trial completes
+  expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
 });
