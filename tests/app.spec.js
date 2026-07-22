@@ -192,6 +192,43 @@ test('5.3 tower: blocks stack anywhere and a pair moves as a group', async ({ pa
   expect(ends[1].ok).toBe(true);           // the carried pair landed on the base
 });
 
+test('tower free-build: drop caps at 10, shape switch appears at 5 pieces', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'composition', 2);   // 5.3 tower — gives a sized #stage
+  // enter the sandbox with a clean slate (0 placed) and stop the level's timers
+  await page.evaluate(() => {
+    const E = CF.Engine;
+    clearTimeout(E.autoTimer); clearTimeout(E.timeoutTimer);
+    window.__adv = false;
+    E.cur = { kind: 'stack', elements: [] };
+    E.trials = [E.cur]; E.trialIdx = 0;
+    E.stage().innerHTML = '';
+    E.enterFreeBuild(() => { window.__adv = true; });
+  });
+  // the drop button is up; no shape switch yet (< 5 pieces)
+  await expect(page.locator('.fb-ops .fb-add')).toBeVisible();
+  await expect(page.locator('.fb-ops .fb-shape')).toHaveCount(0);
+  // dropping to 5 reveals the shape switch
+  await page.evaluate(() => { for (let i = 0; i < 5; i++) CF.Engine.fbDrop(); });
+  expect(await page.evaluate(() => CF.Engine.fbCount)).toBe(5);
+  await expect(page.locator('.fb-ops .fb-shape')).toHaveCount(1);
+  // the switch cycles the shape to drop
+  const before = await page.evaluate(() => CF.Engine.fbShapeIdx);
+  await page.locator('.fb-ops .fb-shape').click();
+  expect(await page.evaluate(() => CF.Engine.fbShapeIdx)).not.toBe(before);
+  // fill to the cap of 10, then the drop button disables and refuses more
+  await page.evaluate(() => { for (let i = 0; i < 5; i++) CF.Engine.fbDrop(); });
+  expect(await page.evaluate(() => CF.Engine.fbCount)).toBe(10);
+  await expect(page.locator('.fb-ops .fb-add')).toBeDisabled();
+  await page.evaluate(() => CF.Engine.fbDrop());
+  expect(await page.evaluate(() => CF.Engine.fbCount)).toBe(10);
+  // "done" advances the curriculum and clears the sandbox
+  await page.locator('.fb-ops .fb-go').click();
+  expect(await page.evaluate(() => window.__adv)).toBe(true);
+  await expect(page.locator('.fb-ops')).toHaveCount(0);
+  await expect(page.locator('.fb-block')).toHaveCount(0);
+});
+
 test('4.3: a missed star stays where it was set down (no zap-back)', async ({ page }) => {
   await boot(page);
   await startLevel(page, 'spatial', 2);
