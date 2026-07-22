@@ -12,6 +12,11 @@ A contract between two repos that splits the audio work cleanly.
 The join between the two is the **index** plus a **stable clip id**. Nothing else
 crosses the boundary — no filename coupling, no Google Drive, no shared code.
 
+> **Status: agreed & implemented (schema v1, 2026-07-22).** The uid-stability
+> question (§6) is resolved — the producer pins ids in a durable registry and
+> retired ids carry `replaced_by`. The consumer keeps the uid join and follows
+> `replaced_by`. Both sides shipped it.
+
 ---
 
 ## 1 · The interface: the index
@@ -21,7 +26,7 @@ consumer reads it read-only. Required shape:
 
 ```jsonc
 {
-  "schema_version": 1,          // REQUIRED (see §5) — currently missing
+  "schema_version": 1,          // REQUIRED (see §5)
   "generated_at": "ISO-8601",   // REQUIRED — when the index was produced
   "sources": [ /* source recordings */ ],
   "phrases": [
@@ -55,12 +60,11 @@ but does not require them.
 ## 2 · Producer guarantees (MR_AudioClips must hold)
 
 1. **Stable `uid`.** A uid identifies the *same clip* across re-tagging and
-   re-trimming. Its `start`/`end`/`text`/`quality` may change under a fixed uid;
-   the uid itself must not. *(This is the one guarantee to confirm — current uids
-   look content-derived, which would change on re-trim. If uid cannot be made
-   persistent, see §6 for the fallback join key.)*
-2. **Retirement is explicit.** If a uid is removed or superseded, its record (or
-   a tombstone) carries `replaced_by: "<new-uid>"` so consumers can follow it.
+   re-trimming — pinned in the producer's durable id registry (§6). Its
+   `start`/`end`/`text`/`quality` may change under a fixed uid; the uid must not.
+2. **Retirement is explicit.** A removed/superseded uid appears in the
+   top-level `retired[]` array as `{uid, replaced_by, text, source}` so consumers
+   can follow the chain to the live clip.
 3. **Local, self-contained sources.** Every referenced `source`/`file` exists on
    disk under the producer root. **No dependency on Google Drive** or any remote
    origin — the local directory is the whole truth.
@@ -88,7 +92,10 @@ but does not require them.
 1. Load our manifest and the producer index (`CLIP_SOURCE` env, default
    `~/Code/MR_AudioClips`).
 2. For each manifest entry, resolve `uid → record` in the index.
-   - uid missing → report **`MISSING SOURCE`** (needs remap / follow `replaced_by`).
+   - uid missing from `phrases[].clips[]` → **check `retired[]`** and follow the
+     `replaced_by` chain to a live clip; repoint the manifest to the new uid
+     (keeping `replaced_from` as an audit trail) and report `FOLLOWED replaced_by`.
+   - only if the chain dead-ends → report **`MISSING SOURCE`**.
 3. Fresh if `dest` exists **and** `src_sha256` matches **and** stored `clip`
    metadata matches. Otherwise pull + normalize + rewrite the entry.
 4. `--check` reports staleness with a non-zero exit (CI); `--raw` skips
@@ -105,28 +112,40 @@ but does not require them.
 
 ---
 
-## 5 · Versioning
+## 5 · Versioning — **done**
 
-The index currently has **no `schema_version`**. The contract asks the producer
-to add `schema_version` (integer) and `generated_at`. The consumer treats a
-missing version as `0` and logs a warning; a major bump it doesn't recognize
-should stop the sync rather than guess.
+The index carries `schema_version` (int) and `generated_at` (ISO-8601). The
+consumer reads `schema_version`: missing → treated as `0` with a warning; a value
+**greater than it supports** aborts the sync rather than guessing. Currently
+`schema_version: 1`.
 
 ---
 
-## 6 · The one open decision — uid stability
+## 6 · uid stability — **resolved**
 
-Everything hinges on `uid` surviving refinement. Two ways to satisfy it:
+Everything hinged on `uid` surviving refinement, and it now does:
 
-- **A — producer keeps uid stable (preferred).** When a clip is first extracted
-  it gets a durable id; later re-trims/re-tags keep that id. Content changes are
-  observed by the consumer via the file hash + captured trim metadata.
-- **B — join on a semantic key (fallback).** If uids must stay content-derived,
-  the durable handle becomes `(source_uid + norm(text))` or a producer-maintained
-  alias table, and the manifest references that instead of a raw uid.
+- **uid is content-derived but cut-independent** — hashed from the source, a
+  bucketed first-word onset, and the normalized transcript; **`start`/`end` are
+  deliberately excluded**, so boundary/trim refinement never reissues an id.
+- **Ids are pinned in a durable registry** on the producer side
+  (`clip_ids.json`): minted once, matched back on rebuild by fingerprint then by
+  source + span-overlap + text-similarity ("survived but was re-cut"). Measured
+  ~96% of ids kept across a re-segmentation; the rest are genuine merges/splits.
+- **Merges/splits are followable, not silent** — retired ids land in `retired[]`
+  with `replaced_by`, so the consumer chases the chain (§4) to the live clip.
 
-**Recommendation: A.** It keeps the join trivial (one id) and lets trim/text/
-quality evolve freely underneath. This is the item to confirm with MR_AudioClips.
+The consumer keeps the plain uid join; the semantic-key fallback is **not needed**
+and is dropped.
+
+### Fragile dependency to respect
+
+The producer's `clip_ids.json` is the memory that makes ids durable — if it is
+lost and a build runs, **every id is reissued** and `replaced_by` cannot rescue us
+(the new ids have no lineage). It is committed, never regenerated, and the
+producer's build warns loudly if it is missing while a prior build exists. On our
+side, a **mass `MISSING SOURCE` across many clips at once** is the signature of
+that failure — treat it as "the registry was lost," not "remap each clip."
 
 ---
 

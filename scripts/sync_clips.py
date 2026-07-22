@@ -63,22 +63,47 @@ def main():
     if not os.path.exists(libp):
         print(f'! companion library not found: {libp}\n  set CLIP_SOURCE=/path/to/MR_AudioClips'); sys.exit(2)
     lib = json.load(open(libp))
+
+    # schema version — treat missing as 0 (older producer); stop on a newer major
+    SUPPORTED = 1
+    ver = lib.get('schema_version', 0)
+    if ver == 0:
+        print('! index has no schema_version — treating as legacy (0)')
+    elif ver > SUPPORTED:
+        print(f'! index schema_version {ver} > supported {SUPPORTED}; update the consumer. Aborting.'); sys.exit(2)
+
     uid2rec = {}   # stable uid -> full clip record from the producer index
     for ph in lib.get('phrases', []):
         for c in ph.get('clips', []):
             uid2rec[c['uid']] = c
+    # retired[] carries {uid, replaced_by, …}; follow the chain to the live clip
+    retired = {r['uid']: r.get('replaced_by') for r in lib.get('retired', []) if r.get('uid')}
+    def resolve(uid):
+        cur, chain, seen = uid, [], set()
+        while cur not in uid2rec and cur not in seen:
+            seen.add(cur); nxt = retired.get(cur)
+            if not nxt: return None, None, chain
+            chain.append(nxt); cur = nxt
+        return uid2rec.get(cur), cur, chain
 
     # the provenance we keep per clip (the "clip that clips it" metadata)
     def clip_meta(c):
         return {k: c.get(k) for k in
                 ('source_uid', 'source', 'start', 'end', 'duration', 'text', 'quality', 'has_music')}
 
-    updated, missing, ok = [], [], []
+    updated, missing, ok, followed = [], [], [], []
     for e in m['clips']:
         dest = os.path.join(APP, 'clips', e['dest'])
-        rec = uid2rec.get(e['uid'])
-        src = os.path.join(src_root, rec['file']) if rec else None
-        if not src or not os.path.exists(src):
+        rec, live_uid, chain = resolve(e['uid'])
+        if not rec:
+            missing.append(e); continue
+        if live_uid != e['uid']:
+            # producer retired this uid and pointed replaced_by at a new one —
+            # repoint our manifest to the live id (keep an audit trail)
+            e.setdefault('replaced_from', []).append(e['uid'])
+            followed.append((e['uid'], live_uid, e['dest'])); e['uid'] = live_uid
+        src = os.path.join(src_root, rec['file'])
+        if not os.path.exists(src):
             missing.append(e); continue
         src_hash = sha(src)
         meta = clip_meta(rec)
@@ -108,10 +133,12 @@ def main():
         json.dump(m, open(MANIFEST, 'w'), indent=2); open(MANIFEST, 'a').write('\n')
 
     verb = 'stale' if check_only else 'updated'
-    print(f'clips: {len(ok)} up-to-date, {len(updated)} {verb}, {len(missing)} missing source'
+    print(f'index schema v{ver} ({lib.get("generated_at","?")}) — '
+          f'clips: {len(ok)} up-to-date, {len(updated)} {verb}, {len(followed)} followed, {len(missing)} missing source'
           + ('' if not do_norm else f'  (normalized to ~{TARGET_LUFS} LUFS)'))
+    for old, new, dest in followed: print(f'  FOLLOWED replaced_by: {dest}  {old} → {new}')
     for e in updated: print(f'  {verb.upper()}: {e["dest"]}  ({e["phrase"]!r}  uid {e["uid"]})')
-    for e in missing: print(f'  MISSING SOURCE: {e["dest"]}  uid {e["uid"]} — remap in manifest')
+    for e in missing: print(f'  MISSING SOURCE: {e["dest"]}  uid {e["uid"]} — not in index or retired[]; remap in manifest')
     if missing or (check_only and updated): sys.exit(1)
 
 if __name__ == '__main__':
