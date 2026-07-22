@@ -28,12 +28,15 @@ The producer publishes three layers; **exactly one is the contract surface**:
 |---|---|---|
 | bronze | raw candidate segments | ignore |
 | silver | auto-tagged working set (`clips.json`, `clips/`) | **never read** |
-| **gold** | human-curated finished assets (`assets.db`, `assets.json`, `assets/`) | **the only thing we consume** |
+| **gold** | human-curated finished assets (`assets.db` + `assets/`) | **the only thing we consume** |
 
-**Gold is a SQLite catalog**, `assets.db`, exposing a `catalog` view (one row per
-asset) and an `assets_fts` full-text index. A JSON mirror `assets.json` carries the
-same rows plus a header (`schema_version`, `generated_at`). Assets live in
-`assets/`.
+**Gold is a single SQLite catalog**, `assets.db`, exposing a `catalog` view (one
+row per asset), an `assets_fts` full-text index, and a `meta` table
+(`schema_version`, `generated_at`, `asset_count`). Assets live in `assets/`. The
+`meta` table is written in the *same transaction* as the rows, so the version and
+freshness can never drift from the data — there is no separate JSON mirror to fall
+out of sync. *(An earlier `assets.json` mirror was removed 2026-07-22 for exactly
+that reason; the consumer reads `meta` and never a second copy.)*
 
 ### `catalog` columns — the contract surface
 
@@ -67,13 +70,13 @@ we hand-pick each asset in the manifest, we *record* these but don't filter on t
 3. **Local, self-contained.** Every `file`/`source_file` exists on disk under the
    producer root. No dependency on Google Drive or any remote origin.
 4. **Catalog is complete and queryable.** Every shippable asset appears in
-   `catalog` with the fields above; `assets.json` mirrors it with a versioned header.
+   `catalog` with the fields above; the `meta` table carries the version + freshness.
 5. **Promotion is cheap.** When we name a phrase that isn't in gold yet (§6), the
    producer promotes the existing silver clip into gold, minting its `asset_id`.
 
 ## 3 · Consumer guarantees (ConceptFoundations holds)
 
-1. **Consume gold only.** The acquire tool reads `assets.db` (or `assets.json`);
+1. **Consume gold only.** The acquire tool reads `assets.db` (catalog / FTS / meta);
    it **never** reads silver (`clips.json`, `clips/`) and never globs filenames.
 2. **The database dependency is build-time only.** SQL lives solely in
    `scripts/sync_clips.py`. The shipped app (`index.html`) plays the embedded
@@ -99,8 +102,9 @@ we hand-pick each asset in the manifest, we *record* these but don't filter on t
 `make sync-clips` (`scripts/sync_clips.py`):
 
 1. Load our manifest; open `assets.db` **read-only** (`CLIP_SOURCE` env, default
-   `~/Code/MR_AudioClips`). Read `schema_version`/`generated_at` from `assets.json`;
-   a `schema_version` greater than supported aborts rather than guessing.
+   `~/Code/MR_AudioClips`). Read `schema_version`/`generated_at` from the `meta`
+   table (an older producer without it degrades gracefully); a `schema_version`
+   greater than supported aborts rather than guessing.
 2. For each manifest entry:
    - `asset_id` set → `SELECT … FROM catalog WHERE asset_id=?`. Not found →
      **`MISSING`** (removed from gold; re-pick in the manifest).
@@ -115,9 +119,9 @@ we hand-pick each asset in the manifest, we *record* these but don't filter on t
 
 ## 5 · Versioning
 
-`assets.json` carries `schema_version` (int) and `generated_at` (ISO-8601). The
-consumer aborts on a `schema_version` greater than it supports rather than
-guessing. Currently `schema_version: 1`.
+The `meta` table carries `schema_version` (int), `generated_at` (ISO-8601), and
+`asset_count`. The consumer aborts on a `schema_version` greater than it supports
+rather than guessing. Currently `schema_version: 1`.
 
 ---
 

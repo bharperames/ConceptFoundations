@@ -75,13 +75,17 @@ def open_catalog(src_root):
     db.row_factory = sqlite3.Row
     return db
 
-def catalog_header(src_root):
-    """schema_version + generated_at from assets.json if present (advisory)."""
-    p = os.path.join(src_root, 'assets.json')
-    if not os.path.exists(p):
+def catalog_header(db):
+    """schema_version + generated_at from the catalog's `meta` table — the single
+    source of truth, written in the same transaction as the rows so it can't drift
+    from them (unlike the old assets.json mirror, now removed). An older producer
+    without a `meta` table degrades to (None, None)."""
+    try:
+        meta = dict(db.execute('SELECT key, value FROM meta').fetchall())
+    except sqlite3.OperationalError:      # producer predates the meta table
         return None, None
-    j = json.load(open(p))
-    return j.get('schema_version'), j.get('generated_at')
+    ver = meta.get('schema_version')
+    return (int(ver) if ver is not None else None), meta.get('generated_at')
 
 def fetch_by_asset_id(db, asset_id):
     cols = ','.join(CATALOG_COLS)
@@ -102,7 +106,7 @@ def main():
     m = json.load(open(MANIFEST))
     src_root = os.environ.get('CLIP_SOURCE') or os.path.expanduser(m.get('source_project', '~/Code/MR_AudioClips'))
     db = open_catalog(src_root)
-    ver, generated_at = catalog_header(src_root)
+    ver, generated_at = catalog_header(db)
     if ver is not None and ver > SUPPORTED_SCHEMA:
         print(f'! gold schema_version {ver} > supported {SUPPORTED_SCHEMA}; update the consumer. Aborting.'); sys.exit(2)
 
