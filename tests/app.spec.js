@@ -257,9 +257,10 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   await boot(page);   // unlockAll → everything reachable
   await page.locator('#btn-map').click();
   await expect(page.locator('#view-map')).toBeVisible();
-  await expect(page.locator('.map-section')).toHaveCount(7);   // 6 nodes + mini games
-  await expect(page.locator('.map-lvl')).toHaveCount(24);      // 23 levels + Bubble Pop
-  await page.locator('.map-lvl[data-node="peekaboo"][data-i="0"]').click();
+  await expect(page.locator('.map-section')).toHaveCount(7);        // 6 nodes + mini games
+  await expect(page.locator('#map-body .lp-card')).toHaveCount(24); // 23 levels + Bubble Pop
+  await expect(page.locator('#map-body .lp-preview').first()).toBeVisible();  // same preview cards as the picker
+  await page.locator('#map-body .lp-card[data-node="peekaboo"][data-i="0"]').click();
   await expect(page.locator('#view-play')).toBeVisible();
   expect(await page.evaluate(() => CF.Engine.level.id)).toBe('6.1');
 });

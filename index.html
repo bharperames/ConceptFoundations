@@ -3024,31 +3024,37 @@ function openPicker(node){
 }
 function closePicker(){ $('#level-picker').classList.add('hidden'); }
 
-/* Level map: every node (section) and all its micro-levels (subsection). */
+/* Level map: every node (section) and all its micro-levels as the same preview
+   cards the long-press picker shows (subsection). */
+const LP_LOCK = `<span class="lp-lock"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg></span>`;
 function renderMap(){
   const body = $('#map-body');
   const sections = NODES.map(node => {
     const np = nodeProgress(node.key);
-    const chips = node.levels.map((lv, i) => {
-      const done = np.mastered.includes(lv.id);
-      const cur = i === np.levelIdx && !done;
+    const cards = node.levels.map((lv, i) => {
       const reachable = levelReachable(node, np, i);
-      const cls = done ? 'done' : cur ? 'cur' : reachable ? 'open' : 'locked';
-      return `<button class="map-lvl ${cls}" data-node="${node.key}" data-i="${i}" ${reachable?'':'aria-disabled="true"'}>
-        <span class="ml-id">${lv.id}</span><span class="ml-name">${lv.name}</span></button>`;
+      const done = np.mastered.includes(lv.id);
+      return `<button class="lp-card${reachable?'':' locked'}${done?' done':''}" data-node="${node.key}" data-i="${i}" ${reachable?'':'aria-disabled="true"'}>
+        ${miniPreview(node, lv)}
+        <span class="lp-name">Level ${lv.id}</span>
+        <span class="lp-desc">${lv.name}</span>
+        ${LP_LOCK}
+      </button>`;
     }).join('');
     return `<section class="map-section">
       <div class="map-sec-head">${NICON[node.key] || ''}
         <div><div class="ms-title">${node.num} · ${node.title}</div>
         <div class="ms-sub">${node.parentName} · ${np.mastered.length}/${node.levels.length} done</div></div></div>
-      <div class="map-lvls">${chips}</div></section>`;
+      <div class="lp-grid">${cards}</div></section>`;
   }).join('');
+  const bubbleIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:64%">
+    <svg viewBox="0 0 100 100"><circle cx="38" cy="42" r="22" fill="#5BB8EC" opacity=".7"/><circle cx="30" cy="34" r="6" fill="#fff" opacity=".95"/><circle cx="68" cy="60" r="15" fill="#9B7DE8" opacity=".7"/><circle cx="63" cy="54" r="4" fill="#fff" opacity=".95"/><circle cx="62" cy="28" r="10" fill="#4FCF98" opacity=".7"/><circle cx="59" cy="24" r="3" fill="#fff" opacity=".95"/></svg></span></div>`;
   const mini = `<section class="map-section">
     <div class="map-sec-head"><div><div class="ms-title">Mini games</div></div></div>
-    <div class="map-lvls"><button class="map-lvl mini open" data-mini="bubbles">
-      <span class="ml-id">Bubble Pop</span><span class="ml-name">Pop them before they land!</span></button></div></section>`;
+    <div class="lp-grid"><button class="lp-card" data-mini="bubbles">
+      ${bubbleIcon}<span class="lp-name">Bubble Pop</span><span class="lp-desc">Pop them before they land!</span></button></div></section>`;
   body.innerHTML = sections + mini;
-  body.querySelectorAll('.map-lvl').forEach(el => {
+  body.querySelectorAll('.lp-card').forEach(el => {
     el.addEventListener('click', () => {
       if (el.dataset.mini === 'bubbles'){ Audio2.unlock(); BubbleGame.start(); return; }
       const node = NODES.find(n => n.key === el.dataset.node);
