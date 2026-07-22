@@ -39,6 +39,16 @@
       "constraints": { "max_duration_s": 1.0, "has_music": "either", "voice": "child-friendly; sits with the promoted 'out'" },
       "candidate_asset_ids": [],
       "note": "Completes in/out. Lower priority than up/down since 'in the box' reads fine as a full TTS phrase today."
+    },
+    {
+      "phrase": "you did it",
+      "norm": "you did it",
+      "used_in": ["mini-games/Picture Puzzle — each picture built, and the all-three finale"],
+      "priority": "medium",
+      "currently": "tts",
+      "constraints": { "max_duration_s": 1.6, "has_music": "either", "voice": "warm child-facing praise (second person)" },
+      "candidate_asset_ids": ["asset_98cf57f963af"],
+      "note": "Second-person 'You did it!' for the Picture Puzzle win. If no good 'you did it' recording exists, fulfil with the 'we did it' take — silver clip_ed372817a473 = gold asset_98cf57f963af (I already ship it as we_did_it.mp3). Producer's call. Once fulfilled I add 'you did it' → you_did_it.mp3 to CLIP_MAP and the existing wording upgrades from TTS to the clip with no reword."
     }
   ]
 }
