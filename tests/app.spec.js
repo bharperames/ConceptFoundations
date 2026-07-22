@@ -265,21 +265,31 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   expect(await page.evaluate(() => CF.Engine.level.id)).toBe('6.1');
 });
 
-test('picture puzzle: tiles rotate through 3 faces and matching a scene wins', async ({ page }) => {
+test('picture puzzle: build all three pictures to fill the shelf, then win', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => CF.PuzzleGame.start());
   await expect(page.locator('#view-puzzle')).toBeVisible();
   await expect(page.locator('.puz-tile')).toHaveCount(9);
   await expect(page.locator('.puz-face')).toHaveCount(27);   // 9 tiles x 3 faces
+  await expect(page.locator('#puz-gallery .puz-slot')).toHaveCount(3);   // an empty shelf slot per scene
   // a tap advances that tile's face by one (mod 3)
   const f0 = await page.evaluate(() => CF.PuzzleGame.tiles[0].f);
   await page.evaluate(() => CF.PuzzleGame.rotate(CF.PuzzleGame.tiles[0]));
   expect(await page.evaluate(() => CF.PuzzleGame.tiles[0].f)).toBe((f0 + 1) % 3);
-  // aligning every tile to one scene is a solved puzzle → win overlay
-  await page.evaluate(() => CF.PuzzleGame.tiles.forEach(t => t.f = 0));
-  expect(await page.evaluate(() => CF.PuzzleGame.solved())).toBe(true);
-  await page.evaluate(() => CF.PuzzleGame.win());
-  await expect(page.locator('#puz-win')).toBeVisible({ timeout: 3000 });
+
+  // build each of the three distinct scenes; each completion pops a trophy onto
+  // the shelf, and the finale overlay stays hidden until all three are done
+  for (let scene = 0; scene < 3; scene++){
+    await page.waitForFunction(() => CF.PuzzleGame.won === false);
+    await page.evaluate(s => CF.PuzzleGame.tiles.forEach(t => { t.f = s; t.deg = -120*s; }), scene);
+    expect(await page.evaluate(() => CF.PuzzleGame.solved())).toBe(true);
+    await page.evaluate(() => CF.PuzzleGame.complete());
+    await expect(page.locator('.puz-slot.filled')).toHaveCount(scene + 1, { timeout: 3000 });
+    if (scene < 2) await expect(page.locator('#puz-win')).toBeHidden();
+  }
+  // all three built → the big finale overlay + a full shelf
+  await expect(page.locator('#puz-win')).toBeVisible({ timeout: 4000 });
+  await expect(page.locator('.puz-slot.filled')).toHaveCount(3);
 });
 
 test('causality 7.1: placing the bug on the spout triggers the wash-out effect', async ({ page }) => {

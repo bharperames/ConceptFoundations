@@ -205,6 +205,21 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .puz-face > svg{position:absolute;width:300%;height:300%;pointer-events:none}
 .puz-hint{color:var(--ink-soft);font-family:var(--round);font-weight:700;font-size:16px;margin:0}
 .puz-win{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(30,50,74,.42)}
+/* trophy shelf: the pictures built so far, filled one by one */
+.puz-gallery{display:flex;gap:14px;justify-content:center;align-items:center}
+.puz-galabel{font-family:var(--round);font-weight:700;font-size:14px;color:var(--ink-soft);margin:0 0 -6px}
+.puz-slot{
+  --sz:min(18vw,84px);width:var(--sz);height:var(--sz);border-radius:15px;position:relative;overflow:hidden;
+  background:rgba(120,140,165,.16);box-shadow:inset 0 0 0 2px rgba(120,140,165,.3);
+  display:flex;align-items:center;justify-content:center;
+}
+.puz-slot .puz-slot-q{font-family:var(--round);font-weight:800;font-size:30px;color:var(--ink-soft);opacity:.55}
+.puz-slot svg{position:absolute;inset:0;width:100%;height:100%}
+.puz-slot.filled{box-shadow:inset 0 0 0 3px #FFC02E, 0 4px 12px rgba(255,170,20,.4)}
+.puz-slot.filled .puz-slot-q{display:none}
+.puz-slot .puz-slot-star{position:absolute;right:3px;bottom:0;font-size:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));z-index:2}
+.puz-slot.pop{animation:puzslotpop .62s cubic-bezier(.2,1.55,.4,1)}
+@keyframes puzslotpop{0%{transform:scale(.35);opacity:.2}55%{transform:scale(1.2)}100%{transform:scale(1)}}
 
 /* ═══════════════ Bubble Pop ═══════════════ */
 #view-bubbles{background:linear-gradient(180deg,#0C2036 0%,#123A5C 55%,#1C517A 100%);touch-action:none;overflow:hidden}
@@ -619,10 +634,12 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   <div class="puz-wrap">
     <div id="puzzle-grid"></div>
     <p class="puz-hint">Tap the tiles to make one picture</p>
+    <p class="puz-galabel">Pictures you built</p>
+    <div id="puz-gallery" class="puz-gallery" aria-label="Pictures you built"></div>
   </div>
   <div id="puz-win" class="puz-win hidden">
     <div class="bub-over-card">
-      <div class="bub-over-title">You made it! 🎉</div>
+      <div class="bub-over-title">You did it! 🎉</div>
       <button id="btn-puz-again" class="btn-primary bub-again">Play again</button>
     </div>
   </div>
@@ -1995,13 +2012,15 @@ const PUZZLE_SCENES = [
     <rect x="86" y="176" width="34" height="34" rx="3" fill="#9BD6F7"/><rect x="180" y="176" width="34" height="34" rx="3" fill="#9BD6F7"/></svg>`,
 ];
 const PuzzleGame = {
-  tiles: [], won: false,
+  tiles: [], won: false, done: null, target: -1,
   start(){
     Audio2.unlock();
     showView('puzzle');
     $('#puz-win').classList.add('hidden');
     $('#puzzle-grid').classList.remove('solved');
     this.won = false;
+    this.done = new Set();          // scene indices the child has built
+    this.buildGallery();
     const grid = $('#puzzle-grid'); grid.innerHTML = ''; this.tiles = [];
     for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++){
       const tile = document.createElement('div'); tile.className = 'puz-tile';
@@ -2021,11 +2040,35 @@ const PuzzleGame = {
       tile.addEventListener('click', ev => this.rotate(t, ev));
       grid.appendChild(tile); this.tiles.push(t);
     }
-    // shuffle initial faces until the puzzle is NOT already solved
+    this.newRound(true);
+  },
+  // the trophy shelf: one empty slot per scene, filled as each is built
+  buildGallery(){
+    const g = $('#puz-gallery'); if (!g) return;
+    g.innerHTML = PUZZLE_SCENES.map((s, i) =>
+      `<div class="puz-slot" data-scene="${i}"><span class="puz-slot-q">?</span></div>`).join('');
+  },
+  fillSlot(i){
+    const slot = $(`#puz-gallery .puz-slot[data-scene="${i}"]`);
+    if (!slot || slot.classList.contains('filled')) return;
+    slot.innerHTML = PUZZLE_SCENES[i] + '<span class="puz-slot-star">⭐</span>';
+    slot.classList.add('filled', 'pop');
+    slot.addEventListener('animationend', () => slot.classList.remove('pop'), { once: true });
+  },
+  // set up the next picture: steer most tiles toward an *uncollected* scene so
+  // the child builds a new one each round; never start already-solved
+  newRound(first){
+    const left = [0,1,2].filter(i => !this.done.has(i));
+    this.target = (left.length ? left : [0,1,2])[Math.floor(Math.random() * (left.length || 3))];
     let tries = 0;
-    do { this.tiles.forEach(t => { const rf = Math.floor(Math.random()*3); t.deg = -120*rf; t.f = rf; this.apply(t, true); }); }
-    while (this.solved() && ++tries < 20);
+    do {
+      this.tiles.forEach(t => {
+        const f = (!first && Math.random() < 0.6) ? this.target : Math.floor(Math.random()*3);
+        t.f = f; t.deg = -120*f; this.apply(t, true);
+      });
+    } while (this.solved() && ++tries < 25);
     this.tiles.forEach(t => this.hideBack(t));
+    this.won = false;
   },
   // continuous angle → always turns the short way; front face derived from it
   faceOf(deg){ return (((-Math.round(deg/120)) % 3) + 3) % 3; },
@@ -2052,15 +2095,35 @@ const PuzzleGame = {
     this.apply(t);
     Audio2.snapSnd();
     setTimeout(() => { if (!this.won) this.hideBack(t); }, 560);
-    if (this.solved()) setTimeout(() => this.win(), 400);   // let the tumble finish
+    if (this.solved()) setTimeout(() => this.complete(), 400);   // let the tumble finish
   },
   solved(){ return this.tiles.every(t => t.f === this.tiles[0].f); },
-  win(){
+  complete(){
     if (this.won) return;
-    this.won = true;
+    this.won = true;                       // lock taps during the celebration
+    const scene = this.tiles[0].f;
+    const fresh = !this.done.has(scene);
+    if (fresh) this.done.add(scene);
     $('#puzzle-grid').classList.add('solved');
-    Audio2.fanfare(); Audio2.speak('You did it!');
-    setTimeout(() => $('#puz-win').classList.remove('hidden'), 1100);
+    setTimeout(() => { if (fresh) this.fillSlot(scene); }, 500);   // trophy pops onto the shelf
+
+    if (this.done.size >= 3){
+      // all three built → the big finale
+      Audio2.fanfare();
+      setTimeout(() => Celebrate.run('trophy', 'You did it!'), 650);
+      setTimeout(() => {
+        $('#puzzle-grid').classList.remove('solved');
+        $('#puz-win').classList.remove('hidden');
+      }, 2200);
+    } else {
+      // a picture done, more to go → celebrate, then set up the next one
+      Audio2.correct();
+      Audio2.speak(fresh ? 'You did it!' : 'Again!');
+      setTimeout(() => {
+        $('#puzzle-grid').classList.remove('solved');
+        this.newRound(false);
+      }, 1500);
+    }
   },
 };
 
