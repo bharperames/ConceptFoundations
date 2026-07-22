@@ -73,6 +73,15 @@
       "src_sha256": "f4e5659709580c04642fec47888e8e5283fc8916f666d68f7cfe96fadac4b0f1",
       "dest_sha256": "dfb1302292e62e1195a9103fa37c637fee77b918f374b0077a00d3e06359a56a",
       "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "uh_oh_song.mp3",
+      "phrase": "this is the uh oh song",
+      "uid": "clip_0dcdb7046530",
+      "src_sha256": "d5a71cb0e20a47629530223dc146db252d3a9200f9dce04935f2aa92ca3ad333",
+      "dest_sha256": "cfa23b66fb6a5a2246bc7307390b11f76719a3dbc1ff9550ada07f8e3ba4860c",
+      "source_file": "clips/clip_0dcdb7046530__this_is_the_uh_oh_song.mp3",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }

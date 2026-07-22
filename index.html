@@ -813,7 +813,15 @@ const Audio2 = (() => {
     o.connect(g); g.connect(ctx.destination);
     o.start(); o.stop(ctx.currentTime + 0.15);
   }
-  return { unlock, speak, correct, wrong, snapSnd, fanfare, clack, pop };
+  // play a recorded clip as a plain sound effect — no caption, no speaker ring
+  function sfx(file){
+    if (!ctx || muted || clipsOff) return;
+    loadClip('./clips/' + file).then(buf => {
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      src.connect(ctx.destination); src.start();
+    }).catch(() => {});
+  }
+  return { unlock, speak, correct, wrong, snapSnd, fanfare, clack, pop, sfx };
 })();
 
 /* ════════════════════════════════ 3 · Art (flat SVG, no raster) ═══════════ */
@@ -2104,13 +2112,17 @@ const Engine = {
     } else {
       this.frustration(now, true);
       this.wrongCount++;
-      Audio2.wrong();
-      if (this.cur.kind === 'hideseek' && hit && hit.dataset.el && hit.dataset.el.startsWith('cover')){
-        // lift the wrong cover to show it's empty underneath, then set it back
-        hit.classList.add('hs-lift');
-        setTimeout(() => hit.classList.remove('hs-lift'), 750);
-      } else if (hit) {
-        hit.classList.remove('wobble'); void hit.offsetWidth; hit.classList.add('wobble');
+      if (this.cur.kind === 'hideseek'){
+        // wrong stack: an "uh-oh" clip (debounced so rapid taps don't spam it)
+        // and lift the tapped cover to show the empty space underneath
+        if (!this.lastUhOh || now - this.lastUhOh > 2400){ Audio2.sfx('uh_oh_song.mp3'); this.lastUhOh = now; }
+        if (hit && hit.dataset.el && hit.dataset.el.startsWith('cover')){
+          hit.classList.add('hs-lift');
+          setTimeout(() => hit.classList.remove('hs-lift'), 750);
+        }
+      } else {
+        Audio2.wrong();
+        if (hit){ hit.classList.remove('wobble'); void hit.offsetWidth; hit.classList.add('wobble'); }
       }
       this.trackIsoMiss(hitId);
       if (this.wrongCount >= 2 && !this.usedFallback) this.applyFallback();
