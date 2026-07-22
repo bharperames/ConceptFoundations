@@ -1,6 +1,6 @@
 PORT ?= 8743
 
-.PHONY: serve test test-setup sync-clips audio-requests
+.PHONY: serve test test-setup sync-clips register-demand
 
 # one-time: install the test runner and headless browsers (Chromium + WebKit)
 test-setup:
@@ -16,10 +16,12 @@ test:
 sync-clips:
 	python3 scripts/sync_clips.py
 
-# reconcile our demand ledger (audio-requests.json) against live gold —
-# reports OPEN / READY / STALE. --check (in CI) fails on READY/STALE.
-audio-requests:
-	python3 scripts/export_requests.py
+# push our demand (in-use + wants) INTO the shared catalog (assets.db usage/
+# requests tables) and read back the producer's fulfilled_by replies. Reports
+# OPEN / READY / STALE; --check (in CI) fails on READY/STALE. Needs the producer
+# to have provisioned the tables (docs/handoff-demand-tables.md).
+register-demand:
+	python3 scripts/register_demand.py
 
 serve:
 	@lsof -ti tcp:$(PORT) | xargs kill 2>/dev/null || true

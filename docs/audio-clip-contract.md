@@ -183,41 +183,51 @@ id is unchanged and the next acquire re-pulls automatically off `updated_at`.
 ## 8 · The back-channel — registering usage & requests (demand)
 
 The catalog is the producer→consumer direction (supply). This is the
-consumer→producer direction (demand). It's built on the **same discipline** the
-`assets.json` removal established: *never keep two copies of one fact that can
-drift.* So there is **no generated projection** — the producer reads our source
-files directly, exactly as we read `assets.db` directly. Three source files, each
-owned by one side, none duplicating another:
+consumer→producer direction (demand). **`assets.db` is a shared resource** — the
+producer owns *supply* (catalog / meta / tags / groups), and the consumer writes
+*demand* into two producer-owned tables, so the curator can `SELECT`/`JOIN`
+demand against supply in one place. Schema, column ownership, and durability
+rules: **`docs/handoff-demand-tables.md`** (the producer creates the tables and
+guarantees they survive rebuilds).
 
-| File | Owner | Direction | Says |
+| Where | Owner | Direction | Says |
 |---|---|---|---|
-| `assets.db` (`meta`+`catalog`) | producer | supply | what exists |
-| `clips/clips.manifest.json` | consumer | demand · in-use | which `asset_id`s we depend on ("don't de-curate these") |
-| `audio-requests.json` | consumer | demand · wanted | phrases we need that gold lacks |
+| `assets.db` `catalog`/`meta` | producer | supply | what exists |
+| `assets.db` `usage` table | consumer-written | demand · in-use | which `asset_id`s we ship ("don't de-curate these") |
+| `assets.db` `requests` table | consumer-written (`fulfilled_by` producer-written) | demand · wanted | phrases we need that gold lacks |
+| `clips/clips.manifest.json` | consumer | authored source | in-use, pushed into `usage` |
+| `audio-requests.json` | consumer | authored source | wants, pushed into `requests` |
 
-**In-use is not re-published.** The manifest already lists every `asset_id` we
-ship; that *is* the dependency signal. The producer reads it before removing an
-asset (gold has no tombstones, so this is how they know who's holding a reference).
+**No drift, via single-writer-per-column.** The git-tracked JSON files are the
+*authored sources*; `scripts/register_demand.py` (`make register-demand`) is the
+only writer that pushes them into the shared tables — the lockfile pattern. In
+`requests`, every column is consumer-written **except `fulfilled_by`**, which only
+the producer writes. Disjoint ownership → the two sides never clobber each other.
 
-**The requests ledger has no status field.** Presence == open. Fulfillment is
-*migration*, not a flag: when a phrase is promoted, its `asset_id` moves into the
-manifest and the request is **deleted** from the ledger. "Done" == "gone", so a
-request can never be marked-done-yet-still-listed — the exact drift the
-`assets.json` mirror could suffer, designed out by construction.
+**In-use is a mirror of the manifest**, not re-authored: `register_demand.py`
+upserts one `usage` row per shipped `asset_id` and deletes rows no longer shipped,
+so `usage` always equals the manifest. That is the "don't de-curate this" signal
+(gold has no tombstones, so this is how the curator sees a live reference).
 
-**Reconcile, don't mirror.** `scripts/export_requests.py` (`make audio-requests`)
-is to demand what `sync_clips.py` is to supply: it *writes nothing*, reads the
-ledger + the manifest + live gold, and reports each request as `OPEN` (gold lacks
-it), `READY` (gold has a match now → wire it into the manifest, delete the
-request), or `STALE` (already in the manifest → delete the request). `--check`
-exits non-zero on any `READY`/`STALE`, so CI catches us drifting behind gold.
+**Requests have no status enum.** `fulfilled_by IS NULL` = open ask; set =
+"producer promoted, awaiting the consumer to wire it"; row **deleted** = done.
+Fulfillment is *migration*: the producer sets `fulfilled_by`, the consumer wires
+the `asset_id` into the manifest, adds a `usage` row, and removes the request from
+`audio-requests.json` (which drops the DB row on the next `register-demand`). A
+request can never be marked-done-yet-still-listed.
 
-**The TTS backlog is a report, not a contract file.** "Every line the app speaks,
-flagged curated-vs-TTS" is a *projection* of `index.html`, so it is generated on
-demand — never committed as a second source that could drift from the app.
+**`register-demand` reports** each request as `OPEN` (awaiting promotion), `READY`
+(producer set `fulfilled_by` → wire it), or `STALE` (already in the manifest →
+delete it). `--check` exits non-zero on any `READY`/`STALE`, so CI catches drift.
 
-Lifecycle of one request (`out`, already completed): named in the ledger → producer
-promotes silver → mints `asset_id` → consumer wires it into the manifest and
-**removes it from the ledger** → `export_requests.py` would flag it `STALE` if left
-behind. The four July-22 promotions (`yay`, `we did it`, `peekaboo`, `out`) ran
-this loop; the ledger now holds only the still-open `up` / `down` / `in`.
+**The TTS backlog is a report, not a contract surface.** "Every line the app
+speaks, flagged curated-vs-TTS" is a *projection* of `index.html`, generated on
+demand — never a committed second source that could drift from the app.
+
+Lifecycle of one request (`out`, already completed): authored in the ledger →
+pushed to `requests` → producer promotes silver, mints `asset_id`, sets
+`fulfilled_by` → consumer wires it into the manifest and **removes it from the
+ledger** → the DB row drops. The four July-22 promotions (`yay`, `we did it`,
+`peekaboo`, `out`) ran this loop before the tables existed (via the file
+back-channel); the ledger now holds only the still-open `up` / `down` / `in`,
+ready to push once the producer provisions the tables.

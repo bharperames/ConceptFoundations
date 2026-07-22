@@ -2,12 +2,12 @@
   "schema_version": 1,
   "consumer": "ConceptFoundations",
   "produces_for": "MR_AudioClips",
-  "about": "The consumer's demand ledger — phrases the app needs that the GOLD catalog (assets.db) does not have yet. This is the mirror of the producer's assets.db: they publish supply, we publish demand, each side owns exactly one source file. See docs/audio-clip-contract.md §8.",
+  "about": "The consumer's git-tracked, human-authored demand ledger — phrases the app needs that the GOLD catalog does not have yet. `scripts/register_demand.py` PUSHES these into the shared catalog's `requests` table (assets.db), where the curator reads them and replies via `fulfilled_by`. This JSON is the authored source; the DB row is the shared interop surface, written only by that tool (single writer per column → no drift). See docs/audio-clip-contract.md §8 and docs/handoff-demand-tables.md.",
   "invariants": [
-    "This file lists ONLY open requests. There is no status field: presence here == open.",
-    "Fulfillment is migration, not a flag. When the producer promotes a phrase, its asset_id moves into clips/clips.manifest.json and the request is DELETED from here. 'Done' == 'gone', so a request can never be marked-done-yet-still-listed (the drift trap the assets.json removal designed out).",
-    "In-use dependencies are NOT duplicated here. clips/clips.manifest.json is the authoritative list of asset_ids we depend on; read that for 'don't de-curate these'.",
-    "Run scripts/export_requests.py to reconcile this ledger against current gold (OPEN / READY / STALE)."
+    "This file lists ONLY open requests. Presence here == an open row in assets.db `requests`.",
+    "Fulfillment is migration, not a flag. The producer sets `requests.fulfilled_by` on promotion; the consumer then wires the asset_id into clips/clips.manifest.json, adds a `usage` row, and DELETES the request from here (which deletes the DB row on the next register-demand). 'Done' == 'gone'.",
+    "In-use dependencies are NOT authored here. clips/clips.manifest.json is the authoritative list of asset_ids we ship; register_demand.py mirrors it into the `usage` table for the 'don't de-curate these' signal.",
+    "Run `make register-demand` to push this ledger into assets.db and read back fulfilled_by (OPEN / READY / STALE)."
   ],
   "requests": [
     {
