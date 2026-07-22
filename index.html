@@ -133,8 +133,8 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .mini-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;max-width:900px;margin:14px auto 0}
 .minicard{
   position:relative;width:220px;padding:18px 14px 16px;border:none;text-align:center;
-  background:linear-gradient(180deg, #EAF6FF, #DCEBFA);border-radius:28px;cursor:pointer;
-  box-shadow:0 6px 20px rgba(61,107,153,.12), inset 0 0 0 2px rgba(126,200,240,.4);
+  background:var(--card);border-radius:28px;cursor:pointer;color:var(--ink);
+  box-shadow:0 6px 20px rgba(61,107,153,.14), inset 0 0 0 2px rgba(126,200,240,.4);
   transition:transform .15s ease;
 }
 .minicard:active{transform:scale(.96)}
@@ -143,7 +143,14 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .minicard .clevel{display:block;font-size:13px;color:var(--ink-soft);margin-top:2px;font-weight:600}
 
 /* ═══════════════ Bubble Pop ═══════════════ */
-#view-bubbles{background:linear-gradient(180deg,#BFE0FF 0%,#D8EEFF 55%,#EAF6FF 100%);touch-action:none;overflow:hidden}
+#view-bubbles{background:linear-gradient(180deg,#0C2036 0%,#123A5C 55%,#1C517A 100%);touch-action:none;overflow:hidden}
+.bub-countdown{
+  position:absolute;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;
+  font-family:var(--round);font-weight:800;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,.4);
+  font-size:clamp(56px,14vw,140px);pointer-events:none;
+}
+.bub-countdown.cd-pop{animation:cdpop .6s cubic-bezier(.2,1.5,.4,1)}
+@keyframes cdpop{0%{transform:scale(.3);opacity:0}45%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
 #bub-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .bub-score{
   position:absolute;top:max(16px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:10;
@@ -480,9 +487,9 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   <div id="mini-grid" class="mini-grid">
     <button class="minicard" data-mini="bubbles">
       <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="38" cy="42" r="22" fill="#7EC8F0" opacity=".55"/><circle cx="30" cy="34" r="6" fill="#fff" opacity=".9"/>
-        <circle cx="68" cy="60" r="15" fill="#A98FE8" opacity=".5"/><circle cx="63" cy="54" r="4" fill="#fff" opacity=".9"/>
-        <circle cx="62" cy="28" r="10" fill="#7ED9B0" opacity=".55"/><circle cx="59" cy="24" r="3" fill="#fff" opacity=".9"/>
+        <circle cx="38" cy="42" r="22" fill="#5BB8EC" opacity=".7"/><circle cx="30" cy="34" r="6" fill="#fff" opacity=".95"/>
+        <circle cx="68" cy="60" r="15" fill="#9B7DE8" opacity=".7"/><circle cx="63" cy="54" r="4" fill="#fff" opacity=".95"/>
+        <circle cx="62" cy="28" r="10" fill="#4FCF98" opacity=".7"/><circle cx="59" cy="24" r="3" fill="#fff" opacity=".95"/>
       </svg>
       <span class="cname">Bubble Pop</span>
       <span class="clevel">Pop them before they land!</span>
@@ -521,6 +528,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.8 11h2.4v9h5.2v-6h3.2v6h5.2v-9h2.4z"/></svg>
   </button>
   <div id="bub-score" class="bub-score"><span>0</span></div>
+  <div id="bub-countdown" class="bub-countdown hidden"></div>
   <div id="bub-over" class="bub-over hidden">
     <div class="bub-over-card">
       <div class="bub-over-title">All done!</div>
@@ -1618,14 +1626,39 @@ const BubbleGame = {
     this.canvas = $('#bub-canvas'); this.ctx = this.canvas.getContext('2d');
     $('#bub-over').classList.add('hidden');
     this.size();
-    this.bubbles = []; this.pops = []; this.score = 0; this.elapsed = 0; this.spawnIn = 0.6;
+    this.bubbles = []; this.pops = []; this.score = 0; this.elapsed = 0; this.spawnIn = 0.3;
     this.setScore(0);
+    this.running = false;
+    this.ctx.clearRect(0, 0, this.W, this.H);
     Audio2.speak('Bubble bubble bubble bubble bubble pop');   // clipped intro
-    this.running = true; this.last = performance.now();
-    cancelAnimationFrame(this.raf);
-    this.raf = requestAnimationFrame(t => this.loop(t));
+    // a "get ready" countdown before bubbles start falling
+    this.countdown(() => {
+      this.running = true; this.last = performance.now();
+      cancelAnimationFrame(this.raf);
+      this.raf = requestAnimationFrame(t => this.loop(t));
+    });
   },
-  stop(){ this.running = false; cancelAnimationFrame(this.raf); },
+  countdown(done){
+    const el = $('#bub-countdown');
+    const seq = ['Get ready!', '3', '2', '1', 'Go!'];
+    let i = 0;
+    el.classList.remove('hidden');
+    const tick = () => {
+      if (i >= seq.length){ el.classList.add('hidden'); done(); return; }
+      el.textContent = seq[i];
+      el.classList.remove('cd-pop'); void el.offsetWidth; el.classList.add('cd-pop');
+      if (i === seq.length - 1) Audio2.correct(); else if (i > 0) Audio2.snapSnd();
+      i++;
+      this.cdTimer = setTimeout(tick, i === 1 ? 850 : 700);
+    };
+    tick();
+  },
+  stop(){
+    this.running = false;
+    cancelAnimationFrame(this.raf);
+    clearTimeout(this.cdTimer);
+    $('#bub-countdown').classList.add('hidden');
+  },
   size(){
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.W = window.innerWidth; this.H = window.innerHeight; this.ground = this.H - 6;

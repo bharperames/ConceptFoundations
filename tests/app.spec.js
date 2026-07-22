@@ -236,7 +236,7 @@ test('bubble pop: popping scores, a grounded bubble ends the round', async ({ pa
   await boot(page);
   await page.evaluate(() => CF.BubbleGame.start());
   await expect(page.locator('#view-bubbles')).toBeVisible();
-  await page.waitForFunction(() => CF.BubbleGame.bubbles.length > 0, null, { timeout: 6000 });
+  await page.waitForFunction(() => CF.BubbleGame.bubbles.length > 0, null, { timeout: 10000 });
   const score = await page.evaluate(() => {
     const g = CF.BubbleGame, b = g.bubbles[g.bubbles.length - 1];
     g.hit(b.x, b.y);
