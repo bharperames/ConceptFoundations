@@ -129,6 +129,13 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .ccard.locked .lock{display:flex}
 
 .home-hint{text-align:center;color:var(--ink-soft);font-size:13px;font-weight:600;margin:22px 0 0;opacity:.75}
+.home-vol{
+  position:absolute;top:max(16px,env(safe-area-inset-top));left:16px;z-index:5;
+  display:flex;align-items:center;gap:8px;background:var(--btn-bg);border-radius:999px;
+  padding:7px 15px 7px 11px;box-shadow:0 3px 12px rgba(61,107,153,.14);
+}
+.vol-icon{border:none;background:none;color:var(--ink-soft);display:flex;align-items:center;padding:0;cursor:pointer}
+.vol-slider{width:96px;accent-color:var(--sea);cursor:pointer}
 .home-corner{
   position:absolute;top:max(16px,env(safe-area-inset-top));right:16px;z-index:5;
   display:flex;align-items:center;gap:7px;border:none;border-radius:999px;padding:9px 15px;
@@ -514,6 +521,10 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
     <h1>Concept Foundations</h1>
     <p class="home-sub">Tap a game to start</p>
   </header>
+  <div id="home-vol" class="home-vol">
+    <button id="vol-icon" class="vol-icon" aria-label="Mute"></button>
+    <input id="vol-slider" class="vol-slider" type="range" min="0" max="100" value="100" aria-label="Volume">
+  </div>
   <button id="btn-map" class="home-corner" aria-label="See all levels">
     <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M3 4h8v7H3zM13 4h8v7h-8zM3 13h8v7H3zM13 13h8v7h-8z"/></svg>
     <span>All levels</span>
@@ -674,16 +685,26 @@ const Captions = {
 };
 
 const Audio2 = (() => {
-  let ctx = null, voice = null, unlocked = false;
+  let ctx = null, master = null, voice = null, unlocked = false;
   // ?mute=1 silences speech and tones (for automated testing); prompt timing
   // still fires so TTFT telemetry keeps its semantics.
   const muted = new URLSearchParams(location.search).has('mute');
+  // master volume 0..1 — scales both Web Audio (via the master gain node) and
+  // TTS (via utterance.volume). Loaded from settings in init(), persisted here.
+  let vol = 1;
+  function setVolume(v){
+    vol = Math.max(0, Math.min(1, v));
+    if (master) master.gain.value = vol;
+    try { const s = Store.settings(); s.volume = vol; Store.saveSettings(s); } catch(e){}
+  }
+  const getVolume = () => vol;
 
   function unlock(){
     if (unlocked) return; unlocked = true;
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') ctx.resume();
+      master = ctx.createGain(); master.gain.value = vol; master.connect(ctx.destination);
     } catch(e){ ctx = null; }
     if ('speechSynthesis' in window){
       const load = () => {
@@ -743,7 +764,7 @@ const Audio2 = (() => {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     if (voice) u.voice = voice;
-    u.rate = 0.9; u.pitch = 1.1;
+    u.rate = 0.9; u.pitch = 1.1; u.volume = vol;
     let done = false;
     const fin = () => { if (!done){ done = true; if (onend) onend(); } };
     u.onend = fin; u.onerror = fin;
@@ -762,7 +783,7 @@ const Audio2 = (() => {
         let done = false;
         const fin = () => { if (!done){ done = true; if (onend) onend(); } };
         const src = ctx.createBufferSource();
-        src.buffer = buf; src.connect(ctx.destination);
+        src.buffer = buf; src.connect(master);
         src.onended = fin;
         setTimeout(fin, buf.duration * 1000 + 250);   // onended safety net
         talkFor(buf.duration * 1000 + 150);
@@ -780,7 +801,7 @@ const Audio2 = (() => {
     g.gain.setValueAtTime(0.0001, ctx.currentTime + t0);
     g.gain.exponentialRampToValueAtTime(gain, ctx.currentTime + t0 + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t0 + dur);
-    o.connect(g); g.connect(ctx.destination);
+    o.connect(g); g.connect(master);
     o.start(ctx.currentTime + t0); o.stop(ctx.currentTime + t0 + dur + 0.05);
   }
   function clack(intensity){
@@ -793,7 +814,7 @@ const Audio2 = (() => {
     const src = ctx.createBufferSource(); src.buffer = buf;
     const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 1400; bp.Q.value = 1.2;
     const g = ctx.createGain(); g.gain.value = 0.55 * clamp(intensity, .15, 1);
-    src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+    src.connect(bp); bp.connect(g); g.connect(master);
     src.start(ctx.currentTime);
   }
   const correct  = () => { tone(660,0,.18,'triangle'); tone(880,.12,.25,'triangle'); };
@@ -810,7 +831,7 @@ const Audio2 = (() => {
     g.gain.setValueAtTime(0.0001, ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.13);
-    o.connect(g); g.connect(ctx.destination);
+    o.connect(g); g.connect(master);
     o.start(); o.stop(ctx.currentTime + 0.15);
   }
   // play a recorded clip as a plain sound effect — no caption, no speaker ring
@@ -818,10 +839,10 @@ const Audio2 = (() => {
     if (!ctx || muted || clipsOff) return;
     loadClip('./clips/' + file).then(buf => {
       const src = ctx.createBufferSource(); src.buffer = buf;
-      src.connect(ctx.destination); src.start();
+      src.connect(master); src.start();
     }).catch(() => {});
   }
-  return { unlock, speak, correct, wrong, snapSnd, fanfare, clack, pop, sfx };
+  return { unlock, speak, correct, wrong, snapSnd, fanfare, clack, pop, sfx, setVolume, getVolume };
 })();
 
 /* ════════════════════════════════ 3 · Art (flat SVG, no raster) ═══════════ */
@@ -3459,6 +3480,32 @@ function init(){
   $('#lp-scrim').addEventListener('click', closePicker);
   $('#btn-home').addEventListener('click', () => { Engine.abort(); showView('home'); renderHome(); });
   $('#btn-dash-back').addEventListener('click', () => { showView('home'); renderHome(); });
+  // volume control (main screen) — slider adjusts, speaker icon toggles mute
+  const volSlider = $('#vol-slider'), volIcon = $('#vol-icon');
+  const volIconSvg = v => {
+    const waves = v === 0 ? '<path d="M16 9l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>'
+      : v < 0.34 ? ''
+      : v < 0.7  ? '<path d="M16 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+      : '<path d="M16 9.5a3.5 3.5 0 0 1 0 5m2.5-8a7 7 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+    return `<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4z"/>${waves}</svg>`;
+  };
+  const syncVolUI = () => {
+    const v = Audio2.getVolume();
+    volSlider.value = Math.round(v * 100);
+    volIcon.innerHTML = volIconSvg(v);
+    volIcon.setAttribute('aria-label', v === 0 ? 'Unmute' : 'Mute');
+  };
+  let volBeforeMute = 1;
+  Audio2.setVolume(typeof Store.settings().volume === 'number' ? Store.settings().volume : 1);
+  syncVolUI();
+  volSlider.addEventListener('input', () => { Audio2.unlock(); Audio2.setVolume(volSlider.value / 100); syncVolUI(); });
+  volIcon.addEventListener('click', () => {
+    Audio2.unlock();
+    const v = Audio2.getVolume();
+    if (v > 0){ volBeforeMute = v; Audio2.setVolume(0); } else { Audio2.setVolume(volBeforeMute || 1); }
+    syncVolUI();
+  });
+
   $('#btn-map').addEventListener('click', () => { renderMap(); showView('map'); });
   $('#btn-map-back').addEventListener('click', () => { showView('home'); renderHome(); });
 
