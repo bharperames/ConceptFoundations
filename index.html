@@ -2400,7 +2400,7 @@ const Engine = {
       if (this.cur.kind === 'hideseek'){
         // wrong stack: an "uh-oh" clip (debounced so rapid taps don't spam it)
         // and lift the tapped cover to show the empty space underneath
-        if (!this.lastUhOh || now - this.lastUhOh > 2400){ Audio2.sfx('uh_oh_song.mp3'); this.lastUhOh = now; }
+        if (!this.lastUhOh || now - this.lastUhOh > 1200){ Audio2.sfx('uh_oh.mp3'); this.lastUhOh = now; }
         if (hit && hit.dataset.el && hit.dataset.el.startsWith('cover')){
           hit.classList.add('hs-lift');
           setTimeout(() => hit.classList.remove('hs-lift'), 750);

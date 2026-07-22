@@ -12,7 +12,10 @@ recording).
 | 🎛️ | Synthesized tone / SFX (Web Audio oscillator or noise burst) |
 
 The nine curated clips: `great_job`, `yay`, `hooray`, `we_did_it`, `peekaboo`,
-`lets_play_hide_and_seek`, `uh_oh`, `uh_oh_song`, `bubble_pop`.
+`lets_play_hide_and_seek`, `uh_oh`, `bubble_pop`, `out`. All are acquired from the
+producer's **gold** layer by durable `asset_id` (see `audio-clip-contract.md`);
+`yay`, `we_did_it`, `peekaboo`, and `out` are kept as committed files pending gold
+promotion.
 
 ---
 
@@ -51,7 +54,7 @@ a 🎛️ wood "clack" SFX on landing.
 | "Watch! The {duck…} is hiding." | | 🗣️ TTS (per object) |
 | "Where is the {duck…}? Find it!" | | 🗣️ TTS (per object) |
 | Card hides / shuffle | snap | 🎛️ |
-| **Wrong stack tapped** | "This is the uh-oh song" | 🎙️ `uh_oh_song` (debounced 2.4s; replaces the buzz) |
+| **Wrong stack tapped** | "Uh oh" | 🎙️ `uh_oh` (debounced 1.2s; replaces the buzz) |
 | Correct find | reveal + shared praise (A.0) | 🎛️ + 🎙️ |
 
 ---
@@ -109,6 +112,6 @@ dashboard, or the volume control itself (it only scales everything above).
 - **Synth tones carry mechanical feedback** — taps, snaps, wrong buzz, block
   clacks, bubble pops, countdown beeps, fanfare.
 
-**One inconsistency worth noting:** two different "uh-oh" clips are in play —
-`uh_oh` (Bubble Pop game-over) and `uh_oh_song` (Peekaboo wrong tap). Intentional
-today, but easy to consolidate if you'd prefer one.
+**Consolidated:** a single `uh_oh` clip (the gold 0.83s "Uh Oh") now serves both
+the Bubble-Pop game-over and the Peekaboo wrong-tap — the two earlier "uh-oh"
+clips were merged in the gold migration.

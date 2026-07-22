@@ -1,186 +1,126 @@
 {
   "source_project": "~/Code/MR_AudioClips",
-  "note": "Synced by scripts/sync_clips.py via stable UID + sha256. Run `make sync-clips` after the companion clip DB is refined.",
+  "layer": "gold",
+  "note": "Acquired by scripts/sync_clips.py from the producer's GOLD layer (assets.db) by durable asset_id. SQL lives only in the acquire tool; the app ships the embedded, loudness-normalized mp3s in this folder and never reads a database. Entries with asset_id are gold-backed; entries with pending_gold are not yet promoted to gold \u2014 the committed file is kept and a promotion is requested (see docs/message-to-mr-audioclips.md).",
   "clips": [
     {
       "dest": "great_job.mp3",
       "phrase": "great job",
-      "uid": "clip_57f891574005",
-      "src_sha256": "1ab30881418b51016e0eb091f10bcd76c83084125b5724ab7e243229fd1b63d5",
-      "dest_sha256": "e7c727784d11191b7a7f1cf35a11fedd205a803d4d8da852146b98439cc7b4e6",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_71dffdce50b1",
-        "source": "raw_audio/cucoo_clock.mp3",
-        "start": 59.827,
-        "end": 62.197,
-        "duration": 2.37,
+      "asset_id": "asset_035ccb0bf490",
+      "asset": {
+        "name": "Great Job",
         "text": "Great job!",
-        "quality": 1.1913,
-        "has_music": true
-      }
-    },
-    {
-      "dest": "yay.mp3",
-      "phrase": "yay",
-      "uid": "clip_0d4a4464a206",
-      "src_sha256": "b131ae228e3b9d41b5c37f6c01a4da6b255f8d6628880c919d3f972bf8080832",
-      "dest_sha256": "b9d247dd518611a0a98626f4ce19e6a1efd9fb923e6b4b209c8d9158470ec188",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_822090f4171e",
-        "source": "raw_audio/icky_sticky_bubblegum.mp3",
-        "start": 177.553,
-        "end": 178.042,
-        "duration": 0.489,
-        "text": "Yay!",
-        "quality": 0.9972,
-        "has_music": false
-      }
+        "source_file": "raw_audio/we_re_waving.mp3",
+        "start": 45.824,
+        "end": 46.977,
+        "duration": 1.153,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-22T15:23:41Z"
+      },
+      "src_sha256": "22b919a044cd88bd7ea4a22436492b0a64a37b5b55b87d4005a7b87cbba25aa0",
+      "dest_sha256": "3dc843a4542122a2c8df0cbd860244b59ca66a56f3d97d9cebd6973c88e4deac",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "hooray.mp3",
       "phrase": "hooray",
-      "uid": "clip_9940ecf63caf",
-      "src_sha256": "3d133ea9116ea0b125e4db4509492c3e2b5091af6e7f8dfa39890379406b9bf1",
-      "dest_sha256": "c8026fd264d4fe31c8ee5c99baed9c9037556f24e53c9c891fa8ed8cd0d752e1",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_17bc86f1c4cf",
-        "source": "raw_audio/do_you_know_what_shape_this_is.mp3",
+      "asset_id": "asset_3f39aa16b96e",
+      "asset": {
+        "name": "Hooray_Alt_Voice",
+        "text": "Hooray!",
+        "source_file": "raw_audio/do_you_know_what_shape_this_is.mp3",
         "start": 64.239,
         "end": 66.1,
         "duration": 1.861,
-        "text": "Hooray!",
-        "quality": 1.2782,
-        "has_music": false
-      }
-    },
-    {
-      "dest": "we_did_it.mp3",
-      "phrase": "we did it",
-      "uid": "clip_ed372817a473",
-      "src_sha256": "ba8d6418e22dd73c95409548bfd5b759747eddd575ecf1d2b5c9e52304c9d827",
-      "dest_sha256": "2876f52a7f6a9e33d0132059cf4be6e90eb4f1044ca0290afd3eb96585b79b88",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_b5eebb573281",
-        "source": "raw_audio/firetruck.mp3",
-        "start": 48.635,
-        "end": 49.867,
-        "duration": 1.232,
-        "text": "We did it!",
-        "quality": 1.1468,
-        "has_music": true
-      }
-    },
-    {
-      "dest": "peekaboo.mp3",
-      "phrase": "peekaboo",
-      "uid": "clip_1fd439c9eacd",
-      "src_sha256": "19d97a9e906ca757d4423aae33a0665615085e209f3ed8f32bc86240802fbeba",
-      "dest_sha256": "6ab37f30c65e7c395fe9e7a163f21a0f36fbef870e9905af1689011884b463ce",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_07372315445c",
-        "source": "raw_audio/hide_and_seek.mp3",
-        "start": 150.409,
-        "end": 151.571,
-        "duration": 1.162,
-        "text": "Peek-a-boo!",
-        "quality": 1.2029,
-        "has_music": true
-      }
-    },
-    {
-      "dest": "lets_play_hide_and_seek.mp3",
-      "phrase": "lets play hide and seek",
-      "uid": "clip_61b926deafa3",
-      "src_sha256": "52f7a671ee824fe86be7cc52a5086fb987021a5d88531a8103a3ab06e358adbe",
-      "dest_sha256": "dce72b4e31400a3e17da7ba1e07f237b4e14d654ad956ebde0afa5db072423d3",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_07372315445c",
-        "source": "raw_audio/hide_and_seek.mp3",
-        "start": 24.069,
-        "end": 26.88,
-        "duration": 2.811,
-        "text": "Let's play hide-and-seek!",
-        "quality": 1.3901,
-        "has_music": false
-      }
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-22T15:23:41Z"
+      },
+      "src_sha256": "defcf849813ab9eb0c5177a01f007c58fac29defbd6571cc203d3549b00ce65f",
+      "dest_sha256": "bc5ff359fb608afadaa46b07a08c69b34342dca4f59a2bb0b77e7cc1f17500ce",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "uh_oh.mp3",
       "phrase": "uh oh",
-      "uid": "clip_e298bfd34a3f",
-      "src_sha256": "971a766da12a3564176de76ef5ab11448dd61cb46d433d9288d13c591ef59823",
-      "dest_sha256": "ea2212d98a7591ec6e7019d84b847733597bea12b76d882164bf4f3a3301bfb7",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_10123bd51841",
-        "source": "raw_audio/uh_oh_song.mp3",
-        "start": 21.073,
-        "end": 24.117,
-        "duration": 3.044,
-        "text": "Uh-oh.",
-        "quality": 0.8352,
-        "has_music": true
-      }
+      "asset_id": "asset_0a44d7c6684e",
+      "asset": {
+        "name": "Uh Oh",
+        "text": "This is the uh-oh song.",
+        "source_file": "raw_audio/dinoplay.mp3",
+        "start": 116.669,
+        "end": 117.497,
+        "duration": 0.828,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-22T15:23:41Z"
+      },
+      "src_sha256": "ee1122dbceb95222c462e102dfc960e479a1dec9cddd12792858fdc7a4bffd09",
+      "dest_sha256": "96f5a85cea1cf8793cb3f4ff7c800ee7268c103aa55fccd52658590aacc25898",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
       "dest": "bubble_pop.mp3",
       "phrase": "bubble bubble bubble bubble bubble pop",
-      "uid": "clip_f5f0ad4c1f94",
-      "src_sha256": "f4e5659709580c04642fec47888e8e5283fc8916f666d68f7cfe96fadac4b0f1",
-      "dest_sha256": "dfb1302292e62e1195a9103fa37c637fee77b918f374b0077a00d3e06359a56a",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_1bfe4d2477f8",
-        "source": "raw_audio/bubble_bubble_pop.mp3",
+      "asset_id": "asset_8d72cd03d326",
+      "asset": {
+        "name": "Bubble Bubble Pop",
+        "text": "Bubble, Bubble, bubble, bubble, bubble, pop.",
+        "source_file": "raw_audio/bubble_bubble_pop.mp3",
         "start": 24.858,
         "end": 27.414,
         "duration": 2.556,
-        "text": "Bubble, Bubble, bubble, bubble, bubble, pop.",
-        "quality": 1.0071,
-        "has_music": true
-      }
+        "has_music": 1,
+        "voice_id": null,
+        "updated_at": "2026-07-22T15:23:41Z"
+      },
+      "src_sha256": "adce9e47b03807b8ce047095d6195f93cb9030f7e10d8fbb86ca7a02a229b047",
+      "dest_sha256": "5ca6b85351426a6d0394c48a932be07530a0ec9b6af7e226d1d958386190115a",
+      "normalized": "-14.0 LUFS + limiter"
     },
     {
-      "dest": "uh_oh_song.mp3",
-      "phrase": "this is the uh oh song",
-      "uid": "clip_0dcdb7046530",
-      "src_sha256": "d5a71cb0e20a47629530223dc146db252d3a9200f9dce04935f2aa92ca3ad333",
-      "dest_sha256": "cfa23b66fb6a5a2246bc7307390b11f76719a3dbc1ff9550ada07f8e3ba4860c",
-      "normalized": "-14.0 LUFS + limiter",
-      "clip": {
-        "source_uid": "song_6ddc99ee2a6e",
-        "source": "raw_audio/dinoplay.mp3",
-        "start": 113.814,
-        "end": 116.044,
-        "duration": 2.23,
-        "text": "This is the uh-oh song.",
-        "quality": 1.2941,
-        "has_music": false
-      }
+      "dest": "lets_play_hide_and_seek.mp3",
+      "phrase": "lets play hide and seek",
+      "asset_id": "asset_887b29d23e76",
+      "asset": {
+        "name": "Let's play hide-and-seek!",
+        "text": "Let's play hide-and-seek!",
+        "source_file": "raw_audio/hide_and_seek.mp3",
+        "start": 10.74,
+        "end": 12.914,
+        "duration": 2.174,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-22T16:43:11Z"
+      },
+      "src_sha256": "9adf557316457065c828d644fe6172f342955c7f51e625f67afc6cf2946c4b7f",
+      "dest_sha256": "f8f8aa42a9e16526589dd68bdc796199aae077d4d23c843cd502cb67c136170f",
+      "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "yay.mp3",
+      "phrase": "yay",
+      "asset_id": null,
+      "pending_gold": "Not in gold. Promote silver clip_0d4a4464a206 (\"Yay!\", raw_audio/icky_sticky_bubblegum.mp3 177.553-178.042). Keeping committed file meanwhile."
+    },
+    {
+      "dest": "we_did_it.mp3",
+      "phrase": "we did it",
+      "asset_id": null,
+      "pending_gold": "Not in gold. Promote silver clip_ed372817a473 (\"We did it!\", raw_audio/firetruck.mp3 48.635-49.867), or point to gold asset_436386ea6a8f (\"Yeah, you did\"). Keeping committed file meanwhile."
+    },
+    {
+      "dest": "peekaboo.mp3",
+      "phrase": "peekaboo",
+      "asset_id": null,
+      "pending_gold": "Not in gold. Promote silver clip_1fd439c9eacd (\"Peek-a-boo!\", raw_audio/hide_and_seek.mp3 150.409-151.571). Keeping committed file meanwhile."
     },
     {
       "dest": "out.mp3",
       "phrase": "out",
-      "uid": "clip_316e3fd2d5d3",
-      "clip": {
-        "source_uid": "song_a09635644ff9",
-        "source": "raw_audio/itsybitsy.mp3",
-        "start": 11.762,
-        "end": 12.251,
-        "duration": 0.489,
-        "text": "Out",
-        "quality": 1.2301,
-        "has_music": true
-      },
-      "src_sha256": "7d0ac2e673fa90f3f0126b22e57dd65e2d09b24718c3c656eb773645e0cee9a2",
-      "dest_sha256": "b29e1fa42a6f8f81e46aca89a188359d5ed689be6750cb80398115622caa0c9e",
-      "normalized": "-14.0 LUFS + limiter"
+      "asset_id": null,
+      "pending_gold": "Not in gold. Promote silver clip_316e3fd2d5d3 (\"Out\", raw_audio/itsybitsy.mp3 11.762-12.251). Keeping committed file meanwhile."
     }
   ]
 }

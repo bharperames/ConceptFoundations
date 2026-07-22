@@ -1,27 +1,38 @@
 #!/usr/bin/env python3
-"""Sync mapped audio clips from the companion clip database, by stable UID +
-sha256, and loudness-normalize them on copy so recorded clips are consistent
-with each other and sit at the same level as the synthesized TTS voice.
+"""Acquire mapped audio clips from the producer's GOLD layer and loudness-
+normalize them on copy so recorded clips are consistent with each other and
+sit at the same level as the synthesized TTS voice.
 
-Source of truth: clips/clips.manifest.json (dest ← source UID + phrase).
-The companion project's clips.json maps UID → current file, so a clip that the
-other app refines (new content, or even a new filename) is still resolved by
-UID and re-normalized when its source checksum changes.
+This is BUILD tooling, not shipped code. The SQL dependency lives only here:
+the producer (MR_AudioClips) publishes a curated gold catalog (assets.db, a
+SQLite `catalog` view keyed by a durable `asset_id`); this script queries it
+read-only, copies the referenced mp3, normalizes it, and embeds it in clips/.
+The app itself only ever plays those embedded mp3s — it never touches a DB.
 
-Normalization: loudness gain to TARGET_LUFS + a peak limiter (ffmpeg), which
-converges every clip to ~TARGET with true-peak < 0 dB (no clipping). The
-manifest stores src_sha256 (to detect source changes) and dest_sha256.
+Gold contract (see docs/audio-clip-contract.md):
+  - Consume gold only. Never read the producer's silver (clips.json/clips/).
+  - Join on asset_id — minted once by a human, never recomputed. No uid hashing,
+    no retired[]/replaced_by chains: a removed asset simply disappears.
+  - Query SQL (catalog view / assets_fts), never glob filenames.
+  - has_music + duration are the only advisory filters that survive; clips are
+    hand-picked in the manifest, so we record them but don't filter on them.
+  - Change is detected via the asset's `updated_at` (+ a source-byte hash).
 
-  python3 scripts/sync_clips.py            # sync + normalize + update checksums
+Source of truth: clips/clips.manifest.json (dest ← asset_id + phrase).
+Entries with `pending_gold` are phrases not yet in gold; their committed file
+is left untouched and reported so we can request promotion.
+
+  python3 scripts/sync_clips.py            # acquire + normalize + update manifest
   python3 scripts/sync_clips.py --check    # report only, non-zero exit if stale
   python3 scripts/sync_clips.py --raw      # copy without normalizing
   CLIP_SOURCE=/path/to/MR_AudioClips python3 scripts/sync_clips.py
 """
-import json, hashlib, os, sys, shutil, subprocess, re, tempfile
+import json, hashlib, os, sys, shutil, subprocess, re, tempfile, sqlite3
 
 APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(APP, 'clips', 'clips.manifest.json')
 TARGET_LUFS = -14.0   # measured output lands ~-13 after the limiter; matches TTS
+SUPPORTED_SCHEMA = 1
 
 def sha(path):
     h = hashlib.sha256()
@@ -50,6 +61,37 @@ def normalize(src, dest):
     subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', src,
         '-af', af, '-ar', '44100', '-b:a', '128k', dest], check=True)
 
+# --- gold catalog access (the only SQL in the project) ---------------------
+CATALOG_COLS = ('asset_id', 'name', 'text', 'norm', 'file', 'voice_id',
+                'has_music', 'duration', 'source_file', 'start', 'end',
+                'notes', 'updated_at')
+
+def open_catalog(src_root):
+    dbp = os.path.join(src_root, 'assets.db')
+    if not os.path.exists(dbp):
+        print(f'! producer gold catalog not found: {dbp}\n'
+              f'  set CLIP_SOURCE=/path/to/MR_AudioClips'); sys.exit(2)
+    db = sqlite3.connect(f'file:{dbp}?mode=ro', uri=True)
+    db.row_factory = sqlite3.Row
+    return db
+
+def catalog_header(src_root):
+    """schema_version + generated_at from assets.json if present (advisory)."""
+    p = os.path.join(src_root, 'assets.json')
+    if not os.path.exists(p):
+        return None, None
+    j = json.load(open(p))
+    return j.get('schema_version'), j.get('generated_at')
+
+def fetch_by_asset_id(db, asset_id):
+    cols = ','.join(CATALOG_COLS)
+    return db.execute(f'SELECT {cols} FROM catalog WHERE asset_id=?', (asset_id,)).fetchone()
+
+def asset_meta(row):
+    """Provenance we keep per gold asset (advisory: has_music + duration)."""
+    return {k: row[k] for k in ('name', 'text', 'source_file', 'start', 'end',
+                                'duration', 'has_music', 'voice_id', 'updated_at')}
+
 def main():
     check_only = '--check' in sys.argv
     raw = '--raw' in sys.argv
@@ -59,59 +101,31 @@ def main():
 
     m = json.load(open(MANIFEST))
     src_root = os.environ.get('CLIP_SOURCE') or os.path.expanduser(m.get('source_project', '~/Code/MR_AudioClips'))
-    libp = os.path.join(src_root, 'clips.json')
-    if not os.path.exists(libp):
-        print(f'! companion library not found: {libp}\n  set CLIP_SOURCE=/path/to/MR_AudioClips'); sys.exit(2)
-    lib = json.load(open(libp))
+    db = open_catalog(src_root)
+    ver, generated_at = catalog_header(src_root)
+    if ver is not None and ver > SUPPORTED_SCHEMA:
+        print(f'! gold schema_version {ver} > supported {SUPPORTED_SCHEMA}; update the consumer. Aborting.'); sys.exit(2)
 
-    # schema version — treat missing as 0 (older producer); stop on a newer major
-    SUPPORTED = 1
-    ver = lib.get('schema_version', 0)
-    if ver == 0:
-        print('! index has no schema_version — treating as legacy (0)')
-    elif ver > SUPPORTED:
-        print(f'! index schema_version {ver} > supported {SUPPORTED}; update the consumer. Aborting.'); sys.exit(2)
-
-    uid2rec = {}   # stable uid -> full clip record from the producer index
-    for ph in lib.get('phrases', []):
-        for c in ph.get('clips', []):
-            uid2rec[c['uid']] = c
-    # retired[] carries {uid, replaced_by, …}; follow the chain to the live clip
-    retired = {r['uid']: r.get('replaced_by') for r in lib.get('retired', []) if r.get('uid')}
-    def resolve(uid):
-        cur, chain, seen = uid, [], set()
-        while cur not in uid2rec and cur not in seen:
-            seen.add(cur); nxt = retired.get(cur)
-            if not nxt: return None, None, chain
-            chain.append(nxt); cur = nxt
-        return uid2rec.get(cur), cur, chain
-
-    # the provenance we keep per clip (the "clip that clips it" metadata)
-    def clip_meta(c):
-        return {k: c.get(k) for k in
-                ('source_uid', 'source', 'start', 'end', 'duration', 'text', 'quality', 'has_music')}
-
-    updated, missing, ok, followed = [], [], [], []
+    updated, missing, ok, pending = [], [], [], []
     for e in m['clips']:
         dest = os.path.join(APP, 'clips', e['dest'])
-        rec, live_uid, chain = resolve(e['uid'])
-        if not rec:
+        aid = e.get('asset_id')
+        if not aid:
+            # phrase not yet promoted to gold — keep the committed file, report it
+            pending.append(e); continue
+        row = fetch_by_asset_id(db, aid)
+        if row is None:
+            # gold has no tombstones: a vanished asset_id means it was removed.
             missing.append(e); continue
-        if live_uid != e['uid']:
-            # producer retired this uid and pointed replaced_by at a new one —
-            # repoint our manifest to the live id (keep an audit trail)
-            e.setdefault('replaced_from', []).append(e['uid'])
-            followed.append((e['uid'], live_uid, e['dest'])); e['uid'] = live_uid
-        src = os.path.join(src_root, rec['file'])
+        src = os.path.join(src_root, row['file'])
         if not os.path.exists(src):
             missing.append(e); continue
         src_hash = sha(src)
-        meta = clip_meta(rec)
-        # fresh when the dest exists, the SOURCE bytes are unchanged, AND the
-        # producer's clip metadata (trim boundaries, text, …) is unchanged.
-        # (dest differs from source because it's normalized, so we compare the
-        # source hash + metadata, never dest==source.)
-        fresh = os.path.exists(dest) and e.get('src_sha256') == src_hash and e.get('clip') == meta
+        meta = asset_meta(row)
+        # fresh when dest exists, the source bytes are unchanged, AND the gold
+        # asset's updated_at/metadata is unchanged. (dest differs from source
+        # because it's normalized, so compare the source hash + metadata.)
+        fresh = os.path.exists(dest) and e.get('src_sha256') == src_hash and e.get('asset') == meta
         if fresh:
             ok.append(e); continue
         if check_only:
@@ -122,8 +136,9 @@ def main():
                 normalize(src, tmp); shutil.move(tmp, dest)
         else:
             shutil.copy2(src, dest)
-        e.pop('sha256', None); e.pop('source_file', None)   # migrate old keys
-        e['clip'] = meta                                    # provenance / trim metadata
+        for k in ('uid', 'sha256', 'source_file', 'clip', 'replaced_from'):
+            e.pop(k, None)                          # migrate away old silver keys
+        e['asset'] = meta                           # gold provenance
         e['src_sha256'] = src_hash
         e['dest_sha256'] = sha(dest)
         e['normalized'] = f'{TARGET_LUFS} LUFS + limiter' if do_norm else 'raw'
@@ -133,12 +148,13 @@ def main():
         json.dump(m, open(MANIFEST, 'w'), indent=2); open(MANIFEST, 'a').write('\n')
 
     verb = 'stale' if check_only else 'updated'
-    print(f'index schema v{ver} ({lib.get("generated_at","?")}) — '
-          f'clips: {len(ok)} up-to-date, {len(updated)} {verb}, {len(followed)} followed, {len(missing)} missing source'
+    print(f'gold catalog (schema v{ver}, {generated_at or "?"}) — '
+          f'clips: {len(ok)} up-to-date, {len(updated)} {verb}, '
+          f'{len(pending)} pending-gold, {len(missing)} missing'
           + ('' if not do_norm else f'  (normalized to ~{TARGET_LUFS} LUFS)'))
-    for old, new, dest in followed: print(f'  FOLLOWED replaced_by: {dest}  {old} → {new}')
-    for e in updated: print(f'  {verb.upper()}: {e["dest"]}  ({e["phrase"]!r}  uid {e["uid"]})')
-    for e in missing: print(f'  MISSING SOURCE: {e["dest"]}  uid {e["uid"]} — not in index or retired[]; remap in manifest')
+    for e in updated: print(f'  {verb.upper()}: {e["dest"]}  ({e["phrase"]!r}  {e["asset_id"]})')
+    for e in pending: print(f'  PENDING GOLD: {e["dest"]}  ({e["phrase"]!r}) — kept committed file; promotion requested')
+    for e in missing: print(f'  MISSING: {e["dest"]}  {e["asset_id"]} — asset_id not in gold catalog (removed?); re-pick in manifest')
     if missing or (check_only and updated): sys.exit(1)
 
 if __name__ == '__main__':
