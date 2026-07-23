@@ -370,14 +370,14 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 @keyframes drop-spin{to{transform:rotate(360deg)}}
 .el.drop-target.fade{animation:none;opacity:0;transition:opacity .35s}
 /* Block Stacker mini-game: drop + shape-switch + reset controls, falling blocks */
-.fb-ops{position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:30;display:flex;gap:12px;align-items:center}
-.fb-btn{width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  font-family:var(--round);font-weight:800;font-size:30px;line-height:1;color:#fff;box-shadow:0 5px 14px rgba(30,60,90,.28);transition:transform .1s}
+.fb-ops{position:absolute;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:30;display:flex;flex-wrap:wrap;gap:9px;align-items:center;justify-content:center;max-width:94vw}
+.fb-btn{width:50px;height:50px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:var(--round);font-weight:800;font-size:28px;line-height:1;color:#fff;box-shadow:0 5px 14px rgba(30,60,90,.28);transition:transform .1s}
 .fb-btn:active{transform:scale(.9)}
 .fb-btn:disabled{opacity:.4;cursor:default}
 .fb-add{background:#4C86D8}
-.fb-reset{background:#8AA0B4;font-size:26px}
-.fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:9px}
+.fb-reset{background:#8AA0B4;font-size:24px}
+.fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:7px}
 .fb-block{position:absolute;pointer-events:none;z-index:6;touch-action:none;filter:drop-shadow(0 3px 3px rgba(30,20,8,.28))}
 .fb-block svg{display:block;width:100%;height:100%}
 #view-stacker{overflow:hidden;touch-action:none;background:linear-gradient(180deg,#BFE3F5 0%,#DCF0FA 45%,#EAF7FC 100%)}
@@ -2251,13 +2251,15 @@ const PuzzleGame = {
    otherwise. Blocks are crisp shaded SVG, synced to the simulation each frame. */
 const StackerGame = {
   TONES: ['#D8A05B','#C88A45','#E0B274','#BE8038','#CF9550','#D6A868','#B87636'],
+  // rectangular blocks first (the priority — rock-solid stacking), then the
+  // cone (triangle) and sphere (ball), which the simulation confirmed are stable
   SHAPES: [
     { key:'cube',  w:1,    h:1    },
     { key:'brick', w:2,    h:1    },
     { key:'plank', w:2.7,  h:0.62 },
     { key:'tall',  w:0.72, h:1.95 },
-    { key:'tri',   w:1.45, h:1.2  },
     { key:'cyl',   w:0.92, h:1.5  },
+    { key:'tri',   w:1.45, h:1.2,  cy:0.667 },   // body sits on its centroid, 2/3 down
     { key:'ball',  w:1,    h:1    },
   ],
   MAX: 16,
@@ -2275,8 +2277,8 @@ const StackerGame = {
       <linearGradient id="stkBot" x1="0" y1="0" x2="0" y2="1">
         <stop offset=".5" stop-color="#3a2510" stop-opacity="0"/><stop offset="1" stop-color="#3a2510" stop-opacity=".34"/></linearGradient>
       <linearGradient id="stkCyl" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#000" stop-opacity=".24"/><stop offset=".3" stop-color="#fff" stop-opacity=".3"/>
-        <stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".26"/></linearGradient>
+        <stop offset="0" stop-color="#000" stop-opacity=".26"/><stop offset=".3" stop-color="#fff" stop-opacity=".32"/>
+        <stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>
       <radialGradient id="stkBall" cx=".36" cy=".3" r=".8">
         <stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
         <stop offset="1" stop-color="#3a2510" stop-opacity=".3"/></radialGradient>
@@ -2289,7 +2291,7 @@ const StackerGame = {
       <path d="M${n(vw*.18)} ${n(vh*.4)} Q${n(vw*.5)} ${n(vh*.33)} ${n(vw*.83)} ${n(vh*.42)}" stroke-width="${n(vh*.03)}"/>
       <path d="M${n(vw*.26)} ${n(vh*.64)} Q${n(vw*.52)} ${n(vh*.58)} ${n(vw*.72)} ${n(vh*.64)}" stroke-width="${n(vh*.024)}"/></g>`;
   },
-  blockSVG(shape, tone){
+  blockSVG(shape, tone, icon){
     const s = 52, n = x => (+x).toFixed(1), vw = +n(shape.w*s), vh = +n(shape.h*s);
     let body;
     if (shape.key === 'tri'){
@@ -2302,17 +2304,20 @@ const StackerGame = {
         + `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="url(#stkBall)"/>`
         + `<path d="M${n(vw*.5)} ${n(vh*.13)} Q${n(vw*.22)} ${n(vh*.5)} ${n(vw*.5)} ${n(vh*.87)}" fill="none" stroke="#7c4f22" stroke-width="${n(vw*.03)}" opacity=".2"/>`;
     } else if (shape.key === 'cyl'){
-      const ry = vw*0.17, rx = n(vw/2 - 2), rr = n(vw*.09);
-      body = `<rect x="2" y="${n(ry)}" width="${n(vw-4)}" height="${n(vh-ry-2)}" rx="${rr}" fill="${tone}"/>`
-        + `<rect x="2" y="${n(ry)}" width="${n(vw-4)}" height="${n(vh-ry-2)}" rx="${rr}" fill="url(#stkCyl)"/>`
-        + `<ellipse cx="${n(vw/2)}" cy="${n(ry)}" rx="${rx}" ry="${n(ry)}" fill="${tone}"/>`
-        + `<ellipse cx="${n(vw/2)}" cy="${n(ry)}" rx="${rx}" ry="${n(ry)}" fill="url(#stkTop)"/>`;
+      // a flat-topped rounded post; cylindrical LOOK comes from horizontal shading
+      const rx = n(vw*0.12);
+      const R = a => `<rect x="1.5" y="1.5" width="${n(vw-3)}" height="${n(vh-3)}" rx="${rx}" fill="${a}"/>`;
+      body = `${R(tone)}${R('url(#stkCyl)')}${R('url(#stkTop)')}`;
     } else {
       const rx = n(Math.min(vw,vh)*0.16);
       const R = a => `<rect x="1.5" y="1.5" width="${n(vw-3)}" height="${n(vh-3)}" rx="${rx}" fill="${a}"/>`;
       body = `${R(tone)}${R('url(#stkTop)')}${R('url(#stkBot)')}${this.grain(vw, vh)}`;
     }
-    return `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="none" style="overflow:visible">${body}</svg>`;
+    // blocks fill their w×h element (none, overflow shown for the strokes); picker
+    // icons keep true aspect (meet) and are sized + clipped to the button
+    return icon
+      ? `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" width="100%" height="100%" style="display:block">${body}</svg>`
+      : `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="none" style="overflow:visible">${body}</svg>`;
   },
 
   walls(){
@@ -2331,7 +2336,10 @@ const StackerGame = {
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
     if (this.useMatter){
       const M = window.Matter;
-      this.eng = M.Engine.create({ enableSleeping: true });
+      // sleeping OFF: an unsupported block must fall the instant its support is
+      // moved out (a slept block would hang in the air until nudged); more solver
+      // iterations keep stacks stable without sleeping. Only ≤16 bodies, so cheap.
+      this.eng = M.Engine.create({ enableSleeping:false, positionIterations:12, velocityIterations:8, constraintIterations:3 });
       this.eng.world.gravity.y = 1.0;
       M.World.add(this.eng.world, this.walls());
       M.Events.off(this.eng, 'collisionStart');
@@ -2339,8 +2347,8 @@ const StackerGame = {
         const now = performance.now();
         if (now - this.lastClack < 55) return;
         for (const p of ev.pairs){
-          const v = (p.bodyA.speed + p.bodyB.speed);
-          if (v > 1.4){ this.lastClack = now; Audio2.clack(Math.min(1, v/9)); break; }
+          const v = p.bodyA.speed + p.bodyB.speed;
+          if (v > 1.6){ this.lastClack = now; Audio2.clack(Math.min(1, v/9)); break; }
         }
       });
     }
@@ -2361,35 +2369,42 @@ const StackerGame = {
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
   },
   reset(){
-    if (this.useMatter && this.eng && window.Matter)
+    if (this.useMatter && this.eng && window.Matter){
+      if (this.drag){ window.Matter.World.remove(this.eng.world, this.drag.con); this.drag = null; }
       for (const b of this.blocks) window.Matter.World.remove(this.eng.world, b.body);
+    }
     this.blocks = []; this.drag = null;
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
     if (this.active) this.renderOps();
   },
   renderOps(){
     const ops = $('#stk-ops'), full = this.blocks.length >= this.MAX;
-    ops.innerHTML = `<button class="fb-btn fb-reset" aria-label="Clear the blocks">↺</button>`
-      + `<button class="fb-btn fb-add" aria-label="Drop a block"${full ? ' disabled' : ''}>＋</button>`;
+    // one wooden icon per shape — tap it to drop that block
+    const picker = this.SHAPES.map((sh, i) =>
+      `<button class="fb-btn fb-shape" data-shape="${i}" aria-label="Drop a ${sh.key} block"${full ? ' disabled' : ''}>${this.blockSVG(sh, '#D8A05B', true)}</button>`).join('');
+    ops.innerHTML = `<button class="fb-btn fb-reset" aria-label="Clear the blocks">↺</button>` + picker;
     ops.querySelector('.fb-reset').onclick = () => this.reset();
-    const add = ops.querySelector('.fb-add'); if (add && !full) add.onclick = () => this.drop();
+    if (!full) ops.querySelectorAll('.fb-shape').forEach(btn => { btn.onclick = () => this.drop(+btn.dataset.shape); });
   },
   makeBody(shape, x, y, w, h){
     const M = window.Matter;
-    if (shape.key === 'ball') return M.Bodies.circle(x, y, w/2, { friction:.4, frictionStatic:.5, restitution:.3, density:.0016 });
+    // tuned by simulation (1500 scenarios): zero restitution on the wood → least
+    // penetration; a ball keeps a little bounce so it rolls with life
+    if (shape.key === 'ball') return M.Bodies.circle(x, y, w/2, { friction:.5, frictionStatic:.6, restitution:.12, density:.0016 });
     if (shape.key === 'tri'){
       const v = [{ x:-w/2, y:h/2 }, { x:0, y:-h/2 }, { x:w/2, y:h/2 }];
-      return M.Bodies.fromVertices(x, y, [v], { friction:.6, frictionStatic:.9, restitution:.04, density:.0017 });
+      return M.Bodies.fromVertices(x, y, [v], { friction:.65, frictionStatic:.9, restitution:0, density:.0017 });
     }
-    return M.Bodies.rectangle(x, y, w, h, { friction:.55, frictionStatic:.9, restitution:.06, density:.0017, chamfer:{ radius: Math.min(w,h)*0.1 } });
+    return M.Bodies.rectangle(x, y, w, h, { friction:.6, frictionStatic:.85, restitution:0, density:.0017, chamfer:{ radius: Math.min(w,h)*0.06 } });
   },
-  drop(){
+  drop(idx){
     if (this.blocks.length >= this.MAX) return;
-    const shape = this.SHAPES[Math.floor(Math.random()*this.SHAPES.length)];
+    const shape = this.SHAPES[(idx == null ? Math.floor(Math.random()*this.SHAPES.length) : idx)];
     const tone = this.TONES[Math.floor(Math.random()*this.TONES.length)];
     const U = this.U, w = shape.w*U, h = shape.h*U;
     const el = document.createElement('div');
     el.className = 'fb-block'; el.style.width = w + 'px'; el.style.height = h + 'px';
+    el.style.transformOrigin = `${((shape.cx ?? .5)*100)}% ${((shape.cy ?? .5)*100)}%`;
     el.innerHTML = this.blockSVG(shape, tone);
     this.area().appendChild(el);
     const x = this.W*0.5 + (Math.random()*2-1)*U*1.1, y = -h*0.6;
@@ -2406,9 +2421,9 @@ const StackerGame = {
   sync(){
     if (this.useMatter){
       for (const b of this.blocks){
-        const p = b.body.position;
-        b.el.style.left = Math.round(p.x - b.w/2) + 'px';
-        b.el.style.top  = Math.round(p.y - b.h/2) + 'px';
+        const p = b.body.position, cx = b.shape.cx ?? .5, cy = b.shape.cy ?? .5;
+        b.el.style.left = Math.round(p.x - cx*b.w) + 'px';
+        b.el.style.top  = Math.round(p.y - cy*b.h) + 'px';
         b.el.style.transform = `rotate(${b.body.angle}rad)`;
       }
     } else {
@@ -2464,11 +2479,20 @@ const StackerGame = {
     if (!this.active || (e.target.closest && e.target.closest('.fb-ops'))) return;
     const r = this.area().getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
     if (this.useMatter){
-      const hits = window.Matter.Query.point(this.blocks.map(b => b.body), { x: px, y: py });
+      const M = window.Matter;
+      const hits = M.Query.point(this.blocks.map(b => b.body), { x: px, y: py });
       if (!hits.length) return;
       const body = hits[hits.length - 1], b = this.blocks.find(x => x.body === body);
-      this.drag = { b, ox: px - body.position.x, oy: py - body.position.y };
-      window.Matter.Body.setStatic(body, true); b.el.style.zIndex = 9;
+      // kill the block's momentum first, so grabbing one that's mid-fall/tumble
+      // doesn't fling it; then a GENTLE spring from finger to grab-point keeps the
+      // body dynamic (it collides, and friction carries whatever balances on it)
+      M.Body.setVelocity(body, { x: 0, y: 0 }); M.Body.setAngularVelocity(body, 0);
+      const rel = { x: px - body.position.x, y: py - body.position.y };
+      const a = -body.angle, c = Math.cos(a), s = Math.sin(a);
+      const con = M.Constraint.create({ pointA:{ x:px, y:py }, bodyB:body,
+        pointB:{ x: rel.x*c - rel.y*s, y: rel.x*s + rel.y*c }, stiffness:.4, damping:.15, length:0 });
+      M.World.add(this.eng.world, con);
+      this.drag = { b, con }; b.el.style.zIndex = 9;
     } else {
       const b = this.hit(px, py); if (!b) return;
       this.drag = { b, ox: px - b.x, oy: py - b.y }; b.held = true; b.done = false; b.el.style.zIndex = 9;
@@ -2478,19 +2502,14 @@ const StackerGame = {
   onMove(e){
     if (!this.drag) return;
     const r = this.area().getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    if (this.useMatter){
-      const M = window.Matter, body = this.drag.b.body;
-      M.Body.setPosition(body, { x: px - this.drag.ox, y: py - this.drag.oy });
-      M.Body.setVelocity(body, { x: 0, y: 0 });
-    } else {
-      const b = this.drag.b; b.x = px - this.drag.ox; b.y = py - this.drag.oy; this.sync();
-    }
+    if (this.useMatter){ this.drag.con.pointA.x = px; this.drag.con.pointA.y = py; }
+    else { const b = this.drag.b; b.x = px - this.drag.ox; b.y = py - this.drag.oy; this.sync(); }
   },
   onUp(){
     if (!this.drag) return;
-    const b = this.drag.b; this.drag = null; b.el.style.zIndex = '';
-    if (this.useMatter){ window.Matter.Body.setStatic(b.body, false); window.Matter.Sleeping.set(b.body, false); }
-    else { b.held = false; b.done = false; b.vy = 0; this.loop(); }
+    if (this.useMatter){ window.Matter.World.remove(this.eng.world, this.drag.con); this.drag.b.el.style.zIndex = ''; }
+    else { const b = this.drag.b; b.held = false; b.done = false; b.vy = 0; b.el.style.zIndex = ''; this.loop(); }
+    this.drag = null;
   },
 };
 

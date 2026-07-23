@@ -192,15 +192,18 @@ test('5.3 tower: blocks stack anywhere and a pair moves as a group', async ({ pa
   expect(ends[1].ok).toBe(true);           // the carried pair landed on the base
 });
 
-test('block stacker mini-game: random drop, grab-move, cap, reset', async ({ page }) => {
+test('block stacker mini-game: per-shape drop, grab-move, cap, reset', async ({ page }) => {
   await boot(page);
   // force the simple-physics fallback so the test is deterministic regardless of
   // whether the Matter.js CDN loaded in this environment
   await page.evaluate(() => { window.Matter = undefined; CF.StackerGame.start(); });
   await expect(page.locator('#view-stacker')).toBeVisible();
-  await expect(page.locator('#stk-ops .fb-add')).toBeVisible();
-  // random blocks fall — dropping adds shaped wooden blocks
-  await page.evaluate(() => { for (let i = 0; i < 4; i++) CF.StackerGame.drop(); });
+  // one drop button per shape (a picker row), not a single random button
+  await expect(page.locator('#stk-ops .fb-shape')).toHaveCount(7);
+  // clicking a shape icon drops that block
+  await page.locator('#stk-ops .fb-shape[data-shape="0"]').click();
+  await expect(page.locator('#stacker-area .fb-block')).toHaveCount(1);
+  await page.evaluate(() => { for (let i = 0; i < 3; i++) CF.StackerGame.drop(); });
   await expect(page.locator('#stacker-area .fb-block')).toHaveCount(4);
   // a settled block can be grabbed and moved (the whole point of the sandbox)
   const grab = await page.evaluate(() => {
@@ -217,10 +220,10 @@ test('block stacker mini-game: random drop, grab-move, cap, reset', async ({ pag
   expect(grab.held).toBe(true);
   expect(grab.dx).toBeGreaterThan(50);
   expect(grab.released).toBe(true);
-  // fill to the cap; the drop button disables and refuses more
+  // fill to the cap; the drop buttons disable and refuse more
   const cap = await page.evaluate(() => { const g = CF.StackerGame; while (g.blocks.length < g.MAX) g.drop(); g.drop(); return g.MAX; });
   expect(await page.evaluate(() => CF.StackerGame.blocks.length)).toBe(cap);
-  await expect(page.locator('#stk-ops .fb-add')).toBeDisabled();
+  await expect(page.locator('#stk-ops .fb-shape').first()).toBeDisabled();
   // reset clears the field
   await page.locator('#stk-ops .fb-reset').click();
   await expect(page.locator('#stacker-area .fb-block')).toHaveCount(0);
