@@ -2408,6 +2408,7 @@ const StackerGame = {
     { key:'cyl',   w:0.92, h:1.5  },
     { key:'tri',   w:1.45, h:1.2,  cy:0.667 },   // body sits on its centroid, 2/3 down
     { key:'ball',  w:1,    h:1    },
+    { key:'wedge', w:3,    h:1,    cx:0.667, cy:0.667 },   // ramp: right triangle, centroid ⅔ across/down
   ],
   MAX: 16,
   blocks: [], raf: 0, drag: null, U: 0, W: 0, H: 0, floorY: 0, active: false, bound: false,
@@ -2534,10 +2535,13 @@ const StackerGame = {
     // the body's chamfer (min*0.06) — a bigger visual radius or any margin
     // reads as stacked blocks "not touching" even when their bodies do
     let body, shade;
-    if (shape.key === 'tri'){
+    if (shape.key === 'tri' || shape.key === 'wedge'){
       // stroke is centred: inset the path by half the stroke so the rounded
-      // stroke's OUTER edge lands exactly on the physics triangle
-      const p = `M${n(3.5*k)} ${n(vh-3.5*k)} L${n(vw/2)} ${n(3.5*k)} L${n(vw-3.5*k)} ${n(vh-3.5*k)} Z`;
+      // stroke's OUTER edge lands exactly on the physics shape
+      const i = 3.5*k;
+      const p = shape.key === 'tri'
+        ? `M${n(i)} ${n(vh-i)} L${n(vw/2)} ${n(i)} L${n(vw-i)} ${n(vh-i)} Z`
+        : `M${n(i)} ${n(vh-i)} L${n(vw-i)} ${n(vh-i)} L${n(vw-i)} ${n(i)} Z`;   // ramp slope down-left
       body = `<path d="${p}" fill="${tone}" stroke="${tone}" stroke-width="${n(7*k)}" stroke-linejoin="round"/>`;
       shade = `<path d="${p}" fill="url(#stkTop)"/><path d="${p}" fill="url(#stkBot)"/>`;
     } else if (shape.key === 'ball'){
@@ -2662,6 +2666,11 @@ const StackerGame = {
     if (shape.key === 'ball') return M.Bodies.circle(x, y, w/2, { friction:.5, frictionStatic:.6, restitution:.12, density:.0016 });
     if (shape.key === 'tri'){
       const v = [{ x:-w/2, y:h/2 }, { x:0, y:-h/2 }, { x:w/2, y:h/2 }];
+      return M.Bodies.fromVertices(x, y, [v], { friction:.65, frictionStatic:.9, restitution:0, density:.0017 });
+    }
+    if (shape.key === 'wedge'){
+      // ramp: tall side right, slope descending to the left
+      const v = [{ x:-w/2, y:h/2 }, { x:w/2, y:h/2 }, { x:w/2, y:-h/2 }];
       return M.Bodies.fromVertices(x, y, [v], { friction:.65, frictionStatic:.9, restitution:0, density:.0017 });
     }
     return M.Bodies.rectangle(x, y, w, h, { friction:.6, frictionStatic:.85, restitution:0, density:.0017, chamfer:{ radius: Math.min(w,h)*0.06 } });
@@ -2841,7 +2850,7 @@ const StackerGame = {
   // A pinched ball always carries from its middle.
   grabAnchor(b, loc){
     if (b.shape.key === 'ball') return { x: 0, y: 0 };
-    const s = b.shape.key === 'tri' ? .6 : 1;        // keep tri anchors inside the wedge
+    const s = (b.shape.key === 'tri' || b.shape.key === 'wedge') ? .6 : 1;  // keep anchors inside sloped hulls
     const q = f => Math.abs(f) < .7 ? 0 : Math.sign(f) * .85;
     return { x: q(loc.x/(b.w/2)) * b.w/2 * s, y: q(loc.y/(b.h/2)) * b.h/2 * s };
   },

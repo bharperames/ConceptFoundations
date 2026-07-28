@@ -22,6 +22,7 @@ export const SHAPES = [
   { key:'tri',   w:1.45, h:1.2,  cy:0.667 },
   { key:'cyl',   w:0.92, h:1.5  },
   { key:'ball',  w:1,    h:1    },
+  { key:'wedge', w:3,    h:1,    cx:0.667, cy:0.667 },   // ramp: right triangle
 ];
 export function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
@@ -29,6 +30,10 @@ export function makeBody(shape, x, y, w, h, c){
   if (shape.key === 'ball') return Bodies.circle(x, y, w/2, { friction:c.friction, frictionStatic:c.fstat, restitution:c.ballRest, density:c.density, slop:c.slop });
   if (shape.key === 'tri'){
     const v = [{x:-w/2,y:h/2},{x:0,y:-h/2},{x:w/2,y:h/2}];
+    return Bodies.fromVertices(x, y, [v], { friction:c.friction, frictionStatic:c.fstat, restitution:c.rest, density:c.density, slop:c.slop });
+  }
+  if (shape.key === 'wedge'){
+    const v = [{x:-w/2,y:h/2},{x:w/2,y:h/2},{x:w/2,y:-h/2}];   // tall side right, slope down-left
     return Bodies.fromVertices(x, y, [v], { friction:c.friction, frictionStatic:c.fstat, restitution:c.rest, density:c.density, slop:c.slop });
   }
   const opt = { friction:c.friction, frictionStatic:c.fstat, restitution:c.rest, density:c.density, slop:c.slop };
@@ -144,7 +149,7 @@ export function runScenario(c, rng){
 export function grabAnchor(c, shape, w, h, loc){
   if (!c.snap) return loc;
   if (shape.key === 'ball') return { x:0, y:0 };
-  const s = shape.key === 'tri' ? .6 : 1;
+  const s = (shape.key === 'tri' || shape.key === 'wedge') ? .6 : 1;
   // central 70% → exact centroid (level carry); outer 15% per end → swing anchor
   const q = f => Math.abs(f) < .7 ? 0 : Math.sign(f) * .85;
   return { x: q(loc.x/(w/2)) * w/2 * s, y: q(loc.y/(h/2)) * h/2 * s };

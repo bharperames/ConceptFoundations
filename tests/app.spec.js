@@ -199,7 +199,7 @@ test('block stacker mini-game: per-shape drop, grab-move, cap, reset', async ({ 
   await page.evaluate(() => { window.Matter = undefined; CF.StackerGame.start(); });
   await expect(page.locator('#view-stacker')).toBeVisible();
   // one drop button per shape (a picker row), not a single random button
-  await expect(page.locator('#stk-ops .fb-shape')).toHaveCount(7);
+  await expect(page.locator('#stk-ops .fb-shape')).toHaveCount(8);
   // clicking a shape icon drops that block
   await page.locator('#stk-ops .fb-shape[data-shape="0"]').click();
   await expect(page.locator('#stacker-area .fb-block')).toHaveCount(1);

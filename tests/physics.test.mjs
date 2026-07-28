@@ -112,6 +112,23 @@ test('settle batch: dropped piles land clean (no floaters, escapes, NaN, deep ov
   assert.ok(deep / SCN < 0.3, `${(deep/SCN).toFixed(2)} deep overlaps per scenario`);
 });
 
+test('wedge ramp: a ball set on the high end rolls down the slope and off', () => {
+  const eng = makeWorld(C), dt = 1000/60;
+  const wedge = SHAPES.find(s => s.key === 'wedge'), ww = wedge.w*U, wh = wedge.h*U;
+  // fromVertices centres the body on its centroid (2/3 across/down the rect)
+  const ramp = makeBody(wedge, W/2, floorY - wh + wh/6 + wh/2 - wh/2, ww, wh, C);
+  Body.setPosition(ramp, { x: W/2, y: floorY - (wh - wh/6) + wh/2 });   // base on the floor
+  World.add(eng.world, ramp);
+  for (let k = 0; k < 60; k++) step(eng, dt, C);
+  const topX = ramp.bounds.max.x - U*0.55;                // over the slope, near the tall end
+  const ball = makeBody(SHAPES[6], topX, ramp.bounds.min.y - U, U, U, C);
+  World.add(eng.world, ball);
+  for (let k = 0; k < 420; k++) step(eng, dt, C);
+  assert.ok(ball.position.x < ramp.bounds.min.x, `ball never rolled off the low end (x=${ball.position.x.toFixed(0)}, ramp min ${ramp.bounds.min.x.toFixed(0)})`);
+  assert.ok(Math.abs(ball.position.y - (floorY - U/2)) < 5, 'ball not resting on the floor after the ramp');
+  assert.ok(Math.abs(ramp.angle) < 0.15, `the ramp itself tipped (angle ${ramp.angle.toFixed(2)})`);
+});
+
 test('ball: keeps a little life (rolls off a nudge) but comes to rest on the floor', () => {
   const eng = makeWorld(C), dt = 1000/60;
   const ball = makeBody(SHAPES[6], W/2, floorY - U/2, U, U, C);
