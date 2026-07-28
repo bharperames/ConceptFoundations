@@ -438,7 +438,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .stacker-area{position:absolute;inset:0;overflow:hidden}
 /* the gradient is only a pre-JS fallback: start() fills the div with the
    procedural lawn SVG (StackerGame.grassSVG — textured field + blade fringe) */
-.stk-ground{position:absolute;left:0;right:0;bottom:0;height:20%;background:linear-gradient(180deg,#72AB3E 0%,#5F9434 52%,#4E7C29 100%)}
+.stk-ground{position:absolute;left:0;right:0;bottom:0;height:10%;background:linear-gradient(180deg,#72AB3E 0%,#5F9434 52%,#4E7C29 100%)}
 @media (prefers-color-scheme:dark){
   #view-stacker{background:linear-gradient(180deg,#16324A 0%,#1E4058 55%,#264C64 100%)}
   .stk-ground{background:linear-gradient(180deg,#4E7A32 0%,#3E6228 55%,#2F4C1F 100%)}
@@ -2572,7 +2572,9 @@ const StackerGame = {
     Audio2.unlock(); showView('stacker'); this.ensureDefs();
     const r = this.area().getBoundingClientRect();
     const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
-    this.U = 15 * vmin; this.W = r.width; this.H = r.height; this.floorY = r.height * 0.82;
+    // floor at 92%: the lawn is a 10% strip (a deeper field just wasted
+    // vertical stacking room); blocks still sink 2% into the grass fringe
+    this.U = 15 * vmin; this.W = r.width; this.H = r.height; this.floorY = r.height * 0.92;
     this.useMatter = !!window.Matter;
     // physics-debug overlay canvas (above blocks z6, below the ops row z30)
     let cv = $('#stk-dbg-cv');
@@ -2586,7 +2588,7 @@ const StackerGame = {
     cv.style.width = this.W + 'px'; cv.style.height = this.H + 'px';
     // rebuild the lawn at the current width (fringe is width-dependent)
     const ground = this.area().querySelector('.stk-ground');
-    if (ground) ground.innerHTML = this.grassSVG(Math.ceil(this.W), Math.ceil(this.H * 0.20));
+    if (ground) ground.innerHTML = this.grassSVG(Math.ceil(this.W), Math.ceil(this.H * 0.10));
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
     this.blocks = []; this.drag = null;
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());

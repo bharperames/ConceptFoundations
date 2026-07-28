@@ -12,7 +12,7 @@ import Matter from 'matter-js';
 const { Engine, World, Bodies, Body, Composite, Collision } = Matter;
 
 // ── app geometry (mirrors StackerGame) ──
-const W = 900, H = 800, floorY = H * 0.82;
+const W = 900, H = 800, floorY = H * 0.92;   // mirrors the app: 10% lawn strip
 const U = 15 * Math.min(W, H) / 100;               // one cube, px
 const SHAPES = [
   { key:'cube',  w:1,    h:1    },
