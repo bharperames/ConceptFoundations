@@ -16,13 +16,15 @@ The eight curated clips: `great_job`, `yay`, `hooray`, `we_did_it`, `peekaboo`,
 producer's **gold** layer by durable `asset_id` (see `audio-clip-contract.md`).
 
 **Causality (spider/spout) is narrated as the itsy-bitsy-spider rhyme couplet**
-(🗣️ TTS for now) — **line 1** "The itsy bitsy spider went up the water spout!"
-as it climbs, then **line 2** "Down came the rain and washed the spider out!" as
-one utterance while it rains and washes out. The producer surfaced both lines as
-adjacent clips from the same `raw_audio/itsybitsy.mp3` take — line 1 silver
-`clip_8b87ff62940b` (@ 1.78–6.26s) and line 2 silver `clip_df618c4a15b8`
-(@ 6.58–11.18s) — so once promoted they'll share one continuous voice. Both are
-on the request ledger. (This superseded an earlier attempt at
+(🗣️ TTS for now) — the **whole four-line song** plays as the cause→effect reward:
+**L1** "The itsy bitsy spider went up the water spout!" (climb), **L2** "Down came
+the rain and washed the spider out!" (rain + wash), **L3** "Out came the sun and
+dried up all the rain!" (the sun shines, cloud fades), **L4** "And the itsy bitsy
+spider went up the spout again!" (it climbs back up — the hopeful ending). The
+producer surfaced them as clips from **one continuous `raw_audio/itsybitsy.mp3`
+take**: L1 `clip_8b87ff62940b` (@ 1.78–6.26s), L2 `clip_df618c4a15b8`
+(@ 6.58–11.18s), L4 `clip_f63bc2da62a7` (@ 15.73–21.07s); L3 sits in the ~11.2–15.7s
+gap. All four are on the request ledger to be promoted as one voice. (This superseded an earlier attempt at
 single-word `up`/`down`/`out` clips, which were too choppy for the sequence.)
 Always "spider," even on the ladybug generalization — the recognizable song wins.
 
