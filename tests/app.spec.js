@@ -369,3 +369,39 @@ test('causality 7.1: placing the bug on the spout triggers the wash-out effect',
     idxBefore, { timeout: 15000 });
   expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
 });
+
+test('causality 7.2: pressing the button fires the effect and advances', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'causality', 1);          // 7.2 — press the button
+  await waitForInteractive(page, 'tap');
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  const btn = await page.locator('[data-el="btn"]').boundingBox();
+  await page.mouse.click(btn.x + btn.width/2, btn.y + btn.height/2);
+  expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
+  // the press locks input during the fireworks, then completes and advances
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 8000 });
+  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
+});
+
+test('causality 7.3: two buttons — only the right one makes it go', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'causality', 2);          // 7.3 — which one?
+  await waitForInteractive(page, 'tap');
+  await expect(page.locator('[data-el="bL"], [data-el="bR"]')).toHaveCount(2);
+  // tapping the wrong button does nothing (no advance); the right one advances
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  const wrongId = await page.evaluate(() =>
+    CF.Engine.cur.elements.find(e => e.tappable && !e.target).id);
+  const rightId = await page.evaluate(() =>
+    CF.Engine.cur.elements.find(e => e.target).id);
+  const wrong = await page.locator(`[data-el="${wrongId}"]`).boundingBox();
+  await page.mouse.click(wrong.x + wrong.width/2, wrong.y + wrong.height/2);
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBe(idxBefore);   // wrong ⇒ no advance
+  const right = await page.locator(`[data-el="${rightId}"]`).boundingBox();
+  await page.mouse.click(right.x + right.width/2, right.y + right.height/2);
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 8000 });
+  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
+});

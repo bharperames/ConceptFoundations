@@ -373,6 +373,9 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .el.efx-sun{opacity:0;transition:opacity .7s ease}
 .el.efx-sun.shine{opacity:1}
 .el.efx-cloud-out{opacity:0 !important;transition:opacity .6s ease}
+/* arcade button: the cap dips when pressed */
+.btn-cap{transition:transform .12s ease}
+.el.btn-down .btn-cap{transform:translateY(7px)}
 /* the spider rocks left/right between steps while climbing (not a flat slide) */
 .el.climbing{animation:spiderStep .34s ease-in-out infinite}
 @keyframes spiderStep{
@@ -1120,6 +1123,16 @@ const SPIDER = () => wrap(`<g class="hit">
   <circle cx="45.5" cy="36" r="1.7" fill="#1a1a1a"/><circle cx="54.5" cy="36" r="1.7" fill="#1a1a1a"/></g>`);
 const CLOUD2 = () => wrap(`<g><ellipse cx="34" cy="56" rx="26" ry="18" fill="#EAF1F7"/><ellipse cx="62" cy="52" rx="28" ry="22" fill="#EAF1F7"/><ellipse cx="50" cy="64" rx="36" ry="16" fill="#DCE7F0"/></g>`);
 const SUN2 = () => wrap(`<g fill="#FFC02E"><circle cx="50" cy="50" r="26"/>${Array.from({length:8},(_,i)=>{const a=i/8*Math.PI*2;return `<rect x="48" y="6" width="4" height="12" rx="2" transform="rotate(${i*45} 50 50)"/>`;}).join('')}</g>`);
+// a big pushable arcade button on a base (cause→effect: press → fireworks)
+const PUSH_BTN = (cap) => wrap(`<g class="hit">
+  <ellipse cx="50" cy="86" rx="33" ry="8" fill="#1e2c3b" opacity=".18"/>
+  <rect x="20" y="54" width="60" height="30" rx="13" fill="#5C6B77"/>
+  <ellipse cx="50" cy="54" rx="30" ry="12" fill="#7C8B97"/>
+  <g class="btn-cap">
+    <ellipse cx="50" cy="47" rx="27" ry="12" fill="#3a2e2e" opacity=".18"/>
+    <ellipse cx="50" cy="44" rx="27" ry="12" fill="${cap}"/>
+    <ellipse cx="50" cy="41" rx="19" ry="7" fill="#fff" opacity=".3"/>
+  </g></g>`);
 /* 2-inch wood cubes for the stacking level */
 /* Drawn flush to the 100×100 box — physics stacks the element boxes edge to
    edge, so any inset here would read as a gap between "touching" blocks. */
@@ -1542,12 +1555,12 @@ const NODES = [
   key:'causality', num:7, title:'Make It Happen', parentName:'Causality',
   tag:'Your action makes something happen', prereqs:['spatial'],
   levels:[
-    { id:'7.1', name:'Up the spout', focus:'Cause → effect: put the bug up, rain washes it out', fallback:'demoDrag',
+    { id:'7.1', name:'Up the spout', focus:'Contingency: my action makes it happen (spider → spout)', fallback:'demoDrag',
       make(rng){ return spoutLevel(rng, { bug:'spider' }); }},
-    { id:'7.2', name:'Again!', focus:'The action reliably makes it happen', fallback:'demoDrag',
-      make(rng){ return spoutLevel(rng, { bug:'spider' }); }},
-    { id:'7.3', name:'Generalization', focus:'Same cause and effect, once more', isGen:true, fallback:'demoDrag',
-      make(rng){ return spoutLevel(rng, { isGen:true }); }},
+    { id:'7.2', name:'Press the button', focus:'A different cause → effect: press → fireworks', fallback:'pulseTarget',
+      make(rng){ return buttonLevel(rng, {}); }},
+    { id:'7.3', name:'Which one?', focus:'Discriminate the effective cause (two buttons, one works)', isGen:true, fallback:'pulseTarget',
+      make(rng){ return buttonLevel(rng, { which:true }); }},
   ],
 },
 ];
@@ -1670,6 +1683,43 @@ function spoutLevel(rng, {isGen}={}){
         elShape('cloud', CLOUD2(), 55, 20, 30, {scenery:true}),
         elShape('spout', SPOUT(), 55, 56, 34, {scenery:true}),
         elShape('bug', BUG(), 55, 47, 15, {scenery:true}) ]}), { demo:'spoutWash' }),   // spider at top, rain washes it out
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
+  };
+}
+/* Causality via a pushable button — a different cause→effect pair from the spout.
+   single: press the button → fireworks (means-end). which: two buttons, only one
+   works → discriminate the effective cause. */
+function buttonLevel(rng, {which}){
+  const CAPS = ['#E5484D', '#4C86D8', '#39B26B', '#E0A020'];
+  if (which){
+    const mkTest = i => {
+      const targetRight = i % 2 === 0;
+      const cA = CAPS[i % CAPS.length], cB = CAPS[(i + 2) % CAPS.length];
+      return Object.assign(tapTrial({ state:'GENERALIZE', prompt:'Which one makes it go?',
+        say:'Which button makes it go? Press it!',
+        elements:[
+          elShape('bL', PUSH_BTN(cA), 33, 58, 30, {tappable:true, target: !targetRight}),
+          elShape('bR', PUSH_BTN(cB), 67, 58, 30, {tappable:true, target: targetRight}),
+        ] }), { pressFx:true });
+    };
+    return {
+      expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'Press it!', say:'Press the button and it goes pop!',
+        elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 34, {scenery:true}) ]}), { demo:'buttonPress' }),
+      contrast: watchTrial({ state:'CONTRAST', prompt:'Two buttons', say:'Two buttons! Only one makes it go.',
+        elements:[ elShape('bL', PUSH_BTN('#E5484D'), 33, 58, 30, {scenery:true}),
+                   elShape('bR', PUSH_BTN('#4C86D8'), 67, 58, 30, {scenery:true}) ]}),
+      tests:[mkTest(0), mkTest(1), mkTest(2)],
+    };
+  }
+  const mkTest = i => Object.assign(tapTrial({ state:'TEST', prompt:'Press the button!',
+    say:'Press the big button!',
+    elements:[ elShape('btn', PUSH_BTN(CAPS[i % CAPS.length]), 50, 56, 36, {tappable:true, target:true}) ] }),
+    { pressFx:true });
+  return {
+    expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'A button', say:'Look, a big button! Press it!',
+      elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 36, {scenery:true}) ]}), { demo:'buttonPress' }),
+    contrast: Object.assign(watchTrial({ state:'CONTRAST', prompt:'Pop!', say:'Press it and — pop! Fireworks!',
+      elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 36, {scenery:true}) ]}), { demo:'buttonPress' }),
     tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
@@ -2597,6 +2647,7 @@ const Engine = {
     if (this.cur.kind === 'hideseek' && this.cur.hideInto) this.hideThenPrompt();
     else if (this.cur.demo === 'spoutClimb'){ this.locked = true; this.spoutDemoClimb(() => { this.locked = false; this.completeTrial(true, {silent:true}); }); }
     else if (this.cur.demo === 'spoutWash'){ this.locked = true; this.spoutDemoWash(() => { this.locked = false; this.completeTrial(true, {silent:true}); }); }
+    else if (this.cur.demo === 'buttonPress'){ this.locked = true; this.buttonDemo(() => { this.locked = false; this.completeTrial(true, {silent:true}); }); }
     else this.speakPrompt();
   },
 
@@ -2763,6 +2814,34 @@ const Engine = {
       bug.style.top = g.bot + '%'; bug.style.left = (g.cx + (g.cx > 50 ? -1 : 1) * 24) + '%'; bug.style.opacity = '0';
     }, 2700);
     Audio2.speak('Down came the rain and washed the spider out!', () => { this.stopRain(); if (live()) cb(); });
+  },
+  // cause → effect: press the button → fireworks. `cb` runs after the burst.
+  fireBurst(){
+    const stage = this.stage(); if (!stage) return;
+    const sr = stage.getBoundingClientRect();
+    Audio2.fanfare();
+    FX.confetti();
+    [0.28, 0.5, 0.72, 0.4, 0.6].forEach((fx, i) =>
+      setTimeout(() => FX.burst(sr.left + sr.width * fx, sr.top + sr.height * (0.18 + Math.random() * 0.22)), i * 170));
+  },
+  pressButton(el, x, y){
+    this.locked = true;
+    if (el){ el.classList.add('btn-down'); setTimeout(() => el && el.classList.remove('btn-down'), 260); }
+    this.fireBurst();
+    Audio2.speak('Hooray!');
+    setTimeout(() => { this.locked = false; this.completeTrial(true, { at:[x, y] }); }, 1500);
+  },
+  // EXPOSE/CONTRAST demo: auto-press the button and set off the fireworks
+  buttonDemo(cb){
+    const stage = this.stage();
+    const btn = stage.querySelector('[data-el="btn"]');
+    const rec = this.curRecord, live = () => this.active && this.curRecord === rec;
+    setTimeout(() => {
+      if (!live()) return;
+      if (btn){ btn.classList.add('btn-down'); setTimeout(() => btn.classList.remove('btn-down'), 260); }
+      this.fireBurst();
+    }, 500);
+    Audio2.speak(this.cur.say, () => { if (live()) cb(); });
   },
   // one shower burst: drops fall from the cloud's base to the spout's base,
   // measured in stage pixels so the fall lands correctly at any size
@@ -2941,6 +3020,7 @@ const Engine = {
     if (isTarget){
       this.frustration(now, false);
       if (this.cur.kind === 'hideseek') this.revealUnder(hit);
+      else if (this.cur.pressFx){ this.pressButton(hit, e.clientX, e.clientY); return; }
       this.completeTrial(true, {at:[e.clientX, e.clientY]});
     } else {
       this.frustration(now, true);
