@@ -9,7 +9,7 @@
 // Run:  npm i --no-save matter-js@0.19.0 && node scripts/stacker_sim.mjs 1500
 //       node scripts/stacker_sim.mjs 400 sweep     # compare parameter variants
 import Matter from 'matter-js';
-const { Engine, World, Bodies, Body, Composite, Collision } = Matter;
+const { Engine, World, Bodies, Body, Composite, Collision, Sleeping, Query } = Matter;
 
 // ── app geometry (mirrors StackerGame) ──
 export const W = 900, H = 800, floorY = H * 0.92;   // mirrors the app: 10% lawn strip
@@ -41,7 +41,11 @@ export function makeBody(shape, x, y, w, h, c){
   return Bodies.rectangle(x, y, w, h, opt);
 }
 export function makeWorld(c){
-  const eng = Engine.create({ enableSleeping:false, positionIterations:c.posIter, velocityIterations:c.velIter, constraintIterations:c.conIter });
+    // sleeping ON (unbounded block counts: resting piles must go dormant or the
+  // solver melts at ~40+ bodies). The old hang bug — pull a support out and
+  // the slept block above floats — is covered by force-waking EVERYTHING
+  // while a drag is active (dragTick/app loop); runGrabMove guards it.
+  const eng = Engine.create({ enableSleeping:true, positionIterations:c.posIter, velocityIterations:c.velIter, constraintIterations:c.conIter });
   eng.world.gravity.y = c.gravity;
   const wall = (x,y,ww,hh) => Bodies.rectangle(x,y,ww,hh,{ isStatic:true, friction:.9, slop:c.slop });
   const statics = [ wall(W/2, floorY+400, W+600, 800), wall(-45,H/2,90,H*3), wall(W+45,H/2,90,H*3),
@@ -54,6 +58,25 @@ export function makeWorld(c){
 // side walls are thick (else a violent fling steps straight through and is lost)
 export function step(eng, dt, c){
   Engine.update(eng, dt);
+  // sleep hygiene sweep (every 10 frames): wake any sleeping body that is in
+  // a WRONG state — touching nothing (its support left at any speed: it would
+  // hang in the air forever), or stuck in a deep overlap (resolution froze
+  // mid-sleep). Clean touching sleepers stay asleep through the constant
+  // corner-flip micro-separations that resting chamfered boxes produce.
+  // NB geometric check (Query.collides), NOT the pairs list: Matter skips
+  // narrowphase for sleeping pairs, so a sleeping tower's pairs all read
+  // inactive and a pairs-based sweep would wake everything it should protect
+  if (((eng._wakeT = (eng._wakeT || 0) + 1) % 10) === 0){
+    const all = Composite.allBodies(eng.world);
+    for (const b of all){
+      if (b.isSleeping){
+        let touching = false, deep = false;
+        for (const col of Query.collides(b, all.filter(o => o !== b)))
+          if (col.collided){ touching = true; if (col.depth > 3) deep = true; }
+        if (!touching || deep) Sleeping.set(b, false);
+      }
+    }
+  }
   for (const b of Composite.allBodies(eng.world)){
     if (b.isStatic) continue;
     if (b.speed > c.maxV) Body.setVelocity(b, { x: b.velocity.x*c.maxV/b.speed, y: b.velocity.y*c.maxV/b.speed });
@@ -181,6 +204,9 @@ export function makeDrag(c, body, gx, gy, shape, w, h){
     stiffness:c.dragStiff, damping:c.dragDamp, angularStiffness:c.angStiff, length:0 });
 }
 export function dragTick(c, eng, body, dt){
+  // a drag is active: nothing may sleep (a slept block would hover when its
+  // support is pulled out from under it — the original enableSleeping bug)
+  for (const b of Composite.allBodies(eng.world)) if (b.isSleeping) Sleeping.set(b, false);
   // grip friction: heavy while the block is grinding against something,
   // light while it swings free (else the pendulum crawls near vertical)
   const f = body._touching === false ? c.holdSpinFree : c.holdSpin;

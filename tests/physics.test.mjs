@@ -145,6 +145,7 @@ test('ball: keeps a little life (rolls off a nudge) but comes to rest on the flo
   const ball = makeBody(SHAPES[6], W/2, floorY - U/2, U, U, C);
   World.add(eng.world, ball);
   for (let k = 0; k < 60; k++) step(eng, dt, C);
+  Matter.Sleeping.set(ball, false);                     // a real nudge (collision/drag) wakes
   Body.setVelocity(ball, { x: 6, y: 0 });               // gentle nudge
   let travelled = 0, prev = ball.position.x;
   for (let k = 0; k < 300; k++){ step(eng, dt, C); travelled += Math.abs(ball.position.x - prev); prev = ball.position.x; }

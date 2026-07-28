@@ -220,10 +220,10 @@ test('block stacker mini-game: per-shape drop, grab-move, cap, reset', async ({ 
   expect(grab.held).toBe(true);
   expect(grab.dx).toBeGreaterThan(50);
   expect(grab.released).toBe(true);
-  // fill to the cap; the drop buttons disable and refuse more
-  const cap = await page.evaluate(() => { const g = CF.StackerGame; while (g.blocks.length < g.MAX) g.drop(); g.drop(); return g.MAX; });
-  expect(await page.evaluate(() => CF.StackerGame.blocks.length)).toBe(cap);
-  await expect(page.locator('#stk-ops .fb-shape').first()).toBeDisabled();
+  // no cap: keep dropping well past the old 16 limit; buttons stay enabled
+  await page.evaluate(() => { const g = CF.StackerGame; while (g.blocks.length < 30) g.drop(); });
+  expect(await page.evaluate(() => CF.StackerGame.blocks.length)).toBe(30);
+  await expect(page.locator('#stk-ops .fb-shape').first()).toBeEnabled();
   // reset clears the field
   await page.locator('#stk-ops .fb-reset').click();
   await expect(page.locator('#stacker-area .fb-block')).toHaveCount(0);
