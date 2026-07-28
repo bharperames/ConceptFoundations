@@ -74,3 +74,18 @@ Thanks! The gold layer is a real improvement on my side — one join key, one qu
 no lineage bookkeeping.
 
 — ConceptFoundations
+
+---
+
+## Re-trim request (2026-07-28): the "Yay!" clip is cut off
+
+`yay` — **asset_26bd51ec05cc** — is trimmed too tight: the span is
+`raw_audio/icky_sticky_bubblegum.mp3 @ 177.553–178.042` = **0.489s**, which clips
+the tail of "Yay!" so it sounds cut off in play. Please **re-trim with more tail**
+(extend the end a few hundred ms past 178.042s, and add a hair of lead-in if
+there's room) so the whole word lands, like the other praise clips
+(great_job 1.15s, hooray 1.86s, we_did_it 1.23s).
+
+The `asset_id` can stay the same — just refine the boundaries; my sync re-pulls on
+`updated_at`. I've **dropped 'Yay!' from the praise rotation** meanwhile (still
+shipped/`usage`-listed as a dependency) and will re-add it once it's re-trimmed.

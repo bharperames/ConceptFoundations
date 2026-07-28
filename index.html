@@ -3803,7 +3803,11 @@ const Engine = {
     if (isTest){
       Audio2.correct();
       if (opts.at) FX.burst(opts.at[0], opts.at[1]);
-      const praise = ['Yay!','We did it!','Hooray!','Great job!'][Math.floor(Math.random()*4)];
+      // NB: 'Yay!' (yay.mp3) is dropped for now — its gold trim (0.489s) clips the
+      // tail, so it sounds cut off. Re-add once the producer re-trims it (see
+      // docs/message-to-mr-audioclips.md).
+      const PRAISE = ['We did it!','Hooray!','Great job!'];
+      const praise = PRAISE[Math.floor(Math.random()*PRAISE.length)];
       // advance only after the praise finishes (clips run 0.5–2.4s), with a
       // floor so short praise still lands and a cap so we never hang on audio
       const started = Date.now();
