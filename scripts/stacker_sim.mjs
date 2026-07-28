@@ -145,7 +145,8 @@ export function grabAnchor(c, shape, w, h, loc){
   if (!c.snap) return loc;
   if (shape.key === 'ball') return { x:0, y:0 };
   const s = shape.key === 'tri' ? .6 : 1;
-  const q = f => Math.abs(f) < .3 ? 0 : Math.sign(f) * (Math.abs(f) < .65 ? .5 : .85);
+  // central 70% → exact centroid (level carry); outer 15% per end → swing anchor
+  const q = f => Math.abs(f) < .7 ? 0 : Math.sign(f) * .85;
   return { x: q(loc.x/(w/2)) * w/2 * s, y: q(loc.y/(h/2)) * h/2 * s };
 }
 export function makeDrag(c, body, gx, gy, shape, w, h){

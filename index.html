@@ -2835,13 +2835,14 @@ const StackerGame = {
     };
     this.raf = requestAnimationFrame(frame);
   },
-  // quantize a body-local click into a predictable grab spot: a centroid
-  // dead-zone (carries level, no touchy near-centre torque), then a mid-lever
-  // ring, then an edge anchor. A pinched ball always carries from its middle.
+  // quantize a body-local click into a predictable grab spot: the central 70%
+  // grabs the exact centroid (carries level — smooth dragging is the common
+  // intent), only the outer 15% per end gives the pendulum-swing edge anchor.
+  // A pinched ball always carries from its middle.
   grabAnchor(b, loc){
     if (b.shape.key === 'ball') return { x: 0, y: 0 };
     const s = b.shape.key === 'tri' ? .6 : 1;        // keep tri anchors inside the wedge
-    const q = f => Math.abs(f) < .3 ? 0 : Math.sign(f) * (Math.abs(f) < .65 ? .5 : .85);
+    const q = f => Math.abs(f) < .7 ? 0 : Math.sign(f) * .85;
     return { x: q(loc.x/(b.w/2)) * b.w/2 * s, y: q(loc.y/(b.h/2)) * b.h/2 * s };
   },
   // advance the drag target toward the pointer, constrained so the constraint

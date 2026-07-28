@@ -91,10 +91,10 @@ Momentum still zeroed on grab. Three more grab rules (all in `onDown` /
 `grabAnchor` / `moveDragTarget`):
 
 - **Grab regions.** The click is quantized to predictable anchors per axis:
-  within 30% of the half-extent → exact centroid (carries level — kills the
-  touchy near-centre torque), 30–65% → a mid-lever spot (0.5), beyond → an edge
-  spot (0.85). Ball always pinches its centre; tri anchors scaled ×.6 to stay
-  inside the wedge.
+  the central 70% → exact centroid (carries level, smooth dragging — the
+  common intent), only the outer 15% per end → an edge spot (0.85) that gives
+  the deliberate pendulum swing. Ball always pinches its centre; tri anchors
+  scaled ×.6 to stay inside the wedge.
 - **`pointB` is a WORLD-frame offset.** `Constraint.create` records
   `angleB = body.angle` and rotates `pointB` by the delta — passing a body-local
   offset anchors any tilted block wrong (the "grab a settled block's side and it
