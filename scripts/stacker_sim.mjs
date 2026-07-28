@@ -53,7 +53,36 @@ function step(eng, dt, c){
     if (b.isStatic) continue;
     if (b.speed > c.maxV) Body.setVelocity(b, { x: b.velocity.x*c.maxV/b.speed, y: b.velocity.y*c.maxV/b.speed });
     if (Math.abs(b.angularVelocity) > c.maxAV) Body.setAngularVelocity(b, Math.sign(b.angularVelocity)*c.maxAV);
+    // settle damping: chamfered corners make stacked blocks rock (the contact
+    // flips corner to corner) and creep sideways; with sleeping off, bleed
+    // near-rest motion so towers actually come to rest
+    // (gentle .85, all axes: harder damping or lateral-only both trap rare
+    // ceiling-squeeze overlaps deeper — .85 lowers deep/scn 0.033→0.027)
+    if (c.settleF < 1 && b.speed < c.settleV && Math.abs(b.angularVelocity) < .03){
+      Body.setVelocity(b, { x: b.velocity.x*c.settleF, y: b.velocity.y*c.settleF });
+      Body.setAngularVelocity(b, b.angularVelocity*c.settleF);
+    }
   }
+}
+
+// a brick+cube tower with a plank standing on its end on top (the screenshot
+// case): measure the top block's sideways creep after it should be at rest
+function runTowerCreep(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const bw=2*U, bh=1*U, pw=2.7*U, ph=0.62*U;
+  const brick = makeBody(SHAPES[1], W/2, floorY-bh/2, bw, bh, c);
+  const cube  = makeBody(SHAPES[0], W/2, floorY-bh-U/2-1, U, U, c);
+  const plank = makeBody(SHAPES[2], W/2, floorY-bh-U-pw/2-3, pw, ph, c);
+  Body.setAngle(plank, Math.PI/2);
+  World.add(eng.world, [brick, cube, plank]);
+  for (let k=0;k<120;k++) step(eng,dt,c);
+  const x0=plank.position.x; let drift=0, path=0, prev=x0;
+  for (let k=0;k<600;k++){
+    step(eng,dt,c);
+    path += Math.abs(plank.position.x-prev); prev=plank.position.x;
+    drift = Math.max(drift, Math.abs(plank.position.x-x0));
+  }
+  return { drift, path, upright: Math.abs((plank.angle % Math.PI) - Math.PI/2) < 0.2 };
 }
 
 // max block-block penetration depth + count of deep overlaps
@@ -293,6 +322,7 @@ function evaluate(c, n){
   return { maxPen:+maxPen.toFixed(1), deepPerScn:+(deep/n).toFixed(3), floatPerScn:+(floats/n).toFixed(3), escaped:esc, nan, hung, grabSpike:+spikeMax.toFixed(1),
     ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
     rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
+    towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
     pressFree:+runGroundPress({...c, pressClamp:false}).toFixed(1), pressClamped:+runGroundPress({...c, pressClamp:true}).toFixed(1) };
 }
 
@@ -305,7 +335,8 @@ function evaluate(c, n){
 // stability as 1.0 in the sweep; 3.0 blew up penetration (9.7px). angStiff .7
 // keeps 30% of pivot torque — enough to droop, not enough to snap.
 const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
-  maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U };   // anti-tunnel clamps + grab snapping + drag-target limits
+  maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U,     // anti-tunnel clamps + grab snapping + drag-target limits
+  settleV:0.25, settleF:0.85 };                               // near-rest damping (kills stacked-corner rocking)
 const N = +(process.argv[2]||300);
 
 const SWEEPS = {

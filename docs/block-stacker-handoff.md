@@ -87,6 +87,14 @@ and the loop clamps every body post-step to ≤45px/frame linear, ≤0.5rad/fram
 angular — nothing can outrun the wall thickness, so flings can't tunnel out (the
 old "flung block disappears forever" bug; `runFling` guards it).
 
+**Settle damping.** Chamfered corners make stacked blocks rock — the contact
+point flips corner to corner each solve — so a block standing on a tower creeps
+sideways forever (sleeping is off by design). The loop bleeds near-rest motion
+(`speed<.25 && |angVel|<.03 → ×.85/frame`, held block excluded): tower creep
+went 16px/300 frames → 0. Keep the factor gentle and all-axis — harder damping
+or lateral-only damping both trap rare ceiling-squeeze overlaps deeper
+(`runTowerCreep` + `deep/scn` guard the tradeoff).
+
 Last full run (1500 scenarios): **maxPen ≈ 5.5px, deep 0.003/scn, floating 0,
 escaped 0, NaN 0, grab-hang 0, grab-spike 0.1** (was 0.4), off-centre grab spin
 ≤.027 rad/frame, slide jerk 2.3.
