@@ -12,9 +12,9 @@ import Matter from 'matter-js';
 const { Engine, World, Bodies, Body, Composite, Collision } = Matter;
 
 // ── app geometry (mirrors StackerGame) ──
-const W = 900, H = 800, floorY = H * 0.92;   // mirrors the app: 10% lawn strip
-const U = 15 * Math.min(W, H) / 100;               // one cube, px
-const SHAPES = [
+export const W = 900, H = 800, floorY = H * 0.92;   // mirrors the app: 10% lawn strip
+export const U = 15 * Math.min(W, H) / 100;               // one cube, px
+export const SHAPES = [
   { key:'cube',  w:1,    h:1    },
   { key:'brick', w:2,    h:1    },
   { key:'plank', w:2.7,  h:0.62 },
@@ -23,9 +23,9 @@ const SHAPES = [
   { key:'cyl',   w:0.92, h:1.5  },
   { key:'ball',  w:1,    h:1    },
 ];
-function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+export function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
-function makeBody(shape, x, y, w, h, c){
+export function makeBody(shape, x, y, w, h, c){
   if (shape.key === 'ball') return Bodies.circle(x, y, w/2, { friction:c.friction, frictionStatic:c.fstat, restitution:c.ballRest, density:c.density, slop:c.slop });
   if (shape.key === 'tri'){
     const v = [{x:-w/2,y:h/2},{x:0,y:-h/2},{x:w/2,y:h/2}];
@@ -35,7 +35,7 @@ function makeBody(shape, x, y, w, h, c){
   if (c.chamfer > 0) opt.chamfer = { radius: Math.min(w,h)*c.chamfer };
   return Bodies.rectangle(x, y, w, h, opt);
 }
-function makeWorld(c){
+export function makeWorld(c){
   const eng = Engine.create({ enableSleeping:false, positionIterations:c.posIter, velocityIterations:c.velIter, constraintIterations:c.conIter });
   eng.world.gravity.y = c.gravity;
   const wall = (x,y,ww,hh) => Bodies.rectangle(x,y,ww,hh,{ isStatic:true, friction:.9, slop:c.slop });
@@ -47,7 +47,7 @@ function makeWorld(c){
 }
 // engine tick + the app's anti-tunnel clamps: no body may move faster than the
 // side walls are thick (else a violent fling steps straight through and is lost)
-function step(eng, dt, c){
+export function step(eng, dt, c){
   Engine.update(eng, dt);
   for (const b of Composite.allBodies(eng.world)){
     if (b.isStatic) continue;
@@ -67,7 +67,7 @@ function step(eng, dt, c){
 
 // a brick+cube tower with a plank standing on its end on top (the screenshot
 // case): measure the top block's sideways creep after it should be at rest
-function runTowerCreep(c){
+export function runTowerCreep(c){
   const eng=makeWorld(c), dt=1000/60;
   const bw=2*U, bh=1*U, pw=2.7*U, ph=0.62*U;
   const brick = makeBody(SHAPES[1], W/2, floorY-bh/2, bw, bh, c);
@@ -86,7 +86,7 @@ function runTowerCreep(c){
 }
 
 // max block-block penetration depth + count of deep overlaps
-function penetration(blocks){
+export function penetration(blocks){
   let max=0, deep=0;
   for (let i=0;i<blocks.length;i++) for (let j=i+1;j<blocks.length;j++){
     const col = Collision.collides(blocks[i].body, blocks[j].body);
@@ -96,7 +96,7 @@ function penetration(blocks){
 }
 // a real floating error: a block at rest that touches NOTHING (no other block,
 // no wall, no floor) — leaning/bridging/side-supported blocks are legitimate
-function floating(blocks, statics){
+export function floating(blocks, statics){
   let n=0;
   for (const b of blocks){
     if (b.body.speed > 0.35) continue;                 // still moving — not settled
@@ -107,13 +107,13 @@ function floating(blocks, statics){
   }
   return n;
 }
-function escaped(blocks){
+export function escaped(blocks){
   let n=0; for (const b of blocks){ const p=b.body.position;
     if (isNaN(p.x)||isNaN(p.y)||p.x<-80||p.x>W+80||p.y>H+300||p.y<-H) n++; }
   return n;
 }
 
-function runScenario(c, rng){
+export function runScenario(c, rng){
   const eng = makeWorld(c), world = eng.world, blocks=[], dt=1000/60;
   const N = 8 + Math.floor(rng()*7);
   for (let i=0;i<N;i++){
@@ -141,14 +141,14 @@ function runScenario(c, rng){
 // WORLD-frame offset — Constraint.create records angleB=body.angle and rotates
 // pointB by the delta, so passing a body-local offset anchors a rotated block
 // at the wrong spot (the old "grab a tilted block and it teleports" bug).
-function grabAnchor(c, shape, w, h, loc){
+export function grabAnchor(c, shape, w, h, loc){
   if (!c.snap) return loc;
   if (shape.key === 'ball') return { x:0, y:0 };
   const s = shape.key === 'tri' ? .6 : 1;
   const q = f => Math.abs(f) < .3 ? 0 : Math.sign(f) * (Math.abs(f) < .65 ? .5 : .85);
   return { x: q(loc.x/(w/2)) * w/2 * s, y: q(loc.y/(h/2)) * h/2 * s };
 }
-function makeDrag(c, body, gx, gy, shape, w, h){
+export function makeDrag(c, body, gx, gy, shape, w, h){
   Body.setVelocity(body, {x:0,y:0}); Body.setAngularVelocity(body, 0);
   const dx=gx-body.position.x, dy=gy-body.position.y;
   const ca=Math.cos(-body.angle), sa=Math.sin(-body.angle);
@@ -159,7 +159,7 @@ function makeDrag(c, body, gx, gy, shape, w, h){
     pointB:{x:off.x, y:off.y},
     stiffness:c.dragStiff, damping:c.dragDamp, angularStiffness:c.angStiff, length:0 });
 }
-function dragTick(c, eng, body, dt){
+export function dragTick(c, eng, body, dt){
   // grip friction: heavy while the block is grinding against something,
   // light while it swings free (else the pendulum crawls near vertical)
   const f = body._touching === false ? c.holdSpinFree : c.holdSpin;
@@ -178,7 +178,7 @@ function dragTick(c, eng, body, dt){
 // frame, the anchor-side correction arrives 30% as torque, and the floor can
 // push the far side back up but never pull the near side down, so a block
 // held by its side "magically" rotates up with the mouse perfectly still.
-function moveDrag(c, eng, con, body, tx, ty){
+export function moveDrag(c, eng, con, body, tx, ty){
   tx = Math.max(8, Math.min(W-8, tx)); ty = Math.max(8, Math.min(H-8, ty));
   const ax = body.position.x + con.pointB.x, ay = body.position.y + con.pointB.y;
   let lx = tx - ax, ly = ty - ay, touching = false;
@@ -208,12 +208,15 @@ function moveDrag(c, eng, con, body, tx, ty){
   // torque-free hold ONLY while touching (the grounded ratchet needs a
   // contact to pump against); hanging free keeps the pendulum torque so an
   // end-grabbed plank droops all the way to vertical instead of freezing
-  con.angularStiffness = (lead < c.holdDead && touching) ? 1 : c.angStiff;
+  // free-hanging: aSFree (more of the true gravity torque) so the pendulum
+  // swings at a believable rate; touching: .7 while dragging, 1 (torque-free)
+  // in the hold-still dead-zone — the grounded ratchet needs contact to pump
+  con.angularStiffness = touching ? ((lead < c.holdDead) ? 1 : c.angStiff) : c.angStiffFree;
   body._touching = touching;
 }
 
 // grab the BOTTOM of a 2-stack and drag it away — the top must fall, not hang
-function runGrabMove(c, rng){
+export function runGrabMove(c, rng){
   const eng=makeWorld(c), world=eng.world, dt=1000/60;
   const w=1.6*U, h=1*U;
   const base = makeBody(SHAPES[1], W/2, floorY-h/2, w, h, c);
@@ -236,7 +239,7 @@ function runGrabMove(c, rng){
 // centroid" case. A good pinch lets it droop/pivot smoothly; a bad one snaps.
 // Reports the worst speed right after grab (px/frame, pointer itself moves ~5),
 // worst spin (rad/frame), and how far the grab point lags the pointer at the end.
-function runOffCenterGrab(c){
+export function runOffCenterGrab(c){
   const eng=makeWorld(c), world=eng.world, dt=1000/60;
   const shape=SHAPES[2], w=shape.w*U, h=shape.h*U;
   const body = makeBody(shape, W/2, floorY-h/2, w, h, c);
@@ -245,23 +248,26 @@ function runOffCenterGrab(c){
   const gx = body.position.x + w*0.44, gy = body.position.y;   // right end
   const con = makeDrag(c, body, gx, gy, shape, w, h);
   World.add(world, con);
-  let spike=0, maxAV=0, endAngle=0;
+  let spike=0, maxAV=0, endAngle=0, tVert=-1, overshoot=0;
   for (let k=0;k<360;k++){
     moveDrag(c, eng, con, body, con.pointA.x, k<30 ? gy - 2.4*U*((k+1)/30) : con.pointA.y);  // lift, then hold
     dragTick(c, eng, body, dt);
     spike=Math.max(spike, body.speed); maxAV=Math.max(maxAV, Math.abs(body.angularVelocity));
+    const a = Math.abs(body.angle);
+    if (tVert < 0 && a > 1.4) tVert = k;                      // frames to (nearly) vertical
+    overshoot = Math.max(overshoot, a - Math.PI/2);           // swing past plumb
   }
-  endAngle = Math.abs(body.angle);   // hanging: should approach pi/2 (vertical)
+  endAngle = Math.abs(body.angle);   // hanging: should settle at pi/2 (vertical)
   // where is the grab point now vs the pointer?
   const a=body.angle, cs=Math.cos(a), sn=Math.sin(a), pB=con.pointB;
   const wx=body.position.x + pB.x, wy=body.position.y + pB.y;  // Matter keeps pointB world-rotated
   const lag = Math.hypot(con.pointA.x-wx, con.pointA.y-wy);
-  return { spike, maxAV, lag, endAngle };
+  return { spike, maxAV, lag, endAngle, tVert, overshoot };
 }
 
 // drag a cube along the floor at pointer speed — measure jerk (frame-to-frame
 // speed jumps: the "jitter while dragging along a surface" feel metric)
-function runDragSlide(c){
+export function runDragSlide(c){
   const eng=makeWorld(c), world=eng.world, dt=1000/60;
   const body = makeBody(SHAPES[0], W*0.28, floorY-U/2, U, U, c);
   World.add(world, body);
@@ -281,7 +287,7 @@ function runDragSlide(c){
 
 // grab a block WHILE it is falling fast; a good drag zeroes its momentum and
 // pulls gently — measure the worst speed spike in the frames right after grab
-function runDragJump(c, rng){
+export function runDragJump(c, rng){
   const eng=makeWorld(c), world=eng.world, dt=1000/60;
   const body = makeBody(SHAPES[0], W/2, 40, U, U, c);
   World.add(world, body);
@@ -297,7 +303,7 @@ function runDragJump(c, rng){
 }
 // grab a TILTED falling brick by its side — with pointB passed body-local (the
 // old bug) the constraint anchors wrong and yanks the block sideways on grab
-function runRotatedGrab(c){
+export function runRotatedGrab(c){
   const eng=makeWorld(c), dt=1000/60;
   const shape=SHAPES[1], w=shape.w*U, h=shape.h*U;
   const body = makeBody(shape, W/2, H*0.3, w, h, c);
@@ -316,7 +322,7 @@ function runRotatedGrab(c){
 
 // violent flick far past the window edge, release — the block must stay in the
 // field (ceiling + the step() speed clamp; tunneling through a wall loses it)
-function runFling(c){
+export function runFling(c){
   const eng=makeWorld(c), dt=1000/60;
   const b = { body: makeBody(SHAPES[0], W/2, floorY-U/2, U, U, c) };
   World.add(eng.world, b.body);
@@ -333,7 +339,7 @@ function runFling(c){
 // happen — this simulates no clamp) and measure position thrash: the fight
 // between constraint and solver. The app clamps the target; this metric shows
 // what the clamp is worth and guards the residual behaviour.
-function runGroundPress(c){
+export function runGroundPress(c){
   const eng=makeWorld(c), dt=1000/60;
   const b = makeBody(SHAPES[0], W/2, floorY-U/2, U, U, c);
   World.add(eng.world, b);
@@ -354,8 +360,8 @@ function runGroundPress(c){
 // wood clipping through wood and counts as an error (visFrames).
 // braced=true pins B against the right wall first — the worst case: B cannot
 // yield, so all the press has to go somewhere.
-const VIS_PEN = 4;
-function runBlockPress(c, braced){
+export const VIS_PEN = 4;
+export function runBlockPress(c, braced){
   const eng=makeWorld(c), dt=1000/60;
   const bx = braced ? W - 45 - U/2 - 1 : W/2;
   const A = makeBody(SHAPES[0], bx - U*1.2, floorY-U/2, U, U, c);
@@ -382,7 +388,7 @@ function runBlockPress(c, braced){
 
 // grab a wide brick's LEFT edge and hold the mouse perfectly still for 4s —
 // guards the hold-still torque ratchet (block slowly rotates up on its own)
-function runHoldStill(c){
+export function runHoldStill(c){
   const eng=makeWorld(c), dt=1000/60;
   const w=2*U, h=1*U;
   const b = makeBody(SHAPES[1], W/2, floorY-h/2, w, h, c);
@@ -400,7 +406,7 @@ function runHoldStill(c){
   return maxAng;
 }
 
-function evaluate(c, n){
+export function evaluate(c, n){
   const rng = mulberry32(12345);
   let maxPen=0, deep=0, floats=0, esc=0, nan=0;
   for (let i=0;i<n;i++){ const r=runScenario(c,rng); maxPen=Math.max(maxPen,r.maxPen); deep+=r.deep; floats+=r.floating; esc+=r.escaped; nan+=r.nan; }
@@ -408,7 +414,7 @@ function evaluate(c, n){
   const rng3=mulberry32(7); let spikeMax=0; for (let i=0;i<40;i++){ const d=runDragJump(c,rng3); spikeMax=Math.max(spikeMax,d.spike); }
   const oc = runOffCenterGrab(c), sl = runDragSlide(c), rot = runRotatedGrab(c);
   return { maxPen:+maxPen.toFixed(1), deepPerScn:+(deep/n).toFixed(3), floatPerScn:+(floats/n).toFixed(3), escaped:esc, nan, hung, grabSpike:+spikeMax.toFixed(1),
-    ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), ocEndAngle:+oc.endAngle.toFixed(2), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
+    ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), ocEndAngle:+oc.endAngle.toFixed(2), ocTVert:oc.tVert, ocOver:+oc.overshoot.toFixed(2), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
     rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
     towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
     press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames,pushed:+p.pushed.toFixed(1)}))(runBlockPress(c, false)),
@@ -425,10 +431,12 @@ function evaluate(c, n){
 // gravity 2.2: falls ~1.5× faster (feels like wood, not balloons) with the same
 // stability as 1.0 in the sweep; 3.0 blew up penetration (9.7px). angStiff .7
 // keeps 30% of pivot torque — enough to droop, not enough to snap.
-const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
+export const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
   maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U,     // anti-tunnel clamps + grab snapping + drag-target limits
   settleV:0.25, settleF:0.85,                                 // near-rest damping (kills stacked-corner rocking)
-  pressAllow:4, holdDead:3, holdSpinFree:0.96 };                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
+  pressAllow:4, holdDead:3, holdSpinFree:0.99, angStiffFree:0 };  // free hang: FULL gravity torque, light damping                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
+import { fileURLToPath } from 'node:url';
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 const N = +(process.argv[2]||300);
 
 const SWEEPS = {
@@ -444,7 +452,7 @@ const SWEEPS = {
   },
 };
 
-if (SWEEPS[process.argv[3]]){
+if (isMain) if (SWEEPS[process.argv[3]]){
   const extra = process.argv[4] ? JSON.parse(process.argv[4]) : {};   // e.g. '{"gravity":2.2}'
   console.log(`# ${N} scenarios/variant, sweep=${process.argv[3]}, extra=${JSON.stringify(extra)}\n`);
   console.log('variant            maxPen deep/scn  fl/scn esc nan hung spike | ocSpike ocSpin ocLag  jerk slSpin');

@@ -7,8 +7,11 @@ test-setup:
 	npm install
 	npx playwright install chromium webkit
 
-# run the full suite headlessly against both engines (WebKit ≈ iPad Safari)
+# run the full suite: physics unit tests (node:test over the Matter.js sim
+# harness — gravity/drag specialty cases), then the browser suite against
+# both engines (WebKit ≈ iPad Safari)
 test:
+	node --test tests/*.test.mjs
 	npx playwright test
 
 # re-acquire mapped audio clips from the producer's gold catalog (assets.db),

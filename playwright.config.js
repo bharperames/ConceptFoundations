@@ -2,6 +2,7 @@ const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests',
+  testMatch: '**/*.spec.js',   // *.test.mjs are node:test physics units, not playwright
   timeout: 60000,
   fullyParallel: true,
   webServer: {

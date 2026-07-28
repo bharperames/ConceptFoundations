@@ -18,8 +18,14 @@ and can be grabbed and re-stacked on a grassy field. Realistic-cartoon look.
   the shapes/bodies and runs thousands of scenarios, scoring error classes. This is
   the main tool for this work. Run: `npm i --no-save matter-js@0.19.0 && node
   scripts/stacker_sim.mjs 1500` (or `… 400 sweep` to compare parameter variants).
-- **Test:** `tests/app.spec.js` › "block stacker mini-game" (forces the AABB
-  fallback for determinism — no network dependence).
+- **Tests:** `tests/app.spec.js` › "block stacker mini-game" (forces the AABB
+  fallback for determinism — no network dependence), plus
+  `tests/physics.test.mjs` — 13 node:test units over the sim harness pinning
+  the specialty gravity/drag cases with thresholds (free-fall speed, pendulum
+  swing-to-plumb + overshoot, hold-still no-ratchet, rotated-grab anchoring,
+  fling containment, support removal, mid-fall catch, ground/block press
+  bounds, tower creep, settle batch, ball roll). `make test` runs both; the
+  physics units need devDependency `matter-js` (in package.json).
 
 ## Current state (what's done)
 

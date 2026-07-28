@@ -2797,7 +2797,7 @@ const StackerGame = {
           // Light damping while it hangs FREE (heavy damping made the swing
           // crawl and stall short of vertical), heavy while grinding contact.
           const bd = this.drag.b.body;
-          M.Body.setAngularVelocity(bd, bd.angularVelocity * (this.drag.touching ? .85 : .96));
+          M.Body.setAngularVelocity(bd, bd.angularVelocity * (this.drag.touching ? .85 : .99));
         }
         // substep long frames — at gravity 2.2 a single 32ms step overlaps more
         const n = dt > 20 ? 2 : 1;
@@ -2894,7 +2894,11 @@ const StackerGame = {
     // A block hanging FREE keeps its torque even when the pointer is still:
     // that torque is the legitimate pendulum swing (an end-grabbed plank must
     // keep drooping to vertical, not freeze 45° short the moment you pause).
-    con.angularStiffness = (lead < 3 && touching) ? 1 : .7;
+    // free-hanging: FULL gravity torque (angularStiffness 0) — the pendulum
+    // swings and overshoots like a real end-pivoted plank; while touching:
+    // .7 dragging / 1 (torque-free) in the hold-still dead-zone, since the
+    // grounded ratchet needs a contact to pump against
+    con.angularStiffness = touching ? ((lead < 3) ? 1 : .7) : 0;
     d.touching = touching;
   },
   hit(px, py){
