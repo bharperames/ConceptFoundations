@@ -2671,29 +2671,33 @@ const Engine = {
     // fade the placement ring away once the bug is on the spout
     const ring = stage.querySelector('[data-el="drop"]');
     if (ring) ring.classList.add('fade');
+    // narrate the itsy-bitsy-spider couplet: line 1 as it climbs, then line 2
+    // ("Down came the rain and washed the spider out") as ONE utterance while it
+    // rains and washes out — voiced by a single full-line clip (see audio-requests).
+    // Always "spider" so the full soundbite always applies (even the ladybug
+    // generalization narrates the spider rhyme — the recognizable song wins).
     bug.style.zIndex = '4'; bug.classList.remove('snapping');
-    // 1) climb up
+    // 1) climb up — "The itsy bitsy spider climbed up the water spout!"
     bug.style.transition = 'top 1.1s cubic-bezier(.4,0,.5,1), left .5s ease';
     bug.style.left = cx + '%'; bug.style.top = top + '%';
-    Audio2.speak('Up the water spout it goes!');
+    Audio2.speak('The itsy bitsy spider climbed up the water spout!');
     setTimeout(() => {
       if (!this.active) return;
-      // 2) down came the rain (a real, spout-aligned shower)
+      // 2+3) "Down came the rain and washed the spider out!" — rain starts with
+      // the line; the wash-out lands on the "washed … out" beat (~1.7s in)
       const cloud = stage.querySelector('[data-el="cloud"]');
       if (cloud) cloud.classList.add('raining');
       this.startRain(cx);
-      Audio2.speak('Down came the rain!');
+      Audio2.speak('Down came the rain and washed the spider out!');
       setTimeout(() => {
         if (!this.active) return;
-        // 3) washed the bug out — down the spout and away
         bug.style.transition = 'top .8s cubic-bezier(.5,0,.85,1), left .8s ease-in, opacity .8s ease-in';
         bug.style.top = bot + '%';
         bug.style.left = (cx + washDir * 24) + '%';
         bug.style.opacity = '0';
-        Audio2.speak('And washed it out!');
         setTimeout(() => { this.stopRain(); if (this.active) cb(); }, 850);
-      }, 900);
-    }, 1150);
+      }, 1700);
+    }, 2200);
   },
   // one shower burst: drops fall from the cloud's base to the spout's base,
   // measured in stage pixels so the fall lands correctly at any size

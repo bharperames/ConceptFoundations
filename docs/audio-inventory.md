@@ -15,11 +15,15 @@ The eight curated clips: `great_job`, `yay`, `hooray`, `we_did_it`, `peekaboo`,
 `lets_play_hide_and_seek`, `uh_oh`, `bubble_pop`. All eight are acquired from the
 producer's **gold** layer by durable `asset_id` (see `audio-clip-contract.md`).
 
-**Causality (spider/spout) action beats are 🗣️ TTS full phrases** — "Up the water
-spout it goes!" (climb), "Down came the rain!" (rain), "And washed it out!" (wash).
-The earlier single-word clips (`up`/`down`/`out`) were too choppy for the sequence
-and were retired; the three **full phrases** are on the request ledger to be
-curated together as one nursery-rhyme voice.
+**Causality (spider/spout) is narrated as the itsy-bitsy-spider rhyme couplet**
+(🗣️ TTS for now) — **line 1** "The itsy bitsy spider climbed up the water spout!"
+as it climbs, then **line 2** "Down came the rain and washed the spider out!" as
+one utterance while it rains and washes out. The producer surfaced the complete
+line 2 as a single clip (silver `clip_df618c4a15b8`, 4.60s, from
+`raw_audio/itsybitsy.mp3`); both lines are on the request ledger to be promoted
+and voiced by one nursery-rhyme voice. (This superseded an earlier attempt at
+single-word `up`/`down`/`out` clips, which were too choppy for the sequence.)
+Always "spider," even on the ladybug generalization — the recognizable song wins.
 
 ---
 
