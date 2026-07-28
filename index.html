@@ -2806,7 +2806,15 @@ const StackerGame = {
           // Light damping while it hangs FREE (heavy damping made the swing
           // crawl and stall short of vertical), heavy while grinding contact.
           const bd = this.drag.b.body;
-          M.Body.setAngularVelocity(bd, bd.angularVelocity * (this.drag.touching ? .85 : .99));
+          M.Body.setAngularVelocity(bd, bd.angularVelocity * (this.drag.touching ? .85 : .9));
+          // held-gravity boost (×7 while hanging free): world gravity is ~10×
+          // below real scale for blocks this size (stack-stability tradeoff),
+          // but pointer accelerations are real-world — the trailing angle
+          // atan(a/g) made carried blocks stream sideways like weightless
+          // capes. Near-real gravity on just the held block restores the
+          // carried-object feel; release returns it to world gravity.
+          if (!this.drag.touching)
+            M.Body.applyForce(bd, bd.position, { x: 0, y: bd.mass * 0.001 * this.eng.world.gravity.y * 6 });
         }
         // substep long frames — at gravity 2.2 a single 32ms step overlaps more
         const n = dt > 20 ? 2 : 1;
@@ -2822,6 +2830,20 @@ const StackerGame = {
           if (bd.speed < .25 && Math.abs(bd.angularVelocity) < .03 && (!this.drag || this.drag.b !== b)){
             M.Body.setVelocity(bd, { x: bd.velocity.x*.85, y: bd.velocity.y*.85 });
             M.Body.setAngularVelocity(bd, bd.angularVelocity*.85);
+          }
+          // alignment snap, ONE-SHOT: when a block first comes to rest within
+          // ~4° of pure vertical/horizontal, ease it onto the exact axis over
+          // a few frames, then leave it alone until it moves again. Squared-up
+          // kid-friendly resting poses without fighting geometry — CONTINUOUS
+          // snapping walks a standing block sideways (its resting pose is
+          // often intrinsically a fraction of a degree off-axis).
+          if (b.shape.key !== 'ball'){
+            if (bd.speed > 3 || Math.abs(bd.angularVelocity) > .12) bd._aligned = false;   // only a real knock re-arms (else snap→detach→resettle can loop)
+            else if (!bd._aligned && bd.speed < .25){
+              const q = Math.round(bd.angle / (Math.PI/2)) * (Math.PI/2), da = q - bd.angle;
+              if (Math.abs(da) >= 0.025 || Math.abs(da) < 0.002) bd._aligned = true;
+              else M.Body.setAngle(bd, bd.angle + da*0.12);
+            }
           }
         }
         this.sync();

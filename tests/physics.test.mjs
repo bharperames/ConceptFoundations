@@ -129,6 +129,17 @@ test('wedge ramp: a ball set on the high end rolls down the slope and off', () =
   assert.ok(Math.abs(ramp.angle) < 0.15, `the ramp itself tipped (angle ${ramp.angle.toFixed(2)})`);
 });
 
+test('squareness: a block dropped slightly tilted settles onto the exact axis', () => {
+  const eng = makeWorld(C), dt = 1000/60;
+  const cube = makeBody(SHAPES[0], W/2, floorY - U*2.5, U, U, C);
+  Body.setAngle(cube, 0.04);                               // ~2.3° tilt at release
+  World.add(eng.world, cube);
+  for (let k = 0; k < 240; k++) step(eng, dt, C);
+  const d = Math.abs(cube.angle - Math.round(cube.angle/(Math.PI/2))*(Math.PI/2));
+  assert.ok(d < 0.004, `settled ${(d*180/Math.PI).toFixed(2)}° off square`);
+  assert.ok(cube.speed < 0.3, 'still moving after settle');
+});
+
 test('ball: keeps a little life (rolls off a nudge) but comes to rest on the floor', () => {
   const eng = makeWorld(C), dt = 1000/60;
   const ball = makeBody(SHAPES[6], W/2, floorY - U/2, U, U, C);
@@ -141,3 +152,12 @@ test('ball: keeps a little life (rolls off a nudge) but comes to rest on the flo
   assert.ok(ball.speed < 0.5, `ball still moving at ${ball.speed.toFixed(2)} px/frame after 5s`);
   assert.ok(Math.abs(ball.position.y - (floorY - U/2)) < 4, 'ball not resting on the floor');
 });
+
+test('carry: dragging a block grabbed by its top end trails gently, no weightless cape', () => {
+  const r = runCapeDragWrapped();
+  const deg = r.cruise * 180 / Math.PI;
+  assert.ok(deg < 20, `trailing angle ${deg.toFixed(0)}° at steady drag speed — cape physics`);
+  assert.ok(r.recover <= 30, `took ${r.recover} frames to hang back down after the pointer stopped`);
+});
+import { runCapeDrag } from '../scripts/stacker_sim.mjs';
+function runCapeDragWrapped(){ return runCapeDrag(C); }

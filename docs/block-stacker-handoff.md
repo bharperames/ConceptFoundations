@@ -132,6 +132,23 @@ and the loop clamps every body post-step to ≤45px/frame linear, ≤0.5rad/fram
 angular — nothing can outrun the wall thickness, so flings can't tunnel out (the
 old "flung block disappears forever" bug; `runFling` guards it).
 
+**Held-gravity boost (×7) + carry damping.** World gravity 2.2 is ~10× below
+real scale for these block sizes (stack-stability tradeoff), but pointer
+accelerations are real-world px — the trailing angle atan(a/g) made carried
+blocks stream sideways like weightless capes. While the held block hangs FREE
+it gets 6× extra gravity via `applyForce` (≈ near-real g) plus firm swing
+damping (×.9/frame free, ×.85 touching): blocks hang plumb under the grip and
+move decisively. `runCapeDrag` guards it (steady-drag trailing ≤ a few deg).
+
+**Alignment snap (one-shot).** When a block first comes to rest within ~1.4°
+of pure vertical/horizontal it eases onto the exact axis, then is left alone
+until a real knock (speed>3) re-arms it. One-shot matters twice over:
+CONTINUOUS snapping walks a standing block sideways (resting poses are often
+intrinsically a fraction of a degree off-axis — the snap fights geometry
+forever), and re-arming on tiny motion can loop snap→detach→resettle. Window
+kept narrow: wider windows caused rare floaters/deep overlaps in the 1500-scn
+certification. Balls exempt.
+
 **Settle damping.** Chamfered corners make stacked blocks rock — the contact
 point flips corner to corner each solve — so a block standing on a tower creeps
 sideways forever (sleeping is off by design). The loop bleeds near-rest motion

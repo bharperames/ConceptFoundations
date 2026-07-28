@@ -67,6 +67,21 @@ export function step(eng, dt, c){
       Body.setVelocity(b, { x: b.velocity.x*c.settleF, y: b.velocity.y*c.settleF });
       Body.setAngularVelocity(b, b.angularVelocity*c.settleF);
     }
+    // alignment snap, ONE-SHOT: when a block first comes to rest within ~4 deg
+    // of pure vertical/horizontal, ease it onto the exact axis over a few
+    // frames, then leave it alone until it moves again. Kid-friendly
+    // squareness without fighting geometry — CONTINUOUS snapping walks a
+    // standing block sideways (its resting pose is often intrinsically a
+    // fraction of a degree off-axis, so a persistent snap never converges).
+    if (c.alignSnap && b.label !== 'Circle Body'){
+      if (b.speed > 3 || Math.abs(b.angularVelocity) > .12) b._aligned = false;   // only a real knock re-arms (else snap->detach->resettle can loop)
+      else if (!b._aligned && b.speed < c.settleV){
+        const q = Math.round(b.angle / (Math.PI/2)) * (Math.PI/2), d = q - b.angle;
+        if (Math.abs(d) >= 0.025) b._aligned = true;             // a real lean — leave it
+        else if (Math.abs(d) < 0.002) b._aligned = true;         // square — done
+        else Body.setAngle(b, b.angle + d*0.12);                 // ease on gently
+      }
+    }
   }
 }
 
@@ -170,6 +185,13 @@ export function dragTick(c, eng, body, dt){
   // light while it swings free (else the pendulum crawls near vertical)
   const f = body._touching === false ? c.holdSpinFree : c.holdSpin;
   if (f < 1) Body.setAngularVelocity(body, body.angularVelocity * f);
+  // held-gravity boost: world gravity is ~10x below real scale for this block
+  // size (stack-stability compromise), but pointer accelerations are real —
+  // the trailing angle atan(a/g) made carried blocks stream like weightless
+  // capes. While the held block hangs FREE it gets the missing gravity, so
+  // the pendulum runs at a believable g ratio; release restores world g.
+  if (body._touching === false && c.heldG > 1)
+    Body.applyForce(body, body.position, { x: 0, y: body.mass * 0.001 * eng.world.gravity.y * (c.heldG - 1) });
   step(eng, dt, c);
 }
 // the app's drag-target mover: window-clamped, rate-limited (a flick can't
@@ -412,6 +434,39 @@ export function runHoldStill(c){
   return maxAng;
 }
 
+// grab a standing tall block by its TOP anchor and drag horizontally: the
+// block should trail a little and hang mostly below the grip (a carried
+// object), not stream out sideways like a weightless cape. Tilt measured
+// from the hanging direction (anchor->COM vs +gravity) during the constant-
+// speed phase, plus recovery time back to <=15 deg after the pointer stops.
+export function runCapeDrag(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const shape=SHAPES[3], w=shape.w*U, h=shape.h*U;
+  const body = makeBody(shape, W*0.72, floorY-h/2, w, h, c);
+  World.add(eng.world, body);
+  for (let k=0;k<40;k++) step(eng,dt,c);
+  const con = makeDrag(c, body, body.position.x, body.position.y - h*0.42, shape, w, h);  // top anchor
+  World.add(eng.world, con);
+  const tilt = () => {
+    const rx = body.position.x - (body.position.x + con.pointB.x);
+    const ry = body.position.y - (body.position.y + con.pointB.y);
+    return Math.abs(Math.atan2(rx, ry));            // 0 = hanging straight down
+  };
+  let cruise=0;
+  for (let k=0;k<110;k++){
+    moveDrag(c, eng, con, body, con.pointA.x - 12, con.pointA.y - (k<12 ? 8 : 0));  // lift clear, then cruise left
+    dragTick(c, eng, body, dt);
+    if (k>40) cruise = Math.max(cruise, tilt());    // steady-state trailing angle
+  }
+  let recover = 999;
+  for (let k=0;k<180;k++){
+    moveDrag(c, eng, con, body, con.pointA.x, con.pointA.y);
+    dragTick(c, eng, body, dt);
+    if (recover === 999 && tilt() < 0.26) recover = k;   // frames to hang within 15 deg
+  }
+  return { cruise, recover };
+}
+
 export function evaluate(c, n){
   const rng = mulberry32(12345);
   let maxPen=0, deep=0, floats=0, esc=0, nan=0;
@@ -422,6 +477,7 @@ export function evaluate(c, n){
   return { maxPen:+maxPen.toFixed(1), deepPerScn:+(deep/n).toFixed(3), floatPerScn:+(floats/n).toFixed(3), escaped:esc, nan, hung, grabSpike:+spikeMax.toFixed(1),
     ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), ocEndAngle:+oc.endAngle.toFixed(2), ocTVert:oc.tVert, ocOver:+oc.overshoot.toFixed(2), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
     rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
+    cape:(x=>({cruise:+(x.cruise*180/Math.PI).toFixed(0), recover:x.recover}))(runCapeDrag(c)),
     towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
     press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames,pushed:+p.pushed.toFixed(1)}))(runBlockPress(c, false)),
     pressBraced:(p=>({osc:+p.osc.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames}))(runBlockPress(c, true)),
@@ -440,7 +496,8 @@ export function evaluate(c, n){
 export const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
   maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U,     // anti-tunnel clamps + grab snapping + drag-target limits
   settleV:0.25, settleF:0.85,                                 // near-rest damping (kills stacked-corner rocking)
-  pressAllow:4, holdDead:3, holdSpinFree:0.99, angStiffFree:0 };  // free hang: FULL gravity torque, light damping                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
+  pressAllow:4, holdDead:3, holdSpinFree:0.9, angStiffFree:0, heldG:7,    // held free block runs near-real gravity
+  alignSnap:true };                                           // near-rest blocks ease onto exact 90-deg axes  // free hang: FULL gravity torque, light damping                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
 import { fileURLToPath } from 'node:url';
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 const N = +(process.argv[2]||300);
