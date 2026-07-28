@@ -53,13 +53,39 @@ velocityIterations:8, constraintIterations:3`, **gravity 2.2** (Matter's default
 9.7px). The rAF loop substeps frames >20ms (2× half-steps). Clack thresholds are
 scaled for the faster impacts (`v>2.4`, `v/13`).
 
-**The grab is a two-finger pinch.** A length-0 Matter constraint solves in rigid
-mode, and by default injects its FULL impulse torque — that was the "click far
-from the centroid → block snaps" bug. Now: `stiffness:.4, damping:.15,
-angularStiffness:.7` (only 30% of pivot torque survives) plus per-frame angular
-damping `×0.85` while held (grip friction, applied in `loop()`). Off-centre grabs
-droop smoothly around the grab point under gravity — grab a plank's right end and
-its left end swings down — instead of whipping. Momentum still zeroed on grab.
+**The grab is a two-finger pinch at a predictable spot.** A length-0 Matter
+constraint solves in rigid mode, and by default injects its FULL impulse torque —
+that was the "click far from the centroid → block snaps" bug. Now: `stiffness:.4,
+damping:.15, angularStiffness:.7` (only 30% of pivot torque survives) plus
+per-frame angular damping `×0.85` while held (grip friction, applied in
+`loop()`). Off-centre grabs droop smoothly around the grab point under gravity —
+grab a plank's right end and its left end swings down — instead of whipping.
+Momentum still zeroed on grab. Three more grab rules (all in `onDown` /
+`grabAnchor` / `moveDragTarget`):
+
+- **Grab regions.** The click is quantized to predictable anchors per axis:
+  within 30% of the half-extent → exact centroid (carries level — kills the
+  touchy near-centre torque), 30–65% → a mid-lever spot (0.5), beyond → an edge
+  spot (0.85). Ball always pinches its centre; tri anchors scaled ×.6 to stay
+  inside the wedge.
+- **`pointB` is a WORLD-frame offset.** `Constraint.create` records
+  `angleB = body.angle` and rotates `pointB` by the delta — passing a body-local
+  offset anchors any tilted block wrong (the "grab a settled block's side and it
+  teleports sideways" bug). The finger→anchor offset is kept constant instead:
+  the target follows pointer deltas, so pickup never jumps.
+- **The drag target is managed, not raw.** Each frame `moveDragTarget()` moves
+  `pointA` toward the pointer but (a) clamped so the block is never *demanded*
+  to penetrate floor/walls (that demand thrashes: solver pushes out, spring
+  pulls in — `runGroundPress` measured 153px/frame of thrash unclamped, 0.1
+  clamped), (b) rate-limited to 40px/frame (a rigid constraint chasing a
+  teleported target moves the block through a wall inside ONE engine step —
+  no velocity clamp can catch it), and (c) lead-limited to 1U — the pinch
+  "slips" like real fingers when the block is stuck.
+
+**Containment.** The world has a ceiling (blocks spawn just inside, `y=h*0.62`),
+and the loop clamps every body post-step to ≤45px/frame linear, ≤0.5rad/frame
+angular — nothing can outrun the wall thickness, so flings can't tunnel out (the
+old "flung block disappears forever" bug; `runFling` guards it).
 
 Last full run (1500 scenarios): **maxPen ≈ 5.5px, deep 0.003/scn, floating 0,
 escaped 0, NaN 0, grab-hang 0, grab-spike 0.1** (was 0.4), off-centre grab spin
@@ -80,6 +106,12 @@ In `scripts/stacker_sim.mjs`:
   speed spike, worst spin, and grab-point lag (the "off-centroid snap" bug).
 - `runDragSlide()` — drag a cube along the floor at steady pointer speed;
   measures frame-to-frame speed jerk (drag jitter).
+- `runRotatedGrab()` — grab a tilted falling brick by its side; guards the
+  world-frame-`pointB` fix (spike/drift explode if pointB goes body-local).
+- `runFling()` — violent flick far past the window edge; the block must stay in
+  the field (ceiling + speed clamps + drag-target rate limit).
+- `runGroundPress()` — hold the drag target below the floor; measures the
+  constraint-vs-solver position thrash, clamped vs unclamped.
 
 Sweeps are named: `node scripts/stacker_sim.mjs 300 gravity` or `… 300 drag
 '{"gravity":2.2}'` (second arg = JSON overrides applied to every variant).

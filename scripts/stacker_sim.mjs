@@ -39,10 +39,21 @@ function makeWorld(c){
   const eng = Engine.create({ enableSleeping:false, positionIterations:c.posIter, velocityIterations:c.velIter, constraintIterations:c.conIter });
   eng.world.gravity.y = c.gravity;
   const wall = (x,y,ww,hh) => Bodies.rectangle(x,y,ww,hh,{ isStatic:true, friction:.9, slop:c.slop });
-  const statics = [ wall(W/2, floorY+400, W+600, 800), wall(-45,H/2,90,H*3), wall(W+45,H/2,90,H*3) ];
+  const statics = [ wall(W/2, floorY+400, W+600, 800), wall(-45,H/2,90,H*3), wall(W+45,H/2,90,H*3),
+                    wall(W/2, -40, W+600, 80) ];   // ceiling: flings can't leave the window
   World.add(eng.world, statics);
   eng._statics = statics;
   return eng;
+}
+// engine tick + the app's anti-tunnel clamps: no body may move faster than the
+// side walls are thick (else a violent fling steps straight through and is lost)
+function step(eng, dt, c){
+  Engine.update(eng, dt);
+  for (const b of Composite.allBodies(eng.world)){
+    if (b.isStatic) continue;
+    if (b.speed > c.maxV) Body.setVelocity(b, { x: b.velocity.x*c.maxV/b.speed, y: b.velocity.y*c.maxV/b.speed });
+    if (Math.abs(b.angularVelocity) > c.maxAV) Body.setAngularVelocity(b, Math.sign(b.angularVelocity)*c.maxAV);
+  }
 }
 
 // max block-block penetration depth + count of deep overlaps
@@ -80,14 +91,14 @@ function runScenario(c, rng){
     const shape = SHAPES[Math.floor(rng()*SHAPES.length)];
     const w=shape.w*U, h=shape.h*U;
     const x = W*0.5 + (rng()*2-1)*U*1.5;
-    const body = makeBody(shape, x, -h*0.6, w, h, c);
+    const body = makeBody(shape, x, h*0.62, w, h, c);   // spawn just inside (ceiling above)
     Body.setAngle(body, (rng()-0.5)*0.25);
     World.add(world, body); blocks.push({ body, shape, w, h });
-    for (let k=0;k<26;k++) Engine.update(eng, dt);
+    for (let k=0;k<26;k++) step(eng, dt, c);
   }
   let maxPen=0, deep=0;
   for (let k=0;k<200;k++){
-    Engine.update(eng, dt);
+    step(eng, dt, c);
     if (k>140){ const p=penetration(blocks); if(p.max>maxPen)maxPen=p.max; if(p.deep>deep)deep=p.deep; }
   }
   return { maxPen, deep, floating: floating(blocks, eng._statics), escaped: escaped(blocks), nan: blocks.some(b=>isNaN(b.body.position.x)) ? 1:0, N };
@@ -96,17 +107,47 @@ function runScenario(c, rng){
 // the app's pinch-grab: zero momentum, then a constraint at the grab point.
 // angularStiffness scales DOWN the torque the constraint injects (Matter solves
 // torque * (1 - angularStiffness)); holdSpin is per-frame angular damping while
-// held (grip friction of the pinch) — applied by the app loop before each update
-function makeDrag(c, body, gx, gy){
+// held (grip friction of the pinch) — applied by the app loop before each update.
+// The click is snapped to a predictable grab spot (grabAnchor), and pointB is a
+// WORLD-frame offset — Constraint.create records angleB=body.angle and rotates
+// pointB by the delta, so passing a body-local offset anchors a rotated block
+// at the wrong spot (the old "grab a tilted block and it teleports" bug).
+function grabAnchor(c, shape, w, h, loc){
+  if (!c.snap) return loc;
+  if (shape.key === 'ball') return { x:0, y:0 };
+  const s = shape.key === 'tri' ? .6 : 1;
+  const q = f => Math.abs(f) < .3 ? 0 : Math.sign(f) * (Math.abs(f) < .65 ? .5 : .85);
+  return { x: q(loc.x/(w/2)) * w/2 * s, y: q(loc.y/(h/2)) * h/2 * s };
+}
+function makeDrag(c, body, gx, gy, shape, w, h){
   Body.setVelocity(body, {x:0,y:0}); Body.setAngularVelocity(body, 0);
-  const rel={x:gx-body.position.x,y:gy-body.position.y}, a=-body.angle, cs=Math.cos(a), sn=Math.sin(a);
-  return Matter.Constraint.create({ pointA:{x:gx,y:gy}, bodyB:body,
-    pointB:{x:rel.x*cs-rel.y*sn,y:rel.x*sn+rel.y*cs},
+  const dx=gx-body.position.x, dy=gy-body.position.y;
+  const ca=Math.cos(-body.angle), sa=Math.sin(-body.angle);
+  const an = grabAnchor(c, shape||{key:'cube'}, w||U, h||U, { x: dx*ca - dy*sa, y: dx*sa + dy*ca });
+  const cb=Math.cos(body.angle), sb=Math.sin(body.angle);
+  const off = { x: an.x*cb - an.y*sb, y: an.x*sb + an.y*cb };
+  return Matter.Constraint.create({ pointA:{x:body.position.x+off.x, y:body.position.y+off.y}, bodyB:body,
+    pointB:{x:off.x, y:off.y},
     stiffness:c.dragStiff, damping:c.dragDamp, angularStiffness:c.angStiff, length:0 });
 }
 function dragTick(c, eng, body, dt){
   if (c.holdSpin < 1) Body.setAngularVelocity(body, body.angularVelocity * c.holdSpin);
-  Engine.update(eng, dt);
+  step(eng, dt, c);
+}
+// the app's drag-target mover: window-clamped, rate-limited (a flick can't
+// teleport the target — a rigid constraint would tunnel the block through a
+// wall inside ONE engine step, past any velocity clamp), and lead-limited
+// (target never leads the anchor by more than ~a block: the pinch "slips")
+function moveDrag(c, con, body, tx, ty){
+  tx = Math.max(8, Math.min(W-8, tx)); ty = Math.max(8, Math.min(H-8, ty));
+  let dx = tx - con.pointA.x, dy = ty - con.pointA.y;
+  const d = Math.hypot(dx, dy);
+  if (d > c.dragStep){ dx *= c.dragStep/d; dy *= c.dragStep/d; }
+  let nx = con.pointA.x + dx, ny = con.pointA.y + dy;
+  const ax = body.position.x + con.pointB.x, ay = body.position.y + con.pointB.y;
+  const lx = nx - ax, ly = ny - ay, lead = Math.hypot(lx, ly);
+  if (lead > c.dragLead){ nx = ax + lx*c.dragLead/lead; ny = ay + ly*c.dragLead/lead; }
+  con.pointA.x = nx; con.pointA.y = ny;
 }
 
 // grab the BOTTOM of a 2-stack and drag it away — the top must fall, not hang
@@ -116,14 +157,14 @@ function runGrabMove(c, rng){
   const base = makeBody(SHAPES[1], W/2, floorY-h/2, w, h, c);
   const top  = makeBody(SHAPES[0], W/2, floorY-h*1.5, U, U, c);
   World.add(world,[base,top]);
-  for (let k=0;k<90;k++) Engine.update(eng,dt);       // settle the stack
+  for (let k=0;k<90;k++) step(eng,dt,c);       // settle the stack
   // constraint-drag the base sideways and up (like carrying it out from under)
-  const con = makeDrag(c, base, base.position.x, base.position.y);
+  const con = makeDrag(c, base, base.position.x, base.position.y, SHAPES[1], w, h);
   World.add(world, con);
   const tx = W/2 + 3*U;
   for (let k=0;k<70;k++){ con.pointA.x = W/2 + (tx-W/2)*(k/70); dragTick(c, eng, base, dt); }
   World.remove(world, con);
-  for (let k=0;k<90;k++) Engine.update(eng,dt);        // release, let top settle
+  for (let k=0;k<90;k++) step(eng,dt,c);        // release, let top settle
   // the top block should have dropped to the floor (support removed), not floated
   const topRestsHigh = top.bounds.max.y < floorY - h*0.6;  // still up in the air ⇒ hung
   return topRestsHigh ? 1 : 0;
@@ -138,9 +179,9 @@ function runOffCenterGrab(c){
   const shape=SHAPES[2], w=shape.w*U, h=shape.h*U;
   const body = makeBody(shape, W/2, floorY-h/2, w, h, c);
   World.add(world, body);
-  for (let k=0;k<60;k++) Engine.update(eng,dt);
+  for (let k=0;k<60;k++) step(eng,dt,c);
   const gx = body.position.x + w*0.44, gy = body.position.y;   // right end
-  const con = makeDrag(c, body, gx, gy);
+  const con = makeDrag(c, body, gx, gy, shape, w, h);
   World.add(world, con);
   let spike=0, maxAV=0;
   for (let k=0;k<100;k++){
@@ -161,9 +202,9 @@ function runDragSlide(c){
   const eng=makeWorld(c), world=eng.world, dt=1000/60;
   const body = makeBody(SHAPES[0], W*0.28, floorY-U/2, U, U, c);
   World.add(world, body);
-  for (let k=0;k<60;k++) Engine.update(eng,dt);
+  for (let k=0;k<60;k++) step(eng,dt,c);
   const gx=body.position.x - U*0.3, gy=body.position.y - U*0.3; // off-center corner grab
-  const con = makeDrag(c, body, gx, gy);
+  const con = makeDrag(c, body, gx, gy, SHAPES[0], U, U);
   World.add(world, con);
   let jerk=0, prev=0, maxAV=0;
   for (let k=0;k<80;k++){
@@ -181,25 +222,78 @@ function runDragJump(c, rng){
   const eng=makeWorld(c), world=eng.world, dt=1000/60;
   const body = makeBody(SHAPES[0], W/2, 40, U, U, c);
   World.add(world, body);
-  for (let k=0;k<18;k++) Engine.update(eng,dt);          // let it build speed
+  for (let k=0;k<18;k++) step(eng,dt,c);          // let it build speed
   const preSpeed = body.speed;
   // grab at a corner (like the app), zero momentum, gentle spring
   const gx = body.position.x + U*0.35, gy = body.position.y + U*0.35;
-  const con = makeDrag(c, body, gx, gy);
+  const con = makeDrag(c, body, gx, gy, SHAPES[0], U, U);
   World.add(world, con);
   let spike=0;
   for (let k=0;k<14;k++){ dragTick(c, eng, body, dt); spike=Math.max(spike, body.speed); }
   return { preSpeed, spike };
 }
+// grab a TILTED falling brick by its side — with pointB passed body-local (the
+// old bug) the constraint anchors wrong and yanks the block sideways on grab
+function runRotatedGrab(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const shape=SHAPES[1], w=shape.w*U, h=shape.h*U;
+  const body = makeBody(shape, W/2, H*0.3, w, h, c);
+  Body.setAngle(body, 0.5);
+  World.add(eng.world, body);
+  for (let k=0;k<6;k++) step(eng,dt,c);
+  const a=body.angle, gx=body.position.x + Math.cos(a)*w*0.4, gy=body.position.y + Math.sin(a)*w*0.4;
+  const con = makeDrag(c, body, gx, gy, shape, w, h);
+  World.add(eng.world, con);
+  let spike=0;
+  for (let k=0;k<20;k++){ dragTick(c,eng,body,dt); spike=Math.max(spike,body.speed); }
+  const drift = Math.hypot(body.position.x + con.pointB.x - con.pointA.x,
+                           body.position.y + con.pointB.y - con.pointA.y);
+  return { spike, drift };
+}
+
+// violent flick far past the window edge, release — the block must stay in the
+// field (ceiling + the step() speed clamp; tunneling through a wall loses it)
+function runFling(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const b = { body: makeBody(SHAPES[0], W/2, floorY-U/2, U, U, c) };
+  World.add(eng.world, b.body);
+  for (let k=0;k<30;k++) step(eng,dt,c);
+  const con = makeDrag(c, b.body, b.body.position.x, b.body.position.y, SHAPES[0], U, U);
+  World.add(eng.world, con);
+  for (let k=0;k<6;k++){ moveDrag(c, con, b.body, con.pointA.x - 260, con.pointA.y - 200); dragTick(c,eng,b.body,dt); }
+  World.remove(eng.world, con);
+  for (let k=0;k<420;k++) step(eng,dt,c);
+  return escaped([b]);
+}
+
+// hold the drag target BELOW the floor (like the app after clamping it can't
+// happen — this simulates no clamp) and measure position thrash: the fight
+// between constraint and solver. The app clamps the target; this metric shows
+// what the clamp is worth and guards the residual behaviour.
+function runGroundPress(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const b = makeBody(SHAPES[0], W/2, floorY-U/2, U, U, c);
+  World.add(eng.world, b);
+  for (let k=0;k<30;k++) step(eng,dt,c);
+  const con = makeDrag(c, b, b.position.x, b.position.y, SHAPES[0], U, U);
+  World.add(eng.world, con);
+  con.pointA.y = c.pressClamp ? floorY - U/2 : floorY + U;   // clamped vs demanding penetration
+  let thrash=0, prevY=b.position.y;
+  for (let k=0;k<60;k++){ dragTick(c,eng,b,dt); thrash=Math.max(thrash, Math.abs(b.position.y-prevY)); prevY=b.position.y; }
+  return thrash;
+}
+
 function evaluate(c, n){
   const rng = mulberry32(12345);
   let maxPen=0, deep=0, floats=0, esc=0, nan=0;
   for (let i=0;i<n;i++){ const r=runScenario(c,rng); maxPen=Math.max(maxPen,r.maxPen); deep+=r.deep; floats+=r.floating; esc+=r.escaped; nan+=r.nan; }
   let hung=0; const rng2=mulberry32(999); for (let i=0;i<60;i++) hung+=runGrabMove(c,rng2);
   const rng3=mulberry32(7); let spikeMax=0; for (let i=0;i<40;i++){ const d=runDragJump(c,rng3); spikeMax=Math.max(spikeMax,d.spike); }
-  const oc = runOffCenterGrab(c), sl = runDragSlide(c);
+  const oc = runOffCenterGrab(c), sl = runDragSlide(c), rot = runRotatedGrab(c);
   return { maxPen:+maxPen.toFixed(1), deepPerScn:+(deep/n).toFixed(3), floatPerScn:+(floats/n).toFixed(3), escaped:esc, nan, hung, grabSpike:+spikeMax.toFixed(1),
-    ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3) };
+    ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
+    rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
+    pressFree:+runGroundPress({...c, pressClamp:false}).toFixed(1), pressClamped:+runGroundPress({...c, pressClamp:true}).toFixed(1) };
 }
 
 // tuned physics: zero restitution (wood doesn't bounce → least penetration), 12
@@ -210,7 +304,8 @@ function evaluate(c, n){
 // gravity 2.2: falls ~1.5× faster (feels like wood, not balloons) with the same
 // stability as 1.0 in the sweep; 3.0 blew up penetration (9.7px). angStiff .7
 // keeps 30% of pivot torque — enough to droop, not enough to snap.
-const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85 };
+const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
+  maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U };   // anti-tunnel clamps + grab snapping + drag-target limits
 const N = +(process.argv[2]||300);
 
 const SWEEPS = {
