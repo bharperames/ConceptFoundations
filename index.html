@@ -2851,9 +2851,14 @@ const StackerGame = {
     let tx = d.tx - d.ox, ty = d.ty - d.oy;
     tx = Math.max(ax - bb.min.x, Math.min(this.W - (bb.max.x - ax), tx));
     ty = Math.max(ay - bb.min.y, Math.min(this.floorY - (bb.max.y - ay), ty));
-    // contact slip: cap the lead component pressing INTO anything we touch at
-    // 6px — fingers can shove a loose block, but they slip rather than win a
-    // penetration fight against a braced one (that fight = the press jitter)
+    // contact slip: cap the lead component pressing INTO anything we touch —
+    // fingers can shove a loose block, but they slip rather than win a
+    // penetration fight against a braced one (that fight = the press jitter).
+    // Depth-adaptive: the permitted press shrinks by the CURRENT penetration,
+    // so a sustained press self-limits at ~4px (≈ the chamfer — reads as
+    // corners touching, not wood clipping through wood). A constant press
+    // would otherwise beat the position solver, which only corrects a
+    // fraction of overlap per frame, and sink blocks visibly into each other.
     let lx = tx - ax, ly = ty - ay;
     for (const p of this.eng.pairs.list){
       if (!p.isActive) continue;
@@ -2861,8 +2866,9 @@ const StackerGame = {
       if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
       else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
       else continue;
+      const cap = Math.max(0, 4 - (p.collision.depth || 0));
       const dd = lx*nx0 + ly*ny0;
-      if (dd > 6){ lx -= (dd - 6)*nx0; ly -= (dd - 6)*ny0; }
+      if (dd > cap){ lx -= (dd - cap)*nx0; ly -= (dd - cap)*ny0; }
     }
     tx = ax + lx; ty = ay + ly;
     let mx = tx - con.pointA.x, my = ty - con.pointA.y;

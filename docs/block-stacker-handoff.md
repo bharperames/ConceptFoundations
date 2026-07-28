@@ -98,11 +98,17 @@ Momentum still zeroed on grab. Three more grab rules (all in `onDown` /
   `pointA` toward the pointer but (a) clamped so the block is never *demanded*
   to penetrate floor/walls (that demand thrashes: solver pushes out, spring
   pulls in — `runGroundPress` measured 153px/frame of thrash unclamped, 0.1
-  clamped), (b) **contact-slipped**: the lead component pressing INTO anything
-  the block touches is capped at 6px (`pressAllow`) — enough force to shove a
-  loose block around, but the grip slips rather than winning a penetration
-  fight against a braced one (`runBlockPress`: press oscillation 1160→7px,
-  overlap 92→23px, and the neighbour still gets pushed), (c) rate-limited to
+  clamped), (b) **contact-slipped, depth-adaptive**: the lead component
+  pressing INTO anything the block touches is capped at `pressAllow (4px)
+  minus the current penetration` — enough force to shove a loose block, but
+  the press self-limits as penetration approaches the chamfer. A constant
+  press otherwise beats the position solver (it corrects only a fraction of
+  overlap per frame) and sinks blocks visibly into each other. **Error
+  criterion: sustained block-block overlap > 4px (≈ chamfer, reads as
+  clipping) is a bug**; brief transients on a max-speed ram are allowed.
+  `runBlockPress` (free + braced-at-wall variants): sustained overlap 2.8px
+  with the neighbour still pushed; in-browser press-to-wall: peak 2.9px,
+  sustained 0. (c) rate-limited to
   40px/frame (a rigid constraint chasing a teleported target moves the block
   through a wall inside ONE engine step — no velocity clamp can catch it), and
   (d) lead-limited to 1U — the pinch "slips" like real fingers when stuck.

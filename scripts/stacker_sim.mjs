@@ -185,8 +185,13 @@ function moveDrag(c, eng, con, body, tx, ty){
     if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
     else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
     else continue;
+    // depth-adaptive: permitted press shrinks by the CURRENT penetration, so
+    // a braced press self-limits at ~pressAllow px instead of accumulating
+    // (the position solver only corrects a fraction of overlap per frame — a
+    // constant press beats it and sinks blocks visibly into each other)
+    const cap = Math.max(0, c.pressAllow - (p.collision.depth || 0));
     const d = lx*nx0 + ly*ny0;
-    if (d > c.pressAllow){ lx -= (d - c.pressAllow)*nx0; ly -= (d - c.pressAllow)*ny0; }
+    if (d > cap){ lx -= (d - cap)*nx0; ly -= (d - cap)*ny0; }
   }
   tx = ax + lx; ty = ay + ly;
   let dx = tx - con.pointA.x, dy = ty - con.pointA.y;
@@ -332,29 +337,38 @@ function runGroundPress(c){
   return thrash;
 }
 
-// drive a held cube INTO a neighbouring cube for 90 frames (target kept inside
-// the neighbour). Want: the neighbour gets pushed (that's a feature), without
-// oscillation (osc = path minus net displacement — pure back-and-forth waste)
-// or a release-the-spring speed spike when something slips.
-function runBlockPress(c){
+// drive a held cube INTO a neighbouring cube (target kept inside the
+// neighbour). Want: the neighbour gets pushed (that's a feature), without
+// oscillation (osc = path minus net displacement — pure back-and-forth waste),
+// a release-the-spring speed spike, or VISIBLE interpenetration. Overlap up to
+// ~the chamfer radius reads as corners touching; beyond VIS_PEN px it reads as
+// wood clipping through wood and counts as an error (visFrames).
+// braced=true pins B against the right wall first — the worst case: B cannot
+// yield, so all the press has to go somewhere.
+const VIS_PEN = 4;
+function runBlockPress(c, braced){
   const eng=makeWorld(c), dt=1000/60;
-  const A = makeBody(SHAPES[0], W/2 - U*1.2, floorY-U/2, U, U, c);
-  const B = makeBody(SHAPES[0], W/2, floorY-U/2, U, U, c);
+  const bx = braced ? W - 45 - U/2 - 1 : W/2;
+  const A = makeBody(SHAPES[0], bx - U*1.2, floorY-U/2, U, U, c);
+  const B = makeBody(SHAPES[0], bx, floorY-U/2, U, U, c);
   World.add(eng.world,[A,B]);
   for (let k=0;k<40;k++) step(eng,dt,c);
   const bx0 = B.position.x;
   const con = makeDrag(c, A, A.position.x, A.position.y, SHAPES[0], U, U);
   World.add(eng.world, con);
-  let path=0, prevX=A.position.x, spike=0, overlap=0;
-  const x0=A.position.x;
-  for (let k=0;k<90;k++){
+  let path=0, prevX=A.position.x, spike=0, overlap=0, visFrames=0, endOverlap=0;
+  const x0=A.position.x, N=120;
+  for (let k=0;k<N;k++){
     moveDrag(c, eng, con, A, B.position.x + U*0.2, floorY - U/2);   // chase a point inside B
     dragTick(c,eng,A,dt);
     path += Math.abs(A.position.x-prevX); prevX=A.position.x;
     spike = Math.max(spike, A.speed);
-    const col = Collision.collides(A,B); if (col && col.collided) overlap=Math.max(overlap,col.depth);
+    const col = Collision.collides(A,B), d = (col && col.collided) ? col.depth : 0;
+    overlap = Math.max(overlap, d);
+    if (d > VIS_PEN) visFrames++;
+    if (k >= N-30) endOverlap = Math.max(endOverlap, d);   // sustained (settled press)
   }
-  return { osc: path - Math.abs(A.position.x-x0), spike, overlap, pushed: B.position.x - bx0 };
+  return { osc: path - Math.abs(A.position.x-x0), spike, overlap, endOverlap, visFrames, pushed: B.position.x - bx0 };
 }
 
 // grab a wide brick's LEFT edge and hold the mouse perfectly still for 4s —
@@ -388,7 +402,8 @@ function evaluate(c, n){
     ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
     rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
     towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
-    press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),pushed:+p.pushed.toFixed(1)}))(runBlockPress(c)),
+    press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames,pushed:+p.pushed.toFixed(1)}))(runBlockPress(c, false)),
+    pressBraced:(p=>({osc:+p.osc.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames}))(runBlockPress(c, true)),
     holdStillAng:+runHoldStill(c).toFixed(3),
     pressFree:+runGroundPress({...c, pressClamp:false}).toFixed(1), pressClamped:+runGroundPress({...c, pressClamp:true}).toFixed(1) };
 }
@@ -404,7 +419,7 @@ function evaluate(c, n){
 const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
   maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U,     // anti-tunnel clamps + grab snapping + drag-target limits
   settleV:0.25, settleF:0.85,                                 // near-rest damping (kills stacked-corner rocking)
-  pressAllow:6, holdDead:3 };                                 // contact-press cap + hold-still dead-zone
+  pressAllow:4, holdDead:3 };                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
 const N = +(process.argv[2]||300);
 
 const SWEEPS = {
