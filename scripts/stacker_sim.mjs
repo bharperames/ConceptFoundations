@@ -160,7 +160,10 @@ function makeDrag(c, body, gx, gy, shape, w, h){
     stiffness:c.dragStiff, damping:c.dragDamp, angularStiffness:c.angStiff, length:0 });
 }
 function dragTick(c, eng, body, dt){
-  if (c.holdSpin < 1) Body.setAngularVelocity(body, body.angularVelocity * c.holdSpin);
+  // grip friction: heavy while the block is grinding against something,
+  // light while it swings free (else the pendulum crawls near vertical)
+  const f = body._touching === false ? c.holdSpinFree : c.holdSpin;
+  if (f < 1) Body.setAngularVelocity(body, body.angularVelocity * f);
   step(eng, dt, c);
 }
 // the app's drag-target mover: window-clamped, rate-limited (a flick can't
@@ -178,13 +181,14 @@ function dragTick(c, eng, body, dt){
 function moveDrag(c, eng, con, body, tx, ty){
   tx = Math.max(8, Math.min(W-8, tx)); ty = Math.max(8, Math.min(H-8, ty));
   const ax = body.position.x + con.pointB.x, ay = body.position.y + con.pointB.y;
-  let lx = tx - ax, ly = ty - ay;
+  let lx = tx - ax, ly = ty - ay, touching = false;
   for (const p of eng.pairs.list){
     if (!p.isActive) continue;
     let nx0, ny0;   // unit vector pointing from the held block INTO the obstacle
     if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
     else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
     else continue;
+    touching = true;
     // depth-adaptive: permitted press shrinks by the CURRENT penetration, so
     // a braced press self-limits at ~pressAllow px instead of accumulating
     // (the position solver only corrects a fraction of overlap per frame — a
@@ -201,7 +205,11 @@ function moveDrag(c, eng, con, body, tx, ty){
   const glx = nx - ax, gly = ny - ay, lead = Math.hypot(glx, gly);
   if (lead > c.dragLead){ nx = ax + glx*c.dragLead/lead; ny = ay + gly*c.dragLead/lead; }
   con.pointA.x = nx; con.pointA.y = ny;
-  con.angularStiffness = lead < c.holdDead ? 1 : c.angStiff;
+  // torque-free hold ONLY while touching (the grounded ratchet needs a
+  // contact to pump against); hanging free keeps the pendulum torque so an
+  // end-grabbed plank droops all the way to vertical instead of freezing
+  con.angularStiffness = (lead < c.holdDead && touching) ? 1 : c.angStiff;
+  body._touching = touching;
 }
 
 // grab the BOTTOM of a 2-stack and drag it away — the top must fall, not hang
@@ -237,17 +245,18 @@ function runOffCenterGrab(c){
   const gx = body.position.x + w*0.44, gy = body.position.y;   // right end
   const con = makeDrag(c, body, gx, gy, shape, w, h);
   World.add(world, con);
-  let spike=0, maxAV=0;
-  for (let k=0;k<100;k++){
-    if (k<30) moveDrag(c, eng, con, body, con.pointA.x, gy - 2.4*U*((k+1)/30));   // lift ~2.4U up
+  let spike=0, maxAV=0, endAngle=0;
+  for (let k=0;k<360;k++){
+    moveDrag(c, eng, con, body, con.pointA.x, k<30 ? gy - 2.4*U*((k+1)/30) : con.pointA.y);  // lift, then hold
     dragTick(c, eng, body, dt);
     spike=Math.max(spike, body.speed); maxAV=Math.max(maxAV, Math.abs(body.angularVelocity));
   }
+  endAngle = Math.abs(body.angle);   // hanging: should approach pi/2 (vertical)
   // where is the grab point now vs the pointer?
   const a=body.angle, cs=Math.cos(a), sn=Math.sin(a), pB=con.pointB;
   const wx=body.position.x + pB.x, wy=body.position.y + pB.y;  // Matter keeps pointB world-rotated
   const lag = Math.hypot(con.pointA.x-wx, con.pointA.y-wy);
-  return { spike, maxAV, lag };
+  return { spike, maxAV, lag, endAngle };
 }
 
 // drag a cube along the floor at pointer speed — measure jerk (frame-to-frame
@@ -399,7 +408,7 @@ function evaluate(c, n){
   const rng3=mulberry32(7); let spikeMax=0; for (let i=0;i<40;i++){ const d=runDragJump(c,rng3); spikeMax=Math.max(spikeMax,d.spike); }
   const oc = runOffCenterGrab(c), sl = runDragSlide(c), rot = runRotatedGrab(c);
   return { maxPen:+maxPen.toFixed(1), deepPerScn:+(deep/n).toFixed(3), floatPerScn:+(floats/n).toFixed(3), escaped:esc, nan, hung, grabSpike:+spikeMax.toFixed(1),
-    ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
+    ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), ocEndAngle:+oc.endAngle.toFixed(2), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
     rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
     towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
     press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames,pushed:+p.pushed.toFixed(1)}))(runBlockPress(c, false)),
@@ -419,7 +428,7 @@ function evaluate(c, n){
 const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
   maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U,     // anti-tunnel clamps + grab snapping + drag-target limits
   settleV:0.25, settleF:0.85,                                 // near-rest damping (kills stacked-corner rocking)
-  pressAllow:4, holdDead:3 };                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
+  pressAllow:4, holdDead:3, holdSpinFree:0.96 };                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
 const N = +(process.argv[2]||300);
 
 const SWEEPS = {

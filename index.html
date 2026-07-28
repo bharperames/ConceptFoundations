@@ -2794,8 +2794,11 @@ const StackerGame = {
         if (this.drag){
           this.moveDragTarget();
           // pinch-grip friction: bleed the held block's spin each frame so an
-          // off-centre grab droops smoothly instead of pendulum-whipping
-          M.Body.setAngularVelocity(this.drag.b.body, this.drag.b.body.angularVelocity * 0.85);
+          // off-centre grab droops smoothly instead of pendulum-whipping.
+          // Light damping while it hangs FREE (heavy damping made the swing
+          // crawl and stall short of vertical), heavy while grinding contact.
+          const bd = this.drag.b.body;
+          M.Body.setAngularVelocity(bd, bd.angularVelocity * (this.drag.touching ? .85 : .96));
         }
         // substep long frames — at gravity 2.2 a single 32ms step overlaps more
         const n = dt > 20 ? 2 : 1;
@@ -2863,13 +2866,14 @@ const StackerGame = {
     // corners touching, not wood clipping through wood). A constant press
     // would otherwise beat the position solver, which only corrects a
     // fraction of overlap per frame, and sink blocks visibly into each other.
-    let lx = tx - ax, ly = ty - ay;
+    let lx = tx - ax, ly = ty - ay, touching = false;
     for (const p of this.eng.pairs.list){
       if (!p.isActive) continue;
       let nx0, ny0;   // unit vector from the held block INTO the obstacle
       if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
       else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
       else continue;
+      touching = true;
       const cap = Math.max(0, 4 - (p.collision.depth || 0));
       const dd = lx*nx0 + ly*ny0;
       if (dd > cap){ lx -= (dd - cap)*nx0; ly -= (dd - cap)*ny0; }
@@ -2883,12 +2887,16 @@ const StackerGame = {
     if (lead > this.U){ nx = ax + glx*this.U/lead; ny = ay + gly*this.U/lead; }
     con.pointA.x = nx; con.pointA.y = ny;
     // hold-still dead-zone: run the pinch torque-free (angularStiffness 1)
-    // until the target actually leads the anchor. A torqueful hold RATCHETS:
-    // each frame gravity dips the block, the anchor-side correction arrives
-    // 30% as torque, and the floor pushes the far side back up but can never
-    // pull the near side down — a block held by its side slowly rotated up
-    // (~0.03 rad/s) with the mouse perfectly still.
-    con.angularStiffness = lead < 3 ? 1 : .7;
+    // when the target isn't leading AND the block is touching something. A
+    // torqueful grounded hold RATCHETS: each frame gravity dips the block,
+    // the anchor-side correction arrives 30% as torque, and the floor pushes
+    // the far side back up but can never pull the near side down — a block
+    // held by its side slowly rotated up (~0.03 rad/s) with the mouse still.
+    // A block hanging FREE keeps its torque even when the pointer is still:
+    // that torque is the legitimate pendulum swing (an end-grabbed plank must
+    // keep drooping to vertical, not freeze 45° short the moment you pause).
+    con.angularStiffness = (lead < 3 && touching) ? 1 : .7;
+    d.touching = touching;
   },
   hit(px, py){
     for (let i = this.blocks.length - 1; i >= 0; i--){
