@@ -154,6 +154,63 @@
       "src_sha256": "71d5aa2e5c9ad34b2c975020f7e42fdce91fb10032b0d34fcf4aae11a607316f",
       "dest_sha256": "9f3093292063cfb2d26f37f184bf24965d222fde2503fb1c6a8957e635226d2c",
       "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "spider_up.mp3",
+      "phrase": "the itsy bitsy spider went up the water spout",
+      "asset_id": "asset_7b2e33ef47c6",
+      "asset": {
+        "name": "itsy bitsy spider went up the water spout",
+        "text": "itsy bitsy spider went up the water spout.",
+        "source_file": "raw_audio/itsybitsy.mp3",
+        "start": 1.778,
+        "end": 6.26,
+        "duration": 4.482,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-28T18:19:44Z"
+      },
+      "src_sha256": "e27b08f592fd8f64b170193badd47f6ff4210ebe398625ff254b37a7adb5e1d2",
+      "dest_sha256": "6e02b233c413f098a0d38c4fa3f8e97aa6fbc1c55d73e2886b85c8453ac77ee7",
+      "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "spider_washed_out.mp3",
+      "phrase": "down came the rain and washed the spider out",
+      "asset_id": "asset_10190f95571c",
+      "asset": {
+        "name": "Down came the rain and washed the spider out",
+        "text": "Down came the rain and washed the spider out.",
+        "source_file": "raw_audio/itsybitsy.mp3",
+        "start": 6.584,
+        "end": 11.183,
+        "duration": 4.599,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-28T18:20:05Z"
+      },
+      "src_sha256": "adadddc05f7c635685a975d78912236a144391f7dbce1605e48b25f9e255a0e7",
+      "dest_sha256": "23c57f65d1b2021b82e6448724a5574f30030346a4bfce345ded5be7dd5a1dbd",
+      "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "spider_sun_again.mp3",
+      "phrase": "out came the sun and dried up all the rain and the itsy bitsy spider went up the spout again",
+      "asset_id": "asset_912a1106a0c2",
+      "asset": {
+        "name": "out came the sun and dried up all the rain and the itsy bitsy spider went up the spout again",
+        "text": "out came the sun and dried up all the rain and the itsy bitsy spider went up the spout again",
+        "source_file": "raw_audio/itsybitsy.mp3",
+        "start": 36.399,
+        "end": 45.289,
+        "duration": 8.89,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-28T18:34:07Z"
+      },
+      "src_sha256": "40c771373224d69a37e29ed09aac63dfe53393c58024d101c2a49f4374fe0dd6",
+      "dest_sha256": "17e08b8a74a2335154577d22d5a7e2d97201d2c7a30904b6a0a49492befc4343",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }

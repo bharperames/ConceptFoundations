@@ -885,6 +885,10 @@ const Audio2 = (() => {
     'lets play hide and seek': 'lets_play_hide_and_seek.mp3',
     'uh oh': 'uh_oh.mp3',
     'bubble bubble bubble bubble bubble pop': 'bubble_pop.mp3',
+    // itsy-bitsy-spider song (spout cause→effect) — one continuous take, 3 lines
+    'the itsy bitsy spider went up the water spout': 'spider_up.mp3',
+    'down came the rain and washed the spider out': 'spider_washed_out.mp3',
+    'out came the sun and dried up all the rain and the itsy bitsy spider went up the spout again': 'spider_sun_again.mp3',
   };
   // strip apostrophes first (so "let's" → "lets", not "let s"), then the rest
   const normPhrase = t => t.toLowerCase().replace(/['’`]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
@@ -1107,12 +1111,6 @@ const SPIDER = () => wrap(`<g class="hit">
   <circle ${H} cx="50" cy="38" r="13" fill="#6B5544"/>
   <circle cx="45" cy="35" r="3.4" fill="#fff"/><circle cx="55" cy="35" r="3.4" fill="#fff"/>
   <circle cx="45.5" cy="36" r="1.7" fill="#1a1a1a"/><circle cx="54.5" cy="36" r="1.7" fill="#1a1a1a"/></g>`);
-const LADYBUG2 = () => wrap(`<g class="hit">
-  <path d="M32 46 L16 38 M30 56 L12 58 M33 66 L20 78 M68 46 L84 38 M70 56 L88 58 M67 66 L80 78" stroke="#3E3020" stroke-width="4" fill="none" stroke-linecap="round"/>
-  <circle ${H} cx="50" cy="56" r="22" fill="#E5484D"/>
-  <path d="M50 34 A22 22 0 0 0 50 78" fill="#C13438"/>
-  <circle ${H} cx="50" cy="34" r="11" fill="#2A2A2A"/>
-  <circle cx="40" cy="52" r="4" fill="#2A2A2A"/><circle cx="60" cy="52" r="4" fill="#2A2A2A"/><circle cx="44" cy="66" r="4" fill="#2A2A2A"/><circle cx="56" cy="66" r="4" fill="#2A2A2A"/></g>`);
 const CLOUD2 = () => wrap(`<g><ellipse cx="34" cy="56" rx="26" ry="18" fill="#EAF1F7"/><ellipse cx="62" cy="52" rx="28" ry="22" fill="#EAF1F7"/><ellipse cx="50" cy="64" rx="36" ry="16" fill="#DCE7F0"/></g>`);
 const SUN2 = () => wrap(`<g fill="#FFC02E"><circle cx="50" cy="50" r="26"/>${Array.from({length:8},(_,i)=>{const a=i/8*Math.PI*2;return `<rect x="48" y="6" width="4" height="12" rx="2" transform="rotate(${i*45} 50 50)"/>`;}).join('')}</g>`);
 /* 2-inch wood cubes for the stacking level */
@@ -1541,8 +1539,8 @@ const NODES = [
       make(rng){ return spoutLevel(rng, { bug:'spider' }); }},
     { id:'7.2', name:'Again!', focus:'The action reliably makes it happen', fallback:'demoDrag',
       make(rng){ return spoutLevel(rng, { bug:'spider' }); }},
-    { id:'7.3', name:'Generalization', focus:'A new bug, same cause and effect', isGen:true, fallback:'demoDrag',
-      make(rng){ return spoutLevel(rng, { bug:'ladybug', isGen:true }); }},
+    { id:'7.3', name:'Generalization', focus:'Same cause and effect, once more', isGen:true, fallback:'demoDrag',
+      make(rng){ return spoutLevel(rng, { isGen:true }); }},
   ],
 },
 ];
@@ -1634,9 +1632,8 @@ function hideSeekLevel(rng, {n, objs, isGen, shuffle: mix}){
 
 /* Cause & effect: place the bug on the spout → it climbs, rain comes, washes
    it out. The child's action reliably produces the effect. */
-function spoutLevel(rng, {bug, isGen}){
-  const BUG = bug === 'ladybug' ? LADYBUG2 : SPIDER;
-  const name = bug === 'ladybug' ? 'ladybug' : 'spider';
+function spoutLevel(rng, {isGen}={}){
+  const BUG = SPIDER, name = 'spider';   // always the spider (it's the spider song)
   const mkTest = i => {
     const right = i % 2 === 0;
     const sx = right ? 60 : 40;
@@ -2677,59 +2674,58 @@ const Engine = {
     // fade the placement ring away once the bug is on the spout
     const ring = stage.querySelector('[data-el="drop"]');
     if (ring) ring.classList.add('fade');
-    // narrate the itsy-bitsy-spider couplet: line 1 as it climbs, then line 2
-    // ("Down came the rain and washed the spider out") as ONE utterance while it
-    // rains and washes out — voiced by a single full-line clip (see audio-requests).
-    // Always "spider" so the full soundbite always applies (even the ladybug
-    // generalization narrates the spider rhyme — the recognizable song wins).
+    // Narrate the itsy-bitsy-spider song, AUDIO-DRIVEN: each line waits for the
+    // previous line's audio to finish (Audio2.speak's onend), so the three curated
+    // full-line clips never talk over each other and TTS fallback stays in sync
+    // too. Three beats, each an animation synced under one spoken line:
+    //   1) climb  — "The itsy bitsy spider went up the water spout!"
+    //   2) rain+wash — "Down came the rain and washed the spider out!"
+    //   3) sun+again — "Out came the sun … and the itsy bitsy spider went up … again!"
+    // Always "spider" (it's the spider song). A run token guards against a stale
+    // sub-timer firing into a later trial (mute collapses each onend to ~250ms).
+    const rec = this.curRecord;
+    const live = () => this.active && this.curRecord === rec;
+    const cloud = stage.querySelector('[data-el="cloud"]');
+    const sun = stage.querySelector('[data-el="sun"]');
     bug.style.zIndex = '4'; bug.classList.remove('snapping');
-    // 1) climb up — "The itsy bitsy spider went up the water spout!"
-    // ("went up" matches the curated line-1 clip so audio == caption)
-    bug.style.transition = 'top 1.1s cubic-bezier(.4,0,.5,1), left .5s ease';
-    bug.style.left = cx + '%'; bug.style.top = top + '%';
-    Audio2.speak('The itsy bitsy spider went up the water spout!');
-    setTimeout(() => {
-      if (!this.active) return;
-      // 2+3) "Down came the rain and washed the spider out!" — rain starts with
-      // the line; the wash-out lands on the "washed … out" beat (~1.7s in)
-      const cloud = stage.querySelector('[data-el="cloud"]');
+
+    const beatClimb = () => {
+      bug.style.transition = 'top 1.1s cubic-bezier(.4,0,.5,1), left .5s ease';
+      bug.style.left = cx + '%'; bug.style.top = top + '%';
+      Audio2.speak('The itsy bitsy spider went up the water spout!', () => { if (live()) beatRain(); });
+    };
+    const beatRain = () => {
       if (cloud) cloud.classList.add('raining');
       this.startRain(cx);
-      Audio2.speak('Down came the rain and washed the spider out!');
+      // wash the spider out ~2.7s into the line (on "washed … out")
       setTimeout(() => {
-        if (!this.active) return;
+        if (!live()) return;
         bug.style.transition = 'top .8s cubic-bezier(.5,0,.85,1), left .8s ease-in, opacity .8s ease-in';
-        bug.style.top = bot + '%';
-        bug.style.left = (cx + washDir * 24) + '%';
-        bug.style.opacity = '0';
-        // 4) resolution — "Out came the sun …" then "… the spider went up again!"
+        bug.style.top = bot + '%'; bug.style.left = (cx + washDir * 24) + '%'; bug.style.opacity = '0';
+      }, 2700);
+      Audio2.speak('Down came the rain and washed the spider out!', () => { if (live()) beatSun(); });
+    };
+    const beatSun = () => {
+      this.stopRain();
+      if (sun) sun.classList.add('shine');
+      if (cloud){ cloud.classList.remove('raining'); cloud.classList.add('efx-cloud-out'); }
+      // reset the spider at the base, then climb again ~4.4s in (on "… went up … again")
+      setTimeout(() => {
+        if (!live()) return;
+        bug.style.transition = 'none';
+        bug.style.left = cx + '%'; bug.style.top = bot + '%'; bug.style.opacity = '0';
+        void bug.offsetWidth;
+        bug.style.transition = 'opacity .35s'; bug.style.opacity = '1';
         setTimeout(() => {
-          if (!this.active) return;
-          this.stopRain();
-          const sun = stage.querySelector('[data-el="sun"]');
-          const cloud2 = stage.querySelector('[data-el="cloud"]');
-          if (sun) sun.classList.add('shine');
-          if (cloud2){ cloud2.classList.remove('raining'); cloud2.classList.add('efx-cloud-out'); }
-          Audio2.speak('Out came the sun and dried up all the rain!');
-          setTimeout(() => {
-            if (!this.active) return;
-            // put the spider back at the base of the spout, then climb again
-            bug.style.transition = 'none';
-            bug.style.left = cx + '%'; bug.style.top = bot + '%'; bug.style.opacity = '0';
-            void bug.offsetWidth;
-            bug.style.transition = 'opacity .35s';
-            bug.style.opacity = '1';
-            setTimeout(() => {
-              if (!this.active) return;
-              bug.style.transition = 'top 1.1s cubic-bezier(.4,0,.5,1)';
-              bug.style.top = top + '%';
-              Audio2.speak('And the itsy bitsy spider went up the spout again!');
-              setTimeout(() => { if (this.active) cb(); }, 1300);
-            }, 420);
-          }, 1500);
-        }, 850);
-      }, 1700);
-    }, 2200);
+          if (!live()) return;
+          bug.style.transition = 'top 1.3s cubic-bezier(.4,0,.5,1)';
+          bug.style.top = top + '%';
+        }, 380);
+      }, 4400);
+      Audio2.speak('Out came the sun and dried up all the rain and the itsy bitsy spider went up the spout again!',
+        () => { if (this.active) cb(); });
+    };
+    beatClimb();
   },
   // one shower burst: drops fall from the cloud's base to the spout's base,
   // measured in stage pixels so the fall lands correctly at any size
