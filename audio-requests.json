@@ -11,14 +11,14 @@
   ],
   "requests": [
     {
-      "phrase": "The itsy bitsy spider climbed up the water spout!",
-      "norm": "the itsy bitsy spider climbed up the water spout",
+      "phrase": "The itsy bitsy spider went up the water spout!",
+      "norm": "the itsy bitsy spider went up the water spout",
       "used_in": ["causality/7.x — the spider climbs the spout (rhyme line 1 of 2)"],
-      "priority": "medium",
+      "priority": "high",
       "currently": "tts",
-      "constraints": { "max_duration_s": 3.5, "has_music": "either", "voice": "warm nursery-rhyme reading; should pair with the line-2 clip below as one couplet" },
+      "constraints": { "max_duration_s": 5.0, "has_music": "either", "voice": "same take as line 2 (adjacent in the recording)" },
       "candidate_asset_ids": [],
-      "note": "Line 1 of the itsy-bitsy-spider couplet, spoken as the spider climbs. Producer surfaced the line-2 clip from raw_audio/itsybitsy.mp3 — the matching line-1 (\"The itsy bitsy spider climbed/went up the water spout\") is very likely in the same recording just before it (before 6.58s). Promote it so the two lines share one voice. Until then it's TTS. On promotion I add the norm -> mp3 to CLIP_MAP (one line)."
+      "note": "Line 1 of the itsy-bitsy-spider couplet. Producer surfaced it: PROMOTE silver clip_8b87ff62940b — \"itsy bitsy spider went up the water spout.\" 4.48s, conf 97%, music, raw_audio/itsybitsy.mp3 @ 1.78-6.26s. This is the SAME recording immediately before the line-2 clip (clip_df618c4a15b8 @ 6.58-11.18s), so the two lines share one continuous voice — please promote both. (Alt take: clip_c4d5072cdba5 @ 26.34-30.73s, 92%.) The app now speaks 'went up' to match. Wiring on promotion is a one-line CLIP_MAP add + a manifest entry."
     },
     {
       "phrase": "Down came the rain and washed the spider out!",

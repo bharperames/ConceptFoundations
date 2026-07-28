@@ -2677,10 +2677,11 @@ const Engine = {
     // Always "spider" so the full soundbite always applies (even the ladybug
     // generalization narrates the spider rhyme — the recognizable song wins).
     bug.style.zIndex = '4'; bug.classList.remove('snapping');
-    // 1) climb up — "The itsy bitsy spider climbed up the water spout!"
+    // 1) climb up — "The itsy bitsy spider went up the water spout!"
+    // ("went up" matches the curated line-1 clip so audio == caption)
     bug.style.transition = 'top 1.1s cubic-bezier(.4,0,.5,1), left .5s ease';
     bug.style.left = cx + '%'; bug.style.top = top + '%';
-    Audio2.speak('The itsy bitsy spider climbed up the water spout!');
+    Audio2.speak('The itsy bitsy spider went up the water spout!');
     setTimeout(() => {
       if (!this.active) return;
       // 2+3) "Down came the rain and washed the spider out!" — rain starts with
