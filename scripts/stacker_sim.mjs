@@ -93,6 +93,22 @@ function runScenario(c, rng){
   return { maxPen, deep, floating: floating(blocks, eng._statics), escaped: escaped(blocks), nan: blocks.some(b=>isNaN(b.body.position.x)) ? 1:0, N };
 }
 
+// the app's pinch-grab: zero momentum, then a constraint at the grab point.
+// angularStiffness scales DOWN the torque the constraint injects (Matter solves
+// torque * (1 - angularStiffness)); holdSpin is per-frame angular damping while
+// held (grip friction of the pinch) — applied by the app loop before each update
+function makeDrag(c, body, gx, gy){
+  Body.setVelocity(body, {x:0,y:0}); Body.setAngularVelocity(body, 0);
+  const rel={x:gx-body.position.x,y:gy-body.position.y}, a=-body.angle, cs=Math.cos(a), sn=Math.sin(a);
+  return Matter.Constraint.create({ pointA:{x:gx,y:gy}, bodyB:body,
+    pointB:{x:rel.x*cs-rel.y*sn,y:rel.x*sn+rel.y*cs},
+    stiffness:c.dragStiff, damping:c.dragDamp, angularStiffness:c.angStiff, length:0 });
+}
+function dragTick(c, eng, body, dt){
+  if (c.holdSpin < 1) Body.setAngularVelocity(body, body.angularVelocity * c.holdSpin);
+  Engine.update(eng, dt);
+}
+
 // grab the BOTTOM of a 2-stack and drag it away — the top must fall, not hang
 function runGrabMove(c, rng){
   const eng=makeWorld(c), world=eng.world, dt=1000/60;
@@ -102,15 +118,61 @@ function runGrabMove(c, rng){
   World.add(world,[base,top]);
   for (let k=0;k<90;k++) Engine.update(eng,dt);       // settle the stack
   // constraint-drag the base sideways and up (like carrying it out from under)
-  const con = Matter.Constraint.create({ pointA:{x:base.position.x,y:base.position.y}, bodyB:base, pointB:{x:0,y:0}, stiffness:.8, damping:.28, length:0 });
+  const con = makeDrag(c, base, base.position.x, base.position.y);
   World.add(world, con);
   const tx = W/2 + 3*U;
-  for (let k=0;k<70;k++){ con.pointA.x = W/2 + (tx-W/2)*(k/70); Engine.update(eng,dt); }
+  for (let k=0;k<70;k++){ con.pointA.x = W/2 + (tx-W/2)*(k/70); dragTick(c, eng, base, dt); }
   World.remove(world, con);
   for (let k=0;k<90;k++) Engine.update(eng,dt);        // release, let top settle
   // the top block should have dropped to the floor (support removed), not floated
   const topRestsHigh = top.bounds.max.y < floorY - h*0.6;  // still up in the air ⇒ hung
   return topRestsHigh ? 1 : 0;
+}
+
+// grab a resting plank by its far END and lift — the classic "click far from the
+// centroid" case. A good pinch lets it droop/pivot smoothly; a bad one snaps.
+// Reports the worst speed right after grab (px/frame, pointer itself moves ~5),
+// worst spin (rad/frame), and how far the grab point lags the pointer at the end.
+function runOffCenterGrab(c){
+  const eng=makeWorld(c), world=eng.world, dt=1000/60;
+  const shape=SHAPES[2], w=shape.w*U, h=shape.h*U;
+  const body = makeBody(shape, W/2, floorY-h/2, w, h, c);
+  World.add(world, body);
+  for (let k=0;k<60;k++) Engine.update(eng,dt);
+  const gx = body.position.x + w*0.44, gy = body.position.y;   // right end
+  const con = makeDrag(c, body, gx, gy);
+  World.add(world, con);
+  let spike=0, maxAV=0;
+  for (let k=0;k<100;k++){
+    if (k<30) con.pointA.y = gy - 2.4*U*((k+1)/30);             // lift ~2.4U up
+    dragTick(c, eng, body, dt);
+    spike=Math.max(spike, body.speed); maxAV=Math.max(maxAV, Math.abs(body.angularVelocity));
+  }
+  // where is the grab point now vs the pointer?
+  const a=body.angle, cs=Math.cos(a), sn=Math.sin(a), pB=con.pointB;
+  const wx=body.position.x + pB.x, wy=body.position.y + pB.y;  // Matter keeps pointB world-rotated
+  const lag = Math.hypot(con.pointA.x-wx, con.pointA.y-wy);
+  return { spike, maxAV, lag };
+}
+
+// drag a cube along the floor at pointer speed — measure jerk (frame-to-frame
+// speed jumps: the "jitter while dragging along a surface" feel metric)
+function runDragSlide(c){
+  const eng=makeWorld(c), world=eng.world, dt=1000/60;
+  const body = makeBody(SHAPES[0], W*0.28, floorY-U/2, U, U, c);
+  World.add(world, body);
+  for (let k=0;k<60;k++) Engine.update(eng,dt);
+  const gx=body.position.x - U*0.3, gy=body.position.y - U*0.3; // off-center corner grab
+  const con = makeDrag(c, body, gx, gy);
+  World.add(world, con);
+  let jerk=0, prev=0, maxAV=0;
+  for (let k=0;k<80;k++){
+    con.pointA.x += 5;                                          // steady 300 px/s drag
+    dragTick(c, eng, body, dt);
+    jerk=Math.max(jerk, Math.abs(body.speed-prev)); prev=body.speed;
+    maxAV=Math.max(maxAV, Math.abs(body.angularVelocity));
+  }
+  return { jerk, maxAV };
 }
 
 // grab a block WHILE it is falling fast; a good drag zeroes its momentum and
@@ -123,12 +185,10 @@ function runDragJump(c, rng){
   const preSpeed = body.speed;
   // grab at a corner (like the app), zero momentum, gentle spring
   const gx = body.position.x + U*0.35, gy = body.position.y + U*0.35;
-  Body.setVelocity(body, {x:0,y:0}); Body.setAngularVelocity(body, 0);
-  const rel={x:gx-body.position.x,y:gy-body.position.y}, a=-body.angle, cs=Math.cos(a), sn=Math.sin(a);
-  const con = Matter.Constraint.create({ pointA:{x:gx,y:gy}, bodyB:body, pointB:{x:rel.x*cs-rel.y*sn,y:rel.x*sn+rel.y*cs}, stiffness:c.dragStiff, damping:c.dragDamp, length:0 });
+  const con = makeDrag(c, body, gx, gy);
   World.add(world, con);
   let spike=0;
-  for (let k=0;k<14;k++){ Engine.update(eng,dt); spike=Math.max(spike, body.speed); }
+  for (let k=0;k<14;k++){ dragTick(c, eng, body, dt); spike=Math.max(spike, body.speed); }
   return { preSpeed, spike };
 }
 function evaluate(c, n){
@@ -137,30 +197,47 @@ function evaluate(c, n){
   for (let i=0;i<n;i++){ const r=runScenario(c,rng); maxPen=Math.max(maxPen,r.maxPen); deep+=r.deep; floats+=r.floating; esc+=r.escaped; nan+=r.nan; }
   let hung=0; const rng2=mulberry32(999); for (let i=0;i<60;i++) hung+=runGrabMove(c,rng2);
   const rng3=mulberry32(7); let spikeMax=0; for (let i=0;i<40;i++){ const d=runDragJump(c,rng3); spikeMax=Math.max(spikeMax,d.spike); }
-  return { maxPen:+maxPen.toFixed(1), deepPerScn:+(deep/n).toFixed(3), floatPerScn:+(floats/n).toFixed(3), escaped:esc, nan, hung, grabSpike:+spikeMax.toFixed(1) };
+  const oc = runOffCenterGrab(c), sl = runDragSlide(c);
+  return { maxPen:+maxPen.toFixed(1), deepPerScn:+(deep/n).toFixed(3), floatPerScn:+(floats/n).toFixed(3), escaped:esc, nan, hung, grabSpike:+spikeMax.toFixed(1),
+    ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3) };
 }
 
 // tuned physics: zero restitution (wood doesn't bounce → least penetration), 12
-// position iterations, and a GENTLE drag spring (low stiffness) with the block's
-// momentum zeroed on grab, so clicking a moving block no longer flings it.
-const BASE = { gravity:1.0, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.25, dragDamp:0.1 };
+// position iterations, and a pinch-style drag: momentum zeroed on grab, a
+// moderate spring at the grab point with most of its torque suppressed
+// (angularStiffness) + per-frame angular damping (holdSpin), so an off-center
+// grab pivots smoothly instead of snapping.
+// gravity 2.2: falls ~1.5× faster (feels like wood, not balloons) with the same
+// stability as 1.0 in the sweep; 3.0 blew up penetration (9.7px). angStiff .7
+// keeps 30% of pivot torque — enough to droop, not enough to snap.
+const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85 };
 const N = +(process.argv[2]||300);
 
-if (process.argv[3] === 'sweep'){
-  const variants = {
-    'FINAL': {},
-    'stiff0.8 (old)': { dragStiff:0.8, dragDamp:0.28 },
-    'stiff0.4': { dragStiff:0.4, dragDamp:0.15 },
-    'stiff0.15': { dragStiff:0.15, dragDamp:0.08 },
-    'iter10': { posIter:10 },
-    'iter16': { posIter:16 },
-  };
-  console.log(`# ${N} scenarios/variant + 60 grab-move each\n`);
-  console.log('variant           maxPen  deep/scn  float/scn  escaped  nan  hung');
-  for (const [name, ov] of Object.entries(variants)){
-    const r = evaluate({ ...BASE, ...ov }, N);
-    console.log(name.padEnd(17), String(r.maxPen).padStart(6), String(r.deepPerScn).padStart(9), String(r.floatPerScn).padStart(10), String(r.escaped).padStart(8), String(r.nan).padStart(4), String(r.hung).padStart(5));
+const SWEEPS = {
+  // how heavy the world feels: fall speed scales with sqrt(gravity)
+  gravity: {
+    'g1.0 (old)': {}, 'g1.6': { gravity:1.6 }, 'g2.2': { gravity:2.2 }, 'g3.0': { gravity:3.0 }, 'g2.2 iter16': { gravity:2.2, posIter:16 },
+  },
+  // the pinch-grab: angStiff kills constraint torque, holdSpin is grip friction
+  drag: {
+    'old (aS0 hS1)': {}, 'aS.7 hS.9': { angStiff:.7, holdSpin:.9 }, 'aS.85 hS.9': { angStiff:.85, holdSpin:.9 },
+    'aS.7 hS.85 st.4': { angStiff:.7, holdSpin:.85, dragStiff:.4, dragDamp:.15 },
+    'aS1 hS.9': { angStiff:1, holdSpin:.9 }, 'aS.85 hS.85 st.15': { angStiff:.85, holdSpin:.85, dragStiff:.15 },
+  },
+};
+
+if (SWEEPS[process.argv[3]]){
+  const extra = process.argv[4] ? JSON.parse(process.argv[4]) : {};   // e.g. '{"gravity":2.2}'
+  console.log(`# ${N} scenarios/variant, sweep=${process.argv[3]}, extra=${JSON.stringify(extra)}\n`);
+  console.log('variant            maxPen deep/scn  fl/scn esc nan hung spike | ocSpike ocSpin ocLag  jerk slSpin');
+  for (const [name, ov] of Object.entries(SWEEPS[process.argv[3]])){
+    const r = evaluate({ ...BASE, ...extra, ...ov }, N);
+    console.log(name.padEnd(18), String(r.maxPen).padStart(6), String(r.deepPerScn).padStart(8), String(r.floatPerScn).padStart(7),
+      String(r.escaped).padStart(3), String(r.nan).padStart(3), String(r.hung).padStart(4), String(r.grabSpike).padStart(5), '|',
+      String(r.ocSpike).padStart(7), String(r.ocSpin).padStart(6), String(r.ocLag).padStart(5), String(r.slideJerk).padStart(5), String(r.slideSpin).padStart(6));
   }
 } else {
-  console.log('base config, N='+N, evaluate(BASE, N));
+  const extra = process.argv[3] && process.argv[3] !== 'sweep' ? JSON.parse(process.argv[3]) : {};
+  console.log('config', { ...BASE, ...extra }, 'N='+N);
+  console.log(evaluate({ ...BASE, ...extra }, N));
 }

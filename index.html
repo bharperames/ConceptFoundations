@@ -392,6 +392,10 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .fb-add{background:#4C86D8}
 .fb-reset{background:#8AA0B4;font-size:24px}
 .fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:7px}
+/* physics-debug toggle: sits beside the volume control, barely-there like it;
+   lights up while the annotation overlay is on */
+.play-vol.stk-dbg{left:calc(max(14px,env(safe-area-inset-left)) + 48px)}
+.play-vol.stk-dbg.on{opacity:.95;color:#2E7DD1}
 .fb-block{position:absolute;pointer-events:none;z-index:6;touch-action:none;filter:drop-shadow(0 3px 3px rgba(30,20,8,.28))}
 .fb-block svg{display:block;width:100%;height:100%}
 #view-stacker{overflow:hidden;touch-action:none;background:linear-gradient(180deg,#BFE3F5 0%,#DCF0FA 45%,#EAF7FC 100%)}
@@ -746,6 +750,11 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   </button>
   <div id="stacker-area" class="stacker-area"><div class="stk-ground"></div></div>
   <div id="stk-ops" class="fb-ops"></div>
+  <button id="stk-dbg-btn" class="play-vol stk-dbg" aria-label="Show the physics shapes">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">
+      <rect x="4.5" y="4.5" width="15" height="15" rx="2"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>
+      <path d="M12 12 L18.5 8.5" stroke-linecap="round"/></svg>
+  </button>
 </main>
 
 <!-- ══════════ LEVEL MAP (all sections & sub-levels) ══════════ -->
@@ -2324,7 +2333,7 @@ const StackerGame = {
   ],
   MAX: 16,
   blocks: [], raf: 0, drag: null, U: 0, W: 0, H: 0, floorY: 0, active: false, bound: false,
-  eng: null, useMatter: false, lastClack: 0,
+  eng: null, useMatter: false, lastClack: 0, debug: false, dpr: 1,
   area(){ return $('#stacker-area'); },
 
   ensureDefs(){
@@ -2391,6 +2400,16 @@ const StackerGame = {
     const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
     this.U = 15 * vmin; this.W = r.width; this.H = r.height; this.floorY = r.height * 0.82;
     this.useMatter = !!window.Matter;
+    // physics-debug overlay canvas (above blocks z6, below the ops row z30)
+    let cv = $('#stk-dbg-cv');
+    if (!cv){
+      cv = document.createElement('canvas'); cv.id = 'stk-dbg-cv';
+      cv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:20';
+      this.area().appendChild(cv);
+    }
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(this.W * this.dpr); cv.height = Math.round(this.H * this.dpr);
+    cv.style.width = this.W + 'px'; cv.style.height = this.H + 'px';
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
     this.blocks = []; this.drag = null;
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
@@ -2400,15 +2419,18 @@ const StackerGame = {
       // moved out (a slept block would hang in the air until nudged); more solver
       // iterations keep stacks stable without sleeping. Only ≤16 bodies, so cheap.
       this.eng = M.Engine.create({ enableSleeping:false, positionIterations:12, velocityIterations:8, constraintIterations:3 });
-      this.eng.world.gravity.y = 1.0;
+      // 2.2, not 1.0: Matter's default gravity is ~5× weaker than real scale for
+      // blocks this size, which read as floaty/massless. 2.2 falls ~1.5× faster
+      // with the same sim stability (sweep: 3.0 blew penetration up to 9.7px).
+      this.eng.world.gravity.y = 2.2;
       M.World.add(this.eng.world, this.walls());
       M.Events.off(this.eng, 'collisionStart');
       M.Events.on(this.eng, 'collisionStart', ev => {
         const now = performance.now();
         if (now - this.lastClack < 55) return;
         for (const p of ev.pairs){
-          const v = p.bodyA.speed + p.bodyB.speed;
-          if (v > 1.6){ this.lastClack = now; Audio2.clack(Math.min(1, v/9)); break; }
+          const v = p.bodyA.speed + p.bodyB.speed;   // thresholds scaled for gravity 2.2
+          if (v > 2.4){ this.lastClack = now; Audio2.clack(Math.min(1, v/13)); break; }
         }
       });
     }
@@ -2427,6 +2449,7 @@ const StackerGame = {
     this.blocks = []; this.drag = null;
     if (this.eng && window.Matter){ window.Matter.World.clear(this.eng.world, false); this.eng = null; }
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
+    this.drawDebug();   // active=false → clears the annotation overlay
   },
   reset(){
     if (this.useMatter && this.eng && window.Matter){
@@ -2436,6 +2459,7 @@ const StackerGame = {
     this.blocks = []; this.drag = null;
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
     if (this.active) this.renderOps();
+    this.drawDebug();
   },
   renderOps(){
     const ops = $('#stk-ops'), full = this.blocks.length >= this.MAX;
@@ -2492,6 +2516,79 @@ const StackerGame = {
         b.el.style.top  = Math.round(b.y - b.h/2) + 'px';
       }
     }
+    if (this.debug) this.drawDebug();
+  },
+  tracePoly(ctx, vs){
+    ctx.beginPath(); ctx.moveTo(vs[0].x, vs[0].y);
+    for (let i = 1; i < vs.length; i++) ctx.lineTo(vs[i].x, vs[i].y);
+    ctx.closePath();
+  },
+  // annotation overlay: the ACTUAL solver state the sprites hide — collision
+  // hulls (chamfered/decomposed), centre of mass + mass, velocity & spin,
+  // live contact points, the static floor/walls, and the pinch constraint
+  drawDebug(){
+    const cv = $('#stk-dbg-cv'); if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.W, this.H);
+    if (!this.debug || !this.active) return;
+    ctx.lineWidth = 1; ctx.font = '10px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center';
+    if (this.useMatter && this.eng){
+      const M = window.Matter;
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.setLineDash([5,4]);
+      for (const s of M.Composite.allBodies(this.eng.world))
+        if (s.isStatic){ this.tracePoly(ctx, s.vertices); ctx.stroke(); }
+      ctx.setLineDash([]);
+      for (const b of this.blocks){
+        const body = b.body, px = body.position.x, py = body.position.y;
+        // hull(s) the solver really collides — parts[0] is the compound wrapper
+        ctx.strokeStyle = '#19E68C';
+        for (const p of (body.parts.length > 1 ? body.parts.slice(1) : body.parts)){
+          this.tracePoly(ctx, p.vertices); ctx.stroke();
+        }
+        // centre of mass crosshair + mass value
+        ctx.strokeStyle = '#FF4FD8';
+        ctx.beginPath(); ctx.moveTo(px-6,py); ctx.lineTo(px+6,py); ctx.moveTo(px,py-6); ctx.lineTo(px,py+6); ctx.stroke();
+        ctx.fillStyle = '#FF4FD8'; ctx.beginPath(); ctx.arc(px, py, 2.2, 0, 7); ctx.fill();
+        const label = 'm ' + body.mass.toFixed(0);
+        ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.fillStyle = '#fff';
+        ctx.strokeText(label, px, py - 10); ctx.fillText(label, px, py - 10); ctx.lineWidth = 1;
+        // velocity vector (×4 — readable at settle speeds) and spin arc
+        const v = body.velocity;
+        if (Math.hypot(v.x, v.y) > .08){
+          ctx.strokeStyle = '#FFD23F';
+          ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + v.x*4, py + v.y*4); ctx.stroke();
+        }
+        if (Math.abs(body.angularVelocity) > .003){
+          const s = Math.max(-2.2, Math.min(2.2, body.angularVelocity * 18));
+          ctx.strokeStyle = '#FF9F0A';
+          ctx.beginPath(); ctx.arc(px, py, 11, -Math.PI/2, -Math.PI/2 + s, s < 0); ctx.stroke();
+        }
+      }
+      // live contact points — where the solver is pushing right now
+      ctx.fillStyle = '#FF3B30';
+      for (const pair of this.eng.pairs.list){
+        if (!pair.isActive) continue;
+        for (const c of pair.activeContacts)
+          if (c && c.vertex){ ctx.beginPath(); ctx.arc(c.vertex.x, c.vertex.y, 2.2, 0, 7); ctx.fill(); }
+      }
+      // the pinch: pointer → grab point on the body
+      if (this.drag){
+        const con = this.drag.con, bB = con.bodyB;
+        const gx = bB.position.x + con.pointB.x, gy = bB.position.y + con.pointB.y;
+        ctx.strokeStyle = '#41B6FF';
+        ctx.beginPath(); ctx.moveTo(con.pointA.x, con.pointA.y); ctx.lineTo(gx, gy); ctx.stroke();
+        ctx.fillStyle = '#41B6FF'; ctx.beginPath(); ctx.arc(gx, gy, 3, 0, 7); ctx.fill();
+      }
+    } else {
+      // AABB fallback: the boxes + centres + floor line are all there is
+      for (const b of this.blocks){
+        ctx.strokeStyle = '#19E68C'; ctx.strokeRect(b.x - b.w/2, b.y - b.h/2, b.w, b.h);
+        ctx.fillStyle = '#FF4FD8'; ctx.beginPath(); ctx.arc(b.x, b.y, 2.2, 0, 7); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(0, this.floorY); ctx.lineTo(this.W, this.floorY); ctx.stroke(); ctx.setLineDash([]);
+    }
   },
   supportTop(b){
     let top = this.floorY;
@@ -2507,7 +2604,13 @@ const StackerGame = {
       if (!this.active){ this.raf = 0; return; }
       const dt = Math.min(t - last, 32); last = t;
       if (this.useMatter){
-        window.Matter.Engine.update(this.eng, dt);
+        const M = window.Matter;
+        // pinch-grip friction: bleed the held block's spin each frame so an
+        // off-centre grab droops smoothly instead of pendulum-whipping
+        if (this.drag) M.Body.setAngularVelocity(this.drag.b.body, this.drag.b.body.angularVelocity * 0.85);
+        // substep long frames — at gravity 2.2 a single 32ms step overlaps more
+        const n = dt > 20 ? 2 : 1;
+        for (let i = 0; i < n; i++) M.Engine.update(this.eng, dt / n);
         this.sync();
         this.raf = requestAnimationFrame(frame);
       } else {
@@ -2544,13 +2647,18 @@ const StackerGame = {
       if (!hits.length) return;
       const body = hits[hits.length - 1], b = this.blocks.find(x => x.body === body);
       // kill the block's momentum first, so grabbing one that's mid-fall/tumble
-      // doesn't fling it; then a GENTLE spring from finger to grab-point keeps the
-      // body dynamic (it collides, and friction carries whatever balances on it)
+      // doesn't fling it; then a spring from finger to grab-point keeps the body
+      // dynamic (it collides, and friction carries whatever balances on it).
+      // The grab is a two-finger PINCH: angularStiffness .7 suppresses 70% of the
+      // constraint's torque (a length-0 constraint solves rigid — full torque
+      // made off-centroid grabs snap), so the block droops around the pinch
+      // point under gravity; the loop bleeds spin like grip friction would.
       M.Body.setVelocity(body, { x: 0, y: 0 }); M.Body.setAngularVelocity(body, 0);
       const rel = { x: px - body.position.x, y: py - body.position.y };
       const a = -body.angle, c = Math.cos(a), s = Math.sin(a);
       const con = M.Constraint.create({ pointA:{ x:px, y:py }, bodyB:body,
-        pointB:{ x: rel.x*c - rel.y*s, y: rel.x*s + rel.y*c }, stiffness:.4, damping:.15, length:0 });
+        pointB:{ x: rel.x*c - rel.y*s, y: rel.x*s + rel.y*c },
+        stiffness:.4, damping:.15, angularStiffness:.7, length:0 });
       M.World.add(this.eng.world, con);
       this.drag = { b, con }; b.el.style.zIndex = 9;
     } else {
@@ -2721,25 +2829,30 @@ const Engine = {
     Audio2.speak('Peekaboo!');
   },
 
-  // spout geometry in stage-% (cx = centre, top/bot = climb start/end), from the
-  // live spout rect so it's correct at any size
+  // spout geometry in stage-%, from the live spout rect (correct at any size):
+  //   top  = climb target, just inside the top opening
+  //   base = climb start, just inside the bottom of the spout
+  //   out  = below the spout, where the spider washes out
   spoutGeom(){
     const stage = this.stage(), sr = stage.getBoundingClientRect();
     const spout = stage.querySelector('[data-el="spout"]');
     if (!spout) return null;
     const pr = spout.getBoundingClientRect();
+    const t = (pr.top - sr.top) / sr.height * 100, b = (pr.bottom - sr.top) / sr.height * 100;
     return { stage, sr,
       cx: (pr.left + pr.width/2 - sr.left) / sr.width * 100,
-      top: (pr.top - sr.top) / sr.height * 100 + 6,
-      bot: (pr.bottom - sr.top) / sr.height * 100 + 6 };
+      top: t + 8, base: b - 6, out: b + 12 };
   },
-  // climb the spider up the spout over `ms` (≈ the audio clip length), rocking
-  // left/right between steps so it reads as climbing, not sliding
-  climbSpider(bug, cx, toTop, ms){
+  // move the spider up (or down) the spout over `ms`, rocking left/right between
+  // steps so it reads as climbing, not sliding. Explicit reset+reflow at `fromTop`
+  // so the transition always runs the FULL distance (never a stale start point).
+  climbSpider(bug, cx, fromTop, toTop, ms){
     const rec = this.curRecord;
-    bug.style.left = cx + '%';
+    bug.style.transition = 'none';
+    bug.style.left = cx + '%'; bug.style.top = fromTop + '%'; bug.style.opacity = '1';
+    void bug.offsetWidth;                       // commit the start before animating
     bug.classList.add('climbing');
-    bug.style.transition = 'top ' + ms + 'ms linear, left .4s ease';
+    bug.style.transition = 'top ' + ms + 'ms linear';
     bug.style.top = toTop + '%';
     setTimeout(() => { if (this.curRecord === rec){ bug.classList.remove('climbing'); bug.style.transform = ''; } }, ms);
   },
@@ -2747,10 +2860,10 @@ const Engine = {
   // cause → effect: the itsy-bitsy-spider song, AUDIO-DRIVEN. Each line waits for
   // the previous line's audio to finish (Audio2.speak's onend), so the three
   // curated full-line clips never talk over each other and TTS stays in sync.
-  // The climb spans line 1's clip (~4.5s) with a stepping wiggle. Always "spider".
+  // The climb spans line 1's clip (~4.5s), stepping wiggle. Always "spider".
   spoutCauseEffect(bug, spout, cb){
     const g = this.spoutGeom(); if (!g){ cb(); return; }
-    const { stage, cx, top, bot } = g;
+    const { stage, cx, top, base, out } = g;
     const washDir = cx > 50 ? -1 : 1;
     const ring = stage.querySelector('[data-el="drop"]');
     if (ring) ring.classList.add('fade');
@@ -2761,31 +2874,31 @@ const Engine = {
     bug.style.zIndex = '4'; bug.classList.remove('snapping');
 
     const beatClimb = () => {
-      this.climbSpider(bug, cx, top, 4100);   // ≈ line-1 clip length
+      this.climbSpider(bug, cx, base, top, 4100);   // full base→top over the clip
       Audio2.speak('The itsy bitsy spider went up the water spout!', () => { if (live()) beatRain(); });
     };
     const beatRain = () => {
       if (cloud) cloud.classList.add('raining');
       this.startRain(cx);
-      setTimeout(() => {   // wash out ~2.7s into the line (on "washed … out")
+      bug.classList.remove('climbing'); bug.style.transform = '';
+      setTimeout(() => {   // wash DOWN the spout (top → base) as the rain hits it
         if (!live()) return;
-        bug.classList.remove('climbing'); bug.style.transform = '';
-        bug.style.transition = 'top .8s cubic-bezier(.5,0,.85,1), left .8s ease-in, opacity .8s ease-in';
-        bug.style.top = bot + '%'; bug.style.left = (cx + washDir * 24) + '%'; bug.style.opacity = '0';
-      }, 2700);
+        bug.style.transition = 'top 1.6s ease-in';
+        bug.style.top = base + '%';
+      }, 1200);
+      setTimeout(() => {   // then out the bottom, sideways + fade (on "… out")
+        if (!live()) return;
+        bug.style.transition = 'top .8s ease-in, left .8s ease-in, opacity .8s ease-in';
+        bug.style.top = out + '%'; bug.style.left = (cx + washDir * 24) + '%'; bug.style.opacity = '0';
+      }, 3000);
       Audio2.speak('Down came the rain and washed the spider out!', () => { if (live()) beatSun(); });
     };
     const beatSun = () => {
       this.stopRain();
       if (sun) sun.classList.add('shine');
       if (cloud){ cloud.classList.remove('raining'); cloud.classList.add('efx-cloud-out'); }
-      setTimeout(() => {   // reset at the base, climb again ~4.4s in ("… went up … again")
-        if (!live()) return;
-        bug.style.transition = 'none';
-        bug.style.left = cx + '%'; bug.style.top = bot + '%'; bug.style.opacity = '0';
-        void bug.offsetWidth;
-        bug.style.transition = 'opacity .35s'; bug.style.opacity = '1';
-        setTimeout(() => { if (live()) this.climbSpider(bug, cx, top, 3600); }, 380);
+      setTimeout(() => {   // climb again ~4.4s in (on "… went up … again")
+        if (live()) this.climbSpider(bug, cx, base, top, 3600);
       }, 4400);
       Audio2.speak('Out came the sun and dried up all the rain and the itsy bitsy spider went up the spout again!',
         () => { if (this.active) cb(); });
@@ -2797,10 +2910,10 @@ const Engine = {
     const g = this.spoutGeom(); if (!g){ cb(); return; }
     const bug = g.stage.querySelector('[data-el="bug"]');
     const rec = this.curRecord, live = () => this.active && this.curRecord === rec;
-    if (bug){ bug.style.zIndex = '4'; setTimeout(() => { if (live()) this.climbSpider(bug, g.cx, g.top, 4100); }, 350); }
+    if (bug){ bug.style.zIndex = '4'; setTimeout(() => { if (live()) this.climbSpider(bug, g.cx, g.base, g.top, 4100); }, 350); }
     Audio2.speak('The itsy bitsy spider went up the water spout!', () => { if (live()) cb(); });
   },
-  // CONTRAST demo: rain falls and washes the spider out (narrated by line 2)
+  // CONTRAST demo: rain falls, the spider washes DOWN the spout then out (line 2)
   spoutDemoWash(cb){
     const g = this.spoutGeom(); if (!g){ cb(); return; }
     const bug = g.stage.querySelector('[data-el="bug"]');
@@ -2808,11 +2921,17 @@ const Engine = {
     const rec = this.curRecord, live = () => this.active && this.curRecord === rec;
     if (cloud) cloud.classList.add('raining');
     this.startRain(g.cx);
-    if (bug) setTimeout(() => {
-      if (!live()) return;
-      bug.style.transition = 'top .8s cubic-bezier(.5,0,.85,1), left .8s ease-in, opacity .8s ease-in';
-      bug.style.top = g.bot + '%'; bug.style.left = (g.cx + (g.cx > 50 ? -1 : 1) * 24) + '%'; bug.style.opacity = '0';
-    }, 2700);
+    if (bug){
+      setTimeout(() => {   // wash down the spout
+        if (!live()) return;
+        bug.style.transition = 'top 1.6s ease-in'; bug.style.top = g.base + '%';
+      }, 1200);
+      setTimeout(() => {   // then out the bottom
+        if (!live()) return;
+        bug.style.transition = 'top .8s ease-in, left .8s ease-in, opacity .8s ease-in';
+        bug.style.top = g.out + '%'; bug.style.left = (g.cx + (g.cx > 50 ? -1 : 1) * 24) + '%'; bug.style.opacity = '0';
+      }, 3000);
+    }
     Audio2.speak('Down came the rain and washed the spider out!', () => { this.stopRain(); if (live()) cb(); });
   },
   // cause → effect: press the button → fireworks. `cb` runs after the burst.
@@ -4458,6 +4577,11 @@ function init(){
   $('#btn-puz-home').addEventListener('click', () => { showView('home'); renderHome(); });
   $('#btn-puz-again').addEventListener('click', () => PuzzleGame.start());
   $('#btn-stk-home').addEventListener('click', () => { StackerGame.stop(); showView('home'); renderHome(); });
+  $('#stk-dbg-btn').addEventListener('click', e => {
+    StackerGame.debug = !StackerGame.debug;
+    e.currentTarget.classList.toggle('on', StackerGame.debug);
+    StackerGame.drawDebug();
+  });
 
   // parent gate: press and hold 2.2s
   const gw = $('#btn-grownups');

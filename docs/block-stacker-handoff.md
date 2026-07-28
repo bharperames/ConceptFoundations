@@ -47,9 +47,23 @@ and can be grabbed and re-stacked on a grassy field. Realistic-cartoon look.
 Zero restitution on wood (least penetration, realistic); ball keeps `restitution:.12`
 to roll with life. `friction:.6 / frictionStatic:.85`, `density:.0017`, box
 `chamfer:{radius: min(w,h)*.06}`. Engine: `positionIterations:12,
-velocityIterations:8, constraintIterations:3`. These came from a sweep — see the
-harness. Last full run (1500 scenarios): **maxPen ≈ 4.4px (~3% of a block),
-floating 0.001/scn, escaped 0, NaN 0, grab-hang 0, grab-spike 0.4.**
+velocityIterations:8, constraintIterations:3`, **gravity 2.2** (Matter's default
+1.0 is ~5× weaker than real scale for blocks this size — read as floaty/massless;
+2.2 falls ~1.5× faster with identical stability, 3.0 blew penetration up to
+9.7px). The rAF loop substeps frames >20ms (2× half-steps). Clack thresholds are
+scaled for the faster impacts (`v>2.4`, `v/13`).
+
+**The grab is a two-finger pinch.** A length-0 Matter constraint solves in rigid
+mode, and by default injects its FULL impulse torque — that was the "click far
+from the centroid → block snaps" bug. Now: `stiffness:.4, damping:.15,
+angularStiffness:.7` (only 30% of pivot torque survives) plus per-frame angular
+damping `×0.85` while held (grip friction, applied in `loop()`). Off-centre grabs
+droop smoothly around the grab point under gravity — grab a plank's right end and
+its left end swings down — instead of whipping. Momentum still zeroed on grab.
+
+Last full run (1500 scenarios): **maxPen ≈ 5.5px, deep 0.003/scn, floating 0,
+escaped 0, NaN 0, grab-hang 0, grab-spike 0.1** (was 0.4), off-centre grab spin
+≤.027 rad/frame, slide jerk 2.3.
 
 ## Error classes the harness measures (extend these)
 
@@ -62,13 +76,29 @@ In `scripts/stacker_sim.mjs`:
   hang). Returns hung=1 on failure.
 - `runDragJump()` — grab a fast-falling block; measures the post-grab speed spike
   (the "clicking a moving block flings it" bug).
+- `runOffCenterGrab()` — grab a resting plank by its far end and lift; measures
+  speed spike, worst spin, and grab-point lag (the "off-centroid snap" bug).
+- `runDragSlide()` — drag a cube along the floor at steady pointer speed;
+  measures frame-to-frame speed jerk (drag jitter).
+
+Sweeps are named: `node scripts/stacker_sim.mjs 300 gravity` or `… 300 drag
+'{"gravity":2.2}'` (second arg = JSON overrides applied to every variant).
+
+## Debug overlay (physics annotations)
+
+A barely-there toggle next to the volume button (`#stk-dbg-btn`, bottom-left)
+turns on a canvas overlay (`#stk-dbg-cv`, `StackerGame.drawDebug()`) showing what
+the sprites hide: the true collision hulls (chamfered/decomposed, green), centre
+of mass + mass value (magenta), velocity vector (yellow, ×4) and spin arc
+(orange), live solver contact points (red), static floor/walls (dashed), and the
+pinch constraint (blue, pointer → grab point). Works in the AABB fallback too
+(boxes + centres + floor line).
 
 ## Open threads / good next steps
 
-1. **Grab feel.** The constraint drag is decent but can still feel springy/jittery
-   on fast flicks. Worth exploring: pointer-velocity-matched target, clamping
-   angular velocity while held, or a position-based (not force) drag that still
-   collides. Add a harness metric for "jitter while dragging along a surface."
+1. **Grab feel — largely addressed** (pinch model above; jitter/slide metrics now
+   in the harness). Remaining: fast-flick release momentum could feel better
+   (pointer-velocity-matched release?).
 2. **Resting stability at scale.** With 16 mixed bodies, tall/thin stacks can creep.
    Try higher `positionIterations` only when body count is high, or per-shape
    friction. The sweep infra is there — add variants and run `… sweep`.
