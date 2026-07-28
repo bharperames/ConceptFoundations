@@ -376,6 +376,11 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 /* arcade button: the cap dips when pressed */
 .btn-cap{transition:transform .12s ease}
 .el.btn-down .btn-cap{transform:translateY(7px)}
+/* Intro taps: a bubble pops, a spider scurries */
+.el.bub-pop{animation:bubPop .4s ease forwards;pointer-events:none}
+@keyframes bubPop{0%{transform:translate(-50%,-50%) scale(1);opacity:1}45%{transform:translate(-50%,-50%) scale(1.25);opacity:.8}100%{transform:translate(-50%,-50%) scale(.2);opacity:0}}
+.el.scurry{animation:scurry .5s ease-in-out}
+@keyframes scurry{0%{transform:translate(-50%,-50%) rotate(0)}20%{transform:translate(calc(-50% - 14px),-50%) rotate(-12deg)}55%{transform:translate(calc(-50% + 12px),-50%) rotate(12deg)}80%{transform:translate(calc(-50% - 6px),-50%) rotate(-6deg)}100%{transform:translate(-50%,-50%) rotate(0)}}
 /* the spider rocks left/right between steps while climbing (not a flat slide) */
 .el.climbing{animation:spiderStep .34s ease-in-out infinite}
 @keyframes spiderStep{
@@ -1132,6 +1137,13 @@ const SPIDER = () => wrap(`<g class="hit">
   <circle cx="45.5" cy="36" r="1.7" fill="#1a1a1a"/><circle cx="54.5" cy="36" r="1.7" fill="#1a1a1a"/></g>`);
 const CLOUD2 = () => wrap(`<g><ellipse cx="34" cy="56" rx="26" ry="18" fill="#EAF1F7"/><ellipse cx="62" cy="52" rx="28" ry="22" fill="#EAF1F7"/><ellipse cx="50" cy="64" rx="36" ry="16" fill="#DCE7F0"/></g>`);
 const SUN2 = () => wrap(`<g fill="#FFC02E"><circle cx="50" cy="50" r="26"/>${Array.from({length:8},(_,i)=>{const a=i/8*Math.PI*2;return `<rect x="48" y="6" width="4" height="12" rx="2" transform="rotate(${i*45} 50 50)"/>`;}).join('')}</g>`);
+// a soap bubble (Intro: tap → pop)
+const BUBBLE_ART = () => wrap(`<g class="hit">
+  <circle cx="50" cy="50" r="40" fill="#bfe9ff" opacity=".5"/>
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#8fd3ff" stroke-width="3" opacity=".8"/>
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#ffffff" stroke-width="6" opacity=".25"/>
+  <ellipse cx="37" cy="34" rx="13" ry="9" fill="#ffffff" opacity=".7" transform="rotate(-30 37 34)"/>
+  <circle cx="64" cy="62" r="4" fill="#ffffff" opacity=".55"/></g>`);
 // a big pushable arcade button on a base (cause→effect: press → fireworks)
 const PUSH_BTN = (cap) => wrap(`<g class="hit">
   <ellipse cx="50" cy="86" rx="33" ry="8" fill="#1e2c3b" opacity=".18"/>
@@ -1164,6 +1176,7 @@ const CIRC_HOLE = () => wrap(`<circle cx="50" cy="50" r="42" fill="#C9DAE9" stro
 
 /* Node icons for the home cards */
 const NICON = {
+  intro: `<svg class="cicon" viewBox="0 0 100 100"><circle cx="50" cy="46" r="30" fill="#bfe9ff" opacity=".55"/><circle cx="50" cy="46" r="30" fill="none" stroke="#8fd3ff" stroke-width="3"/><ellipse cx="40" cy="34" rx="9" ry="6" fill="#fff" opacity=".7" transform="rotate(-30 40 34)"/><path d="M50 60 q0 18 0 26 M50 86 l-8 -8 M50 86 l8 -8" fill="none" stroke="${C.coral}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   identity: `<svg class="cicon" viewBox="0 0 100 100"><circle cx="26" cy="38" r="14" fill="${C.sea}"/><circle cx="62" cy="38" r="14" fill="${C.sea}"/><rect x="34" y="58" width="28" height="28" rx="8" fill="${C.coral}" transform="rotate(8 48 72)"/></svg>`,
   magnitude:`<svg class="cicon" viewBox="0 0 100 100"><circle cx="38" cy="48" r="28" fill="${C.grape}"/><circle cx="80" cy="66" r="11" fill="${C.grape}" opacity=".75"/></svg>`,
   quantity: `<svg class="cicon" viewBox="0 0 100 100"><circle cx="24" cy="56" r="10" fill="${C.grass}"/><circle cx="62" cy="34" r="10" fill="${C.grass}"/><circle cx="82" cy="52" r="10" fill="${C.grass}"/><circle cx="64" cy="70" r="10" fill="${C.grass}"/><circle cx="82" cy="30" r="10" fill="${C.grass}" opacity=".8"/></svg>`,
@@ -1206,7 +1219,19 @@ function zoneEl(id, x, count, itemSvg){
 
 const NODES = [
 {
-  key:'identity', num:1, title:'Same & Different', parentName:'Identity',
+  key:'intro', num:1, title:'First Taps', parentName:'Intro',
+  tag:'Touch the screen — things happen!', prereqs:[],
+  levels:[
+    { id:'0.1', name:'Pop the bubble', focus:'Touch → effect: tap a bubble, it pops',
+      make(rng){ return introTapLevel(rng, { kind:'bubble' }); }},
+    { id:'0.2', name:'Press the button', focus:'Touch → effect: tap a button, fireworks',
+      make(rng){ return introTapLevel(rng, { kind:'button' }); }},
+    { id:'0.3', name:'Tap the spider', focus:'Touch → effect: tap the spider, it scurries',
+      make(rng){ return introTapLevel(rng, { kind:'spider' }); }},
+  ],
+},
+{
+  key:'identity', num:2, title:'Same & Different', parentName:'Identity',
   tag:'Matching, then spotting the outlier', prereqs:[],
   levels:[
     { id:'1.1', name:'Exact visual match', focus:'Shape & color', fallback:'pulseTarget',
@@ -1271,7 +1296,7 @@ const NODES = [
   ],
 },
 {
-  key:'magnitude', num:2, title:'Big & Small', parentName:'Magnitude',
+  key:'magnitude', num:3, title:'Big & Small', parentName:'Magnitude',
   tag:'Relative size, apart from shape', prereqs:['identity'],
   levels:[
     { id:'2.1', name:'Extreme contrast', focus:'Huge vs tiny', fallback:'growTarget',
@@ -1303,7 +1328,7 @@ const NODES = [
   ],
 },
 {
-  key:'quantity', num:3, title:'More & Less', parentName:'Quantity',
+  key:'quantity', num:4, title:'More & Less', parentName:'Quantity',
   tag:'Seeing amounts without counting', prereqs:['identity'],
   levels:[
     { id:'3.1', name:'Extreme delta', focus:'1 vs 5', fallback:'grayWrong',
@@ -1315,7 +1340,7 @@ const NODES = [
   ],
 },
 {
-  key:'spatial', num:4, title:'In & Out', parentName:'Spatial',
+  key:'spatial', num:5, title:'In & Out', parentName:'Spatial',
   tag:'Containment — drag things where they belong', prereqs:['magnitude'],
   levels:[
     { id:'4.1', name:'Gross proximity', focus:'Ball into a big box', fallback:'demoDrag',
@@ -1437,7 +1462,7 @@ const NODES = [
   ],
 },
 {
-  key:'composition', num:5, title:'Build It', parentName:'Composition',
+  key:'composition', num:6, title:'Build It', parentName:'Composition',
   tag:'Pieces make a whole', prereqs:['spatial'],
   levels:[
     { id:'5.1', name:'Symmetrical halves', focus:'Two halves meet', fallback:'magnetSnap',
@@ -1547,7 +1572,7 @@ const NODES = [
   ],
 },
 {
-  key:'peekaboo', num:6, title:'Peekaboo', parentName:'Peekaboo',
+  key:'peekaboo', num:7, title:'Peekaboo', parentName:'Peekaboo',
   tag:'Where did it go? Find the hidden one', prereqs:['identity'],
   levels:[
     { id:'6.1', name:'Two hiding spots', focus:'Watch it hide, then find it', fallback:'pulseTarget',
@@ -1561,15 +1586,15 @@ const NODES = [
   ],
 },
 {
-  key:'causality', num:7, title:'Make It Happen', parentName:'Causality',
+  key:'causality', num:8, title:'Make It Happen', parentName:'Causality',
   tag:'Your action makes something happen', prereqs:['spatial'],
   levels:[
     { id:'7.1', name:'Up the spout', focus:'Contingency: my action makes it happen (spider → spout)', fallback:'demoDrag',
       make(rng){ return spoutLevel(rng, { bug:'spider' }); }},
-    { id:'7.2', name:'Press the button', focus:'A different cause → effect: press → fireworks', fallback:'pulseTarget',
-      make(rng){ return buttonLevel(rng, {}); }},
-    { id:'7.3', name:'Which one?', focus:'Discriminate the effective cause (two buttons, one works)', isGen:true, fallback:'pulseTarget',
-      make(rng){ return buttonLevel(rng, { which:true }); }},
+    { id:'7.2', name:'Which one?', focus:'Discriminate the effective cause (two buttons, one works)', fallback:'pulseTarget',
+      make(rng){ return buttonLevel(rng, { n:2 }); }},
+    { id:'7.3', name:'Which one now?', focus:'Discriminate among three (generalize the cause)', isGen:true, fallback:'pulseTarget',
+      make(rng){ return buttonLevel(rng, { n:3, isGen:true }); }},
   ],
 },
 ];
@@ -1659,6 +1684,24 @@ function hideSeekLevel(rng, {n, objs, isGen, shuffle: mix}){
   };
 }
 
+/* Intro: the very first lessons — touch the screen and something happens. Each is
+   an errorless single-tap on one friendly thing that reacts (pop / fireworks /
+   scurry), connecting "my finger did that". */
+function introTapLevel(rng, {kind}){
+  const cfg = {
+    bubble: { say:'Pop the bubble!',   art: () => BUBBLE_ART(),        s: 32 },
+    button: { say:'Press the button!', art: () => PUSH_BTN('#E5484D'), s: 36 },
+    spider: { say:'Tap the spider!',   art: () => SPIDER(),            s: 26 },
+  }[kind];
+  const spots = [[50, 50], [38, 44], [62, 56]];
+  const mkTest = i => {
+    const [x, y] = spots[i % spots.length];
+    return Object.assign(tapTrial({ state:'TEST', prompt: cfg.say, say: cfg.say,
+      elements:[ elShape('thing', cfg.art(), x, y, cfg.s, {tappable:true, target:true}) ] }),
+      { tapFx: kind });
+  };
+  return { tests:[mkTest(0), mkTest(1), mkTest(2)] };
+}
 /* Cause & effect: place the bug on the spout → it climbs, rain comes, washes
    it out. The child's action reliably produces the effect. */
 function spoutLevel(rng, {isGen}={}){
@@ -1695,40 +1738,26 @@ function spoutLevel(rng, {isGen}={}){
     tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
-/* Causality via a pushable button — a different cause→effect pair from the spout.
-   single: press the button → fireworks (means-end). which: two buttons, only one
-   works → discriminate the effective cause. */
-function buttonLevel(rng, {which}){
+/* Causality — discriminate the effective cause: N buttons, only one makes the
+   fireworks go. n=2 then n=3 gives a difficulty ramp. (The plain single-button
+   "press → effect" lives in the Intro section now.) */
+function buttonLevel(rng, {n = 2, isGen}={}){
   const CAPS = ['#E5484D', '#4C86D8', '#39B26B', '#E0A020'];
-  if (which){
-    const mkTest = i => {
-      const targetRight = i % 2 === 0;
-      const cA = CAPS[i % CAPS.length], cB = CAPS[(i + 2) % CAPS.length];
-      return Object.assign(tapTrial({ state:'GENERALIZE', prompt:'Which one makes it go?',
-        say:'Which button makes it go? Press it!',
-        elements:[
-          elShape('bL', PUSH_BTN(cA), 33, 58, 30, {tappable:true, target: !targetRight}),
-          elShape('bR', PUSH_BTN(cB), 67, 58, 30, {tappable:true, target: targetRight}),
-        ] }), { pressFx:true });
-    };
-    return {
-      expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'Press it!', say:'Press the button and it goes pop!',
-        elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 34, {scenery:true}) ]}), { demo:'buttonPress' }),
-      contrast: watchTrial({ state:'CONTRAST', prompt:'Two buttons', say:'Two buttons! Only one makes it go.',
-        elements:[ elShape('bL', PUSH_BTN('#E5484D'), 33, 58, 30, {scenery:true}),
-                   elShape('bR', PUSH_BTN('#4C86D8'), 67, 58, 30, {scenery:true}) ]}),
-      tests:[mkTest(0), mkTest(1), mkTest(2)],
-    };
-  }
-  const mkTest = i => Object.assign(tapTrial({ state:'TEST', prompt:'Press the button!',
-    say:'Press the big button!',
-    elements:[ elShape('btn', PUSH_BTN(CAPS[i % CAPS.length]), 50, 56, 36, {tappable:true, target:true}) ] }),
-    { pressFx:true });
+  const xs = n === 2 ? [34, 66] : [24, 50, 76];
+  const sz = n === 2 ? 30 : 26;
+  const btns = (extra) => xs.map((x, k) => extra(x, k));
+  const mkTest = i => {
+    const ti = i % n;   // which button works this trial
+    return Object.assign(tapTrial({ state: isGen ? 'GENERALIZE' : 'TEST',
+      prompt:'Which one makes it go?', say:'Which button makes it go? Press it!',
+      elements: btns((x, k) => elShape('b'+k, PUSH_BTN(CAPS[(i+k) % CAPS.length]), x, 58, sz, {tappable:true, target: k===ti})) }),
+      { tapFx:'button' });
+  };
   return {
-    expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'A button', say:'Look, a big button! Press it!',
-      elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 36, {scenery:true}) ]}), { demo:'buttonPress' }),
-    contrast: Object.assign(watchTrial({ state:'CONTRAST', prompt:'Pop!', say:'Press it and — pop! Fireworks!',
-      elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 36, {scenery:true}) ]}), { demo:'buttonPress' }),
+    expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'Press it!', say:'Press the button and it goes pop!',
+      elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 34, {scenery:true}) ]}), { demo:'buttonPress' }),
+    contrast: watchTrial({ state:'CONTRAST', prompt: n + ' buttons', say:'Only one makes it go. Which one?',
+      elements: btns((x, k) => elShape('b'+k, PUSH_BTN(CAPS[k % CAPS.length]), x, 58, sz, {scenery:true})) }),
     tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
@@ -2392,7 +2421,8 @@ const StackerGame = {
   walls(){
     const M = window.Matter, w = (x,y,ww,hh) => M.Bodies.rectangle(x,y,ww,hh,{ isStatic:true, friction:.9 });
     return [ w(this.W/2, this.floorY + 400, this.W + 600, 800),
-             w(-45, this.H/2, 90, this.H*3), w(this.W+45, this.H/2, 90, this.H*3) ];
+             w(-45, this.H/2, 90, this.H*3), w(this.W+45, this.H/2, 90, this.H*3),
+             w(this.W/2, -40, this.W + 600, 80) ];   // ceiling — a flung block can't leave the window
   },
   start(){
     Audio2.unlock(); showView('stacker'); this.ensureDefs();
@@ -2491,7 +2521,7 @@ const StackerGame = {
     el.style.transformOrigin = `${((shape.cx ?? .5)*100)}% ${((shape.cy ?? .5)*100)}%`;
     el.innerHTML = this.blockSVG(shape, tone);
     this.area().appendChild(el);
-    const x = this.W*0.5 + (Math.random()*2-1)*U*1.1, y = -h*0.6;
+    const x = this.W*0.5 + (Math.random()*2-1)*U*1.1, y = h*0.62;   // just inside — the ceiling is above
     const b = { el, shape, w, h };
     if (this.useMatter){
       b.body = this.makeBody(shape, x, y, w, h);
@@ -2605,12 +2635,21 @@ const StackerGame = {
       const dt = Math.min(t - last, 32); last = t;
       if (this.useMatter){
         const M = window.Matter;
-        // pinch-grip friction: bleed the held block's spin each frame so an
-        // off-centre grab droops smoothly instead of pendulum-whipping
-        if (this.drag) M.Body.setAngularVelocity(this.drag.b.body, this.drag.b.body.angularVelocity * 0.85);
+        if (this.drag){
+          this.moveDragTarget();
+          // pinch-grip friction: bleed the held block's spin each frame so an
+          // off-centre grab droops smoothly instead of pendulum-whipping
+          M.Body.setAngularVelocity(this.drag.b.body, this.drag.b.body.angularVelocity * 0.85);
+        }
         // substep long frames — at gravity 2.2 a single 32ms step overlaps more
         const n = dt > 20 ? 2 : 1;
         for (let i = 0; i < n; i++) M.Engine.update(this.eng, dt / n);
+        // anti-tunnel clamps: nothing may outrun the wall thickness in a step
+        for (const b of this.blocks){
+          const bd = b.body;
+          if (bd.speed > 45) M.Body.setVelocity(bd, { x: bd.velocity.x*45/bd.speed, y: bd.velocity.y*45/bd.speed });
+          if (Math.abs(bd.angularVelocity) > .5) M.Body.setAngularVelocity(bd, Math.sign(bd.angularVelocity)*.5);
+        }
         this.sync();
         this.raf = requestAnimationFrame(frame);
       } else {
@@ -2631,6 +2670,36 @@ const StackerGame = {
     };
     this.raf = requestAnimationFrame(frame);
   },
+  // quantize a body-local click into a predictable grab spot: a centroid
+  // dead-zone (carries level, no touchy near-centre torque), then a mid-lever
+  // ring, then an edge anchor. A pinched ball always carries from its middle.
+  grabAnchor(b, loc){
+    if (b.shape.key === 'ball') return { x: 0, y: 0 };
+    const s = b.shape.key === 'tri' ? .6 : 1;        // keep tri anchors inside the wedge
+    const q = f => Math.abs(f) < .3 ? 0 : Math.sign(f) * (Math.abs(f) < .65 ? .5 : .85);
+    return { x: q(loc.x/(b.w/2)) * b.w/2 * s, y: q(loc.y/(b.h/2)) * b.h/2 * s };
+  },
+  // advance the drag target toward the pointer, constrained so the constraint
+  // never picks a fight it must lose: stay inside the static bounds (a target
+  // demanding floor penetration thrashes — solver pushes out, spring pulls
+  // in), rate-limit the advance (a rigid constraint chasing a teleporting
+  // target moves the block through a wall inside ONE engine step, past any
+  // velocity clamp), and let the pinch SLIP when the target would lead the
+  // anchor by more than a block (fingers lose grip on a stuck block)
+  moveDragTarget(){
+    const d = this.drag, con = d.con, body = d.b.body, bb = body.bounds;
+    const ax = body.position.x + con.pointB.x, ay = body.position.y + con.pointB.y;
+    let tx = d.tx - d.ox, ty = d.ty - d.oy;
+    tx = Math.max(ax - bb.min.x, Math.min(this.W - (bb.max.x - ax), tx));
+    ty = Math.max(ay - bb.min.y, Math.min(this.floorY - (bb.max.y - ay), ty));
+    let mx = tx - con.pointA.x, my = ty - con.pointA.y;
+    const step = Math.hypot(mx, my);
+    if (step > 40){ mx *= 40/step; my *= 40/step; }
+    let nx = con.pointA.x + mx, ny = con.pointA.y + my;
+    const lx = nx - ax, ly = ny - ay, lead = Math.hypot(lx, ly);
+    if (lead > this.U){ nx = ax + lx*this.U/lead; ny = ay + ly*this.U/lead; }
+    con.pointA.x = nx; con.pointA.y = ny;
+  },
   hit(px, py){
     for (let i = this.blocks.length - 1; i >= 0; i--){
       const b = this.blocks[i];
@@ -2649,18 +2718,31 @@ const StackerGame = {
       // kill the block's momentum first, so grabbing one that's mid-fall/tumble
       // doesn't fling it; then a spring from finger to grab-point keeps the body
       // dynamic (it collides, and friction carries whatever balances on it).
-      // The grab is a two-finger PINCH: angularStiffness .7 suppresses 70% of the
-      // constraint's torque (a length-0 constraint solves rigid — full torque
-      // made off-centroid grabs snap), so the block droops around the pinch
-      // point under gravity; the loop bleeds spin like grip friction would.
+      // The grab is a two-finger PINCH at a PREDICTABLE spot: the click is
+      // quantized to a grab region (centroid dead-zone / mid / edge — see
+      // grabAnchor), so a near-centroid pick carries level and an edge pick
+      // pivots, with nothing touchy in between. angularStiffness .7 suppresses
+      // 70% of the constraint's torque (a length-0 constraint solves rigid —
+      // full torque made off-centroid grabs snap); the loop bleeds held spin
+      // like grip friction. pointB must be a WORLD-frame offset — Matter
+      // records angleB at creation and rotates pointB by the delta, so a
+      // body-local offset anchors any tilted block wrong (that was the "grab a
+      // settled block's side and it teleports sideways" bug).
       M.Body.setVelocity(body, { x: 0, y: 0 }); M.Body.setAngularVelocity(body, 0);
-      const rel = { x: px - body.position.x, y: py - body.position.y };
-      const a = -body.angle, c = Math.cos(a), s = Math.sin(a);
-      const con = M.Constraint.create({ pointA:{ x:px, y:py }, bodyB:body,
-        pointB:{ x: rel.x*c - rel.y*s, y: rel.x*s + rel.y*c },
+      const ca = Math.cos(-body.angle), sa = Math.sin(-body.angle);
+      const dx = px - body.position.x, dy = py - body.position.y;
+      const an = this.grabAnchor(b, { x: dx*ca - dy*sa, y: dx*sa + dy*ca });
+      const cb = Math.cos(body.angle), sb = Math.sin(body.angle);
+      const off = { x: an.x*cb - an.y*sb, y: an.x*sb + an.y*cb };
+      const ax = body.position.x + off.x, ay = body.position.y + off.y;
+      const con = M.Constraint.create({ pointA:{ x:ax, y:ay }, bodyB:body,
+        pointB:{ x: off.x, y: off.y },
         stiffness:.4, damping:.15, angularStiffness:.7, length:0 });
       M.World.add(this.eng.world, con);
-      this.drag = { b, con }; b.el.style.zIndex = 9;
+      // finger→anchor offset stays constant: the target follows pointer DELTAS
+      // (rate/lead-limited in moveDragTarget), so pickup itself never jumps
+      this.drag = { b, con, ox: px - ax, oy: py - ay, tx: px, ty: py };
+      b.el.style.zIndex = 9;
     } else {
       const b = this.hit(px, py); if (!b) return;
       this.drag = { b, ox: px - b.x, oy: py - b.y }; b.held = true; b.done = false; b.el.style.zIndex = 9;
@@ -2670,8 +2752,13 @@ const StackerGame = {
   onMove(e){
     if (!this.drag) return;
     const r = this.area().getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    if (this.useMatter){ this.drag.con.pointA.x = px; this.drag.con.pointA.y = py; }
-    else { const b = this.drag.b; b.x = px - this.drag.ox; b.y = py - this.drag.oy; this.sync(); }
+    if (this.useMatter){ this.drag.tx = px; this.drag.ty = py; }   // loop() advances the target
+    else {
+      const b = this.drag.b;
+      b.x = Math.max(b.w/2, Math.min(this.W - b.w/2, px - this.drag.ox));
+      b.y = Math.max(b.h/2, Math.min(this.floorY - b.h/2, py - this.drag.oy));
+      this.sync();
+    }
   },
   onUp(){
     if (!this.drag) return;
@@ -2704,7 +2791,7 @@ const Engine = {
     history.replaceState(null, '', '?' + q.toString());
     const rng = mulberry32(seed);
     const gen = level.make(rng);
-    this.trials = [gen.expose, gen.contrast, ...gen.tests];
+    this.trials = [gen.expose, gen.contrast, ...gen.tests].filter(Boolean);   // a level may omit expose/contrast (e.g. Intro taps)
     this.results = [];
     Telemetry.begin(node, level, seed);
     this.frustration = makeFrustrationDetector(() => this.onFrustration());
@@ -2943,12 +3030,28 @@ const Engine = {
     [0.28, 0.5, 0.72, 0.4, 0.6].forEach((fx, i) =>
       setTimeout(() => FX.burst(sr.left + sr.width * fx, sr.top + sr.height * (0.18 + Math.random() * 0.22)), i * 170));
   },
-  pressButton(el, x, y){
+  // a tap on the target plays a little effect (touch → something happens), then
+  // completes. Used by the Intro taps and the causality buttons.
+  tapReward(el, kind, x, y){
     this.locked = true;
-    if (el){ el.classList.add('btn-down'); setTimeout(() => el && el.classList.remove('btn-down'), 260); }
-    this.fireBurst();
-    Audio2.speak('Hooray!');
-    setTimeout(() => { this.locked = false; this.completeTrial(true, { at:[x, y] }); }, 1500);
+    let delay = 1400;
+    if (kind === 'button'){
+      if (el){ el.classList.add('btn-down'); setTimeout(() => el && el.classList.remove('btn-down'), 260); }
+      this.fireBurst(); Audio2.speak('Hooray!');
+      delay = 1500;
+    } else if (kind === 'bubble'){
+      if (el){ el.classList.add('bub-pop'); }
+      Audio2.pop(); FX.burst(x, y, ['#8fd3ff', '#bfe9ff', '#ffffff', '#5bb8ec']);
+      Audio2.speak('Pop!');
+      delay = 900;
+    } else if (kind === 'spider'){
+      if (el){ el.classList.add('scurry'); setTimeout(() => el && el.classList.remove('scurry'), 900); }
+      Audio2.snapSnd(); Audio2.speak('Wheee!');
+      delay = 1100;
+    } else {
+      FX.burst(x, y);
+    }
+    setTimeout(() => { this.locked = false; this.completeTrial(true, { at:[x, y] }); }, delay);
   },
   // EXPOSE/CONTRAST demo: auto-press the button and set off the fireworks
   buttonDemo(cb){
@@ -3139,7 +3242,7 @@ const Engine = {
     if (isTarget){
       this.frustration(now, false);
       if (this.cur.kind === 'hideseek') this.revealUnder(hit);
-      else if (this.cur.pressFx){ this.pressButton(hit, e.clientX, e.clientY); return; }
+      else if (this.cur.tapFx){ this.tapReward(hit, this.cur.tapFx, e.clientX, e.clientY); return; }
       this.completeTrial(true, {at:[e.clientX, e.clientY]});
     } else {
       this.frustration(now, true);
@@ -3798,7 +3901,7 @@ const Simulator = {
     const level = node.levels[clamp(np.levelIdx, 0, node.levels.length-1)];
     const seed = Math.floor(rng()*2**31);
     const gen = level.make(mulberry32(seed));
-    const trials = [gen.expose, gen.contrast, ...gen.tests];
+    const trials = [gen.expose, gen.contrast, ...gen.tests].filter(Boolean);
 
     const session = {
       id: uuid(), userId:'child-sim', simulated:true, profile: profileKey,

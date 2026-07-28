@@ -58,12 +58,12 @@ const dragEnds = page => page.evaluate(() =>
     .filter(e => e.type === 'DRAG_END')
     .map(e => ({ ok: e.isCorrectIntent, miss: e.missDistancePx })));
 
-test('loads clean with five concept cards', async ({ page }) => {
+test('loads clean with the concept cards', async ({ page }) => {
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await boot(page, { unlockAll: false });
-  await expect(page.locator('.ccard')).toHaveCount(7);
+  await expect(page.locator('.ccard')).toHaveCount(8);   // Intro + 7 concept nodes
   expect(errors).toEqual([]);
 });
 
@@ -250,9 +250,9 @@ test('long-press opens the level picker; a card starts that level', async ({ pag
   await page.waitForTimeout(750);
   await page.mouse.up();
   await expect(page.locator('#level-picker')).toBeVisible();
-  await expect(page.locator('.lp-card')).toHaveCount(5);
+  await expect(page.locator('.lp-card')).toHaveCount(3);   // Intro (first card) has 3 levels
   await page.locator('.lp-card').nth(2).click();
-  expect(await page.evaluate(() => CF.Engine.level.id)).toBe('1.3');
+  expect(await page.evaluate(() => CF.Engine.level.id)).toBe('0.3');
 });
 
 test('simulator generates sessions and the dashboard renders', async ({ page }) => {
@@ -294,8 +294,8 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   await boot(page);   // unlockAll → everything reachable
   await page.locator('#btn-map').click();
   await expect(page.locator('#view-map')).toBeVisible();
-  await expect(page.locator('.map-section')).toHaveCount(8);        // 7 nodes + mini games
-  await expect(page.locator('#map-body .lp-card')).toHaveCount(29); // 26 levels + 3 mini games
+  await expect(page.locator('.map-section')).toHaveCount(9);        // 8 nodes + mini games
+  await expect(page.locator('#map-body .lp-card')).toHaveCount(32); // 29 levels + 3 mini games
   await expect(page.locator('#map-body .lp-preview').first()).toBeVisible();  // same preview cards as the picker
   await page.locator('#map-body .lp-card[data-node="peekaboo"][data-i="0"]').click();
   await expect(page.locator('#view-play')).toBeVisible();
@@ -351,6 +351,19 @@ test('picture puzzle: rebuilding a completed picture pulses its trophy', async (
   await expect(page.locator('#puz-win')).toBeHidden();
 });
 
+test('intro: tapping the thing plays its effect and advances', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'intro', 0);              // 0.1 pop the bubble
+  await waitForInteractive(page, 'tap');
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  const thing = await page.locator('[data-el="thing"]').boundingBox();
+  await page.mouse.click(thing.x + thing.width/2, thing.y + thing.height/2);
+  expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 8000 });
+  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
+});
+
 test('causality 7.1: placing the bug on the spout triggers the wash-out effect', async ({ page }) => {
   await boot(page);
   await startLevel(page, 'causality', 0);
@@ -370,38 +383,28 @@ test('causality 7.1: placing the bug on the spout triggers the wash-out effect',
   expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
 });
 
-test('causality 7.2: pressing the button fires the effect and advances', async ({ page }) => {
+async function whichButtonTest(page, levelIdx, nButtons){
   await boot(page);
-  await startLevel(page, 'causality', 1);          // 7.2 — press the button
+  await startLevel(page, 'causality', levelIdx);
   await waitForInteractive(page, 'tap');
+  await expect(page.locator('#stage [data-el^="b"].tappable')).toHaveCount(nButtons);
   const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
-  const btn = await page.locator('[data-el="btn"]').boundingBox();
-  await page.mouse.click(btn.x + btn.width/2, btn.y + btn.height/2);
-  expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
-  // the press locks input during the fireworks, then completes and advances
-  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
-    idxBefore, { timeout: 8000 });
-  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
-});
-
-test('causality 7.3: two buttons — only the right one makes it go', async ({ page }) => {
-  await boot(page);
-  await startLevel(page, 'causality', 2);          // 7.3 — which one?
-  await waitForInteractive(page, 'tap');
-  await expect(page.locator('[data-el="bL"], [data-el="bR"]')).toHaveCount(2);
-  // tapping the wrong button does nothing (no advance); the right one advances
-  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
-  const wrongId = await page.evaluate(() =>
-    CF.Engine.cur.elements.find(e => e.tappable && !e.target).id);
-  const rightId = await page.evaluate(() =>
-    CF.Engine.cur.elements.find(e => e.target).id);
+  const wrongId = await page.evaluate(() => CF.Engine.cur.elements.find(e => e.tappable && !e.target).id);
+  const rightId = await page.evaluate(() => CF.Engine.cur.elements.find(e => e.target).id);
   const wrong = await page.locator(`[data-el="${wrongId}"]`).boundingBox();
   await page.mouse.click(wrong.x + wrong.width/2, wrong.y + wrong.height/2);
   await page.waitForTimeout(400);
   expect(await page.evaluate(() => CF.Engine.trialIdx)).toBe(idxBefore);   // wrong ⇒ no advance
   const right = await page.locator(`[data-el="${rightId}"]`).boundingBox();
   await page.mouse.click(right.x + right.width/2, right.y + right.height/2);
-  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
-    idxBefore, { timeout: 8000 });
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i, idxBefore, { timeout: 8000 });
   expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
+}
+
+test('causality 7.2: two buttons — only the effective one makes it go', async ({ page }) => {
+  await whichButtonTest(page, 1, 2);
+});
+
+test('causality 7.3: three buttons — discriminate the cause', async ({ page }) => {
+  await whichButtonTest(page, 2, 3);
 });
