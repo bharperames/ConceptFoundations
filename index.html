@@ -908,6 +908,7 @@ const Audio2 = (() => {
     'peekaboo': 'peekaboo.mp3',
     'lets play hide and seek': 'lets_play_hide_and_seek.mp3',
     'uh oh': 'uh_oh.mp3',
+    'pop': 'pop.mp3',
     'bubble bubble bubble bubble bubble pop': 'bubble_pop.mp3',
     // itsy-bitsy-spider song (spout cause→effect) — one continuous take, 3 lines
     'the itsy bitsy spider went up the water spout': 'spider_up.mp3',
@@ -3041,8 +3042,8 @@ const Engine = {
       delay = 1500;
     } else if (kind === 'bubble'){
       if (el){ el.classList.add('bub-pop'); }
-      Audio2.pop(); FX.burst(x, y, ['#8fd3ff', '#bfe9ff', '#ffffff', '#5bb8ec']);
-      Audio2.speak('Pop!');
+      FX.burst(x, y, ['#8fd3ff', '#bfe9ff', '#ffffff', '#5bb8ec']);
+      Audio2.speak('Pop!');   // curated "Pop" clip (pop.mp3) via CLIP_MAP
       delay = 900;
     } else if (kind === 'spider'){
       if (el){ el.classList.add('scurry'); setTimeout(() => el && el.classList.remove('scurry'), 900); }

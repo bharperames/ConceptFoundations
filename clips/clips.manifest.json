@@ -211,6 +211,25 @@
       "src_sha256": "40c771373224d69a37e29ed09aac63dfe53393c58024d101c2a49f4374fe0dd6",
       "dest_sha256": "17e08b8a74a2335154577d22d5a7e2d97201d2c7a30904b6a0a49492befc4343",
       "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "pop.mp3",
+      "phrase": "pop",
+      "asset_id": "asset_e6dca9888286",
+      "asset": {
+        "name": "Pop",
+        "text": "Pop",
+        "source_file": "raw_audio/bubblegum.mp3",
+        "start": 34.952,
+        "end": 35.422,
+        "duration": 0.47,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-28T19:34:07Z"
+      },
+      "src_sha256": "043d557abde88102fbd0804b3857a509f1b0869e441025ca1dd4c30321c8b10e",
+      "dest_sha256": "1376d626ac1fdb191ebd3a2a8bf260cb9805424280eb2973b91d91d41c221e74",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }
