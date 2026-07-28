@@ -165,18 +165,38 @@ function dragTick(c, eng, body, dt){
 }
 // the app's drag-target mover: window-clamped, rate-limited (a flick can't
 // teleport the target — a rigid constraint would tunnel the block through a
-// wall inside ONE engine step, past any velocity clamp), and lead-limited
-// (target never leads the anchor by more than ~a block: the pinch "slips")
-function moveDrag(c, con, body, tx, ty){
+// wall inside ONE engine step, past any velocity clamp), lead-limited (target
+// never leads the anchor by more than ~a block: the pinch "slips"), and
+// CONTACT-limited: the lead component pressing into anything the block touches
+// is capped at pressAllow px (fingers can shove a loose block, but they slip
+// rather than win a penetration fight against a braced one). While the lead is
+// inside a small hold-still dead-zone the constraint runs angularStiffness 1
+// (zero torque): a torqueful hold ratchets — gravity dips the block each
+// frame, the anchor-side correction arrives 30% as torque, and the floor can
+// push the far side back up but never pull the near side down, so a block
+// held by its side "magically" rotates up with the mouse perfectly still.
+function moveDrag(c, eng, con, body, tx, ty){
   tx = Math.max(8, Math.min(W-8, tx)); ty = Math.max(8, Math.min(H-8, ty));
+  const ax = body.position.x + con.pointB.x, ay = body.position.y + con.pointB.y;
+  let lx = tx - ax, ly = ty - ay;
+  for (const p of eng.pairs.list){
+    if (!p.isActive) continue;
+    let nx0, ny0;   // unit vector pointing from the held block INTO the obstacle
+    if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
+    else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
+    else continue;
+    const d = lx*nx0 + ly*ny0;
+    if (d > c.pressAllow){ lx -= (d - c.pressAllow)*nx0; ly -= (d - c.pressAllow)*ny0; }
+  }
+  tx = ax + lx; ty = ay + ly;
   let dx = tx - con.pointA.x, dy = ty - con.pointA.y;
   const d = Math.hypot(dx, dy);
   if (d > c.dragStep){ dx *= c.dragStep/d; dy *= c.dragStep/d; }
   let nx = con.pointA.x + dx, ny = con.pointA.y + dy;
-  const ax = body.position.x + con.pointB.x, ay = body.position.y + con.pointB.y;
-  const lx = nx - ax, ly = ny - ay, lead = Math.hypot(lx, ly);
-  if (lead > c.dragLead){ nx = ax + lx*c.dragLead/lead; ny = ay + ly*c.dragLead/lead; }
+  const glx = nx - ax, gly = ny - ay, lead = Math.hypot(glx, gly);
+  if (lead > c.dragLead){ nx = ax + glx*c.dragLead/lead; ny = ay + gly*c.dragLead/lead; }
   con.pointA.x = nx; con.pointA.y = ny;
+  con.angularStiffness = lead < c.holdDead ? 1 : c.angStiff;
 }
 
 // grab the BOTTOM of a 2-stack and drag it away — the top must fall, not hang
@@ -191,7 +211,7 @@ function runGrabMove(c, rng){
   const con = makeDrag(c, base, base.position.x, base.position.y, SHAPES[1], w, h);
   World.add(world, con);
   const tx = W/2 + 3*U;
-  for (let k=0;k<70;k++){ con.pointA.x = W/2 + (tx-W/2)*(k/70); dragTick(c, eng, base, dt); }
+  for (let k=0;k<70;k++){ moveDrag(c, eng, con, base, W/2 + (tx-W/2)*(k/70), con.pointA.y); dragTick(c, eng, base, dt); }
   World.remove(world, con);
   for (let k=0;k<90;k++) step(eng,dt,c);        // release, let top settle
   // the top block should have dropped to the floor (support removed), not floated
@@ -214,7 +234,7 @@ function runOffCenterGrab(c){
   World.add(world, con);
   let spike=0, maxAV=0;
   for (let k=0;k<100;k++){
-    if (k<30) con.pointA.y = gy - 2.4*U*((k+1)/30);             // lift ~2.4U up
+    if (k<30) moveDrag(c, eng, con, body, con.pointA.x, gy - 2.4*U*((k+1)/30));   // lift ~2.4U up
     dragTick(c, eng, body, dt);
     spike=Math.max(spike, body.speed); maxAV=Math.max(maxAV, Math.abs(body.angularVelocity));
   }
@@ -237,7 +257,7 @@ function runDragSlide(c){
   World.add(world, con);
   let jerk=0, prev=0, maxAV=0;
   for (let k=0;k<80;k++){
-    con.pointA.x += 5;                                          // steady 300 px/s drag
+    moveDrag(c, eng, con, body, con.pointA.x + 5, con.pointA.y);   // steady 300 px/s drag
     dragTick(c, eng, body, dt);
     jerk=Math.max(jerk, Math.abs(body.speed-prev)); prev=body.speed;
     maxAV=Math.max(maxAV, Math.abs(body.angularVelocity));
@@ -289,7 +309,7 @@ function runFling(c){
   for (let k=0;k<30;k++) step(eng,dt,c);
   const con = makeDrag(c, b.body, b.body.position.x, b.body.position.y, SHAPES[0], U, U);
   World.add(eng.world, con);
-  for (let k=0;k<6;k++){ moveDrag(c, con, b.body, con.pointA.x - 260, con.pointA.y - 200); dragTick(c,eng,b.body,dt); }
+  for (let k=0;k<6;k++){ moveDrag(c, eng, con, b.body, con.pointA.x - 260, con.pointA.y - 200); dragTick(c,eng,b.body,dt); }
   World.remove(eng.world, con);
   for (let k=0;k<420;k++) step(eng,dt,c);
   return escaped([b]);
@@ -312,6 +332,51 @@ function runGroundPress(c){
   return thrash;
 }
 
+// drive a held cube INTO a neighbouring cube for 90 frames (target kept inside
+// the neighbour). Want: the neighbour gets pushed (that's a feature), without
+// oscillation (osc = path minus net displacement — pure back-and-forth waste)
+// or a release-the-spring speed spike when something slips.
+function runBlockPress(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const A = makeBody(SHAPES[0], W/2 - U*1.2, floorY-U/2, U, U, c);
+  const B = makeBody(SHAPES[0], W/2, floorY-U/2, U, U, c);
+  World.add(eng.world,[A,B]);
+  for (let k=0;k<40;k++) step(eng,dt,c);
+  const bx0 = B.position.x;
+  const con = makeDrag(c, A, A.position.x, A.position.y, SHAPES[0], U, U);
+  World.add(eng.world, con);
+  let path=0, prevX=A.position.x, spike=0, overlap=0;
+  const x0=A.position.x;
+  for (let k=0;k<90;k++){
+    moveDrag(c, eng, con, A, B.position.x + U*0.2, floorY - U/2);   // chase a point inside B
+    dragTick(c,eng,A,dt);
+    path += Math.abs(A.position.x-prevX); prevX=A.position.x;
+    spike = Math.max(spike, A.speed);
+    const col = Collision.collides(A,B); if (col && col.collided) overlap=Math.max(overlap,col.depth);
+  }
+  return { osc: path - Math.abs(A.position.x-x0), spike, overlap, pushed: B.position.x - bx0 };
+}
+
+// grab a wide brick's LEFT edge and hold the mouse perfectly still for 4s —
+// guards the hold-still torque ratchet (block slowly rotates up on its own)
+function runHoldStill(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const w=2*U, h=1*U;
+  const b = makeBody(SHAPES[1], W/2, floorY-h/2, w, h, c);
+  World.add(eng.world, b);
+  for (let k=0;k<40;k++) step(eng,dt,c);
+  const con = makeDrag(c, b, b.position.x - w*0.4, b.position.y, SHAPES[1], w, h);
+  World.add(eng.world, con);
+  let maxAng=0;
+  const tx=con.pointA.x, ty=con.pointA.y;
+  for (let k=0;k<240;k++){
+    moveDrag(c, eng, con, b, tx, ty);
+    dragTick(c,eng,b,dt);
+    maxAng=Math.max(maxAng, Math.abs(b.angle));
+  }
+  return maxAng;
+}
+
 function evaluate(c, n){
   const rng = mulberry32(12345);
   let maxPen=0, deep=0, floats=0, esc=0, nan=0;
@@ -323,6 +388,8 @@ function evaluate(c, n){
     ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
     rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
     towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
+    press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),pushed:+p.pushed.toFixed(1)}))(runBlockPress(c)),
+    holdStillAng:+runHoldStill(c).toFixed(3),
     pressFree:+runGroundPress({...c, pressClamp:false}).toFixed(1), pressClamped:+runGroundPress({...c, pressClamp:true}).toFixed(1) };
 }
 
@@ -336,7 +403,8 @@ function evaluate(c, n){
 // keeps 30% of pivot torque — enough to droop, not enough to snap.
 const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, rest:0.0, ballRest:0.12, friction:0.6, fstat:0.85, density:0.0017, chamfer:0.06, dragStiff:0.4, dragDamp:0.15, angStiff:0.7, holdSpin:0.85,
   maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U,     // anti-tunnel clamps + grab snapping + drag-target limits
-  settleV:0.25, settleF:0.85 };                               // near-rest damping (kills stacked-corner rocking)
+  settleV:0.25, settleF:0.85,                                 // near-rest damping (kills stacked-corner rocking)
+  pressAllow:6, holdDead:3 };                                 // contact-press cap + hold-still dead-zone
 const N = +(process.argv[2]||300);
 
 const SWEEPS = {

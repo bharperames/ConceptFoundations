@@ -2700,13 +2700,34 @@ const StackerGame = {
     let tx = d.tx - d.ox, ty = d.ty - d.oy;
     tx = Math.max(ax - bb.min.x, Math.min(this.W - (bb.max.x - ax), tx));
     ty = Math.max(ay - bb.min.y, Math.min(this.floorY - (bb.max.y - ay), ty));
+    // contact slip: cap the lead component pressing INTO anything we touch at
+    // 6px — fingers can shove a loose block, but they slip rather than win a
+    // penetration fight against a braced one (that fight = the press jitter)
+    let lx = tx - ax, ly = ty - ay;
+    for (const p of this.eng.pairs.list){
+      if (!p.isActive) continue;
+      let nx0, ny0;   // unit vector from the held block INTO the obstacle
+      if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
+      else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
+      else continue;
+      const dd = lx*nx0 + ly*ny0;
+      if (dd > 6){ lx -= (dd - 6)*nx0; ly -= (dd - 6)*ny0; }
+    }
+    tx = ax + lx; ty = ay + ly;
     let mx = tx - con.pointA.x, my = ty - con.pointA.y;
     const step = Math.hypot(mx, my);
     if (step > 40){ mx *= 40/step; my *= 40/step; }
     let nx = con.pointA.x + mx, ny = con.pointA.y + my;
-    const lx = nx - ax, ly = ny - ay, lead = Math.hypot(lx, ly);
-    if (lead > this.U){ nx = ax + lx*this.U/lead; ny = ay + ly*this.U/lead; }
+    const glx = nx - ax, gly = ny - ay, lead = Math.hypot(glx, gly);
+    if (lead > this.U){ nx = ax + glx*this.U/lead; ny = ay + gly*this.U/lead; }
     con.pointA.x = nx; con.pointA.y = ny;
+    // hold-still dead-zone: run the pinch torque-free (angularStiffness 1)
+    // until the target actually leads the anchor. A torqueful hold RATCHETS:
+    // each frame gravity dips the block, the anchor-side correction arrives
+    // 30% as torque, and the floor pushes the far side back up but can never
+    // pull the near side down — a block held by its side slowly rotated up
+    // (~0.03 rad/s) with the mouse perfectly still.
+    con.angularStiffness = lead < 3 ? 1 : .7;
   },
   hit(px, py){
     for (let i = this.blocks.length - 1; i >= 0; i--){

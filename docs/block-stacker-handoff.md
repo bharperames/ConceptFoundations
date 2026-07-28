@@ -77,10 +77,22 @@ Momentum still zeroed on grab. Three more grab rules (all in `onDown` /
   `pointA` toward the pointer but (a) clamped so the block is never *demanded*
   to penetrate floor/walls (that demand thrashes: solver pushes out, spring
   pulls in — `runGroundPress` measured 153px/frame of thrash unclamped, 0.1
-  clamped), (b) rate-limited to 40px/frame (a rigid constraint chasing a
-  teleported target moves the block through a wall inside ONE engine step —
-  no velocity clamp can catch it), and (c) lead-limited to 1U — the pinch
-  "slips" like real fingers when the block is stuck.
+  clamped), (b) **contact-slipped**: the lead component pressing INTO anything
+  the block touches is capped at 6px (`pressAllow`) — enough force to shove a
+  loose block around, but the grip slips rather than winning a penetration
+  fight against a braced one (`runBlockPress`: press oscillation 1160→7px,
+  overlap 92→23px, and the neighbour still gets pushed), (c) rate-limited to
+  40px/frame (a rigid constraint chasing a teleported target moves the block
+  through a wall inside ONE engine step — no velocity clamp can catch it), and
+  (d) lead-limited to 1U — the pinch "slips" like real fingers when stuck.
+- **Hold-still runs torque-free.** While the lead is inside a 3px dead-zone the
+  constraint gets `angularStiffness:1` (zero torque), restored to `.7` when
+  actually dragging. A torqueful hold RATCHETS: each frame gravity dips the
+  block, the anchor-side correction arrives 30% as torque, and the floor pushes
+  the far side back up but can never pull the near side down — a block held by
+  its side rotated up ~0.03 rad/s with the mouse perfectly still (both sides,
+  opposite directions). `runHoldStill` guards it (browser A/B: 0.17 rad → 0.001
+  over 6s).
 
 **Containment.** The world has a ceiling (blocks spawn just inside, `y=h*0.62`),
 and the loop clamps every body post-step to ≤45px/frame linear, ≤0.5rad/frame
