@@ -2384,39 +2384,71 @@ const StackerGame = {
     </defs></svg>`;
     this.area().appendChild(el);
   },
-  grain(vw, vh){
-    const n = x => (+x).toFixed(1);
-    return `<g fill="none" stroke="#7c4f22" stroke-linecap="round" opacity=".24">
-      <path d="M${n(vw*.18)} ${n(vh*.4)} Q${n(vw*.5)} ${n(vh*.33)} ${n(vw*.83)} ${n(vh*.42)}" stroke-width="${n(vh*.03)}"/>
-      <path d="M${n(vw*.26)} ${n(vh*.64)} Q${n(vw*.52)} ${n(vh*.58)} ${n(vw*.72)} ${n(vh*.64)}" stroke-width="${n(vh*.024)}"/></g>`;
+  // darker/lighter shades of a block tone, for grain colours that keep the
+  // per-block palette alive (f scales toward black; mixWhite first lightens)
+  shadeTone(hex, f, mixWhite){
+    const c = parseInt(hex.slice(1), 16);
+    let r = (c>>16)&255, g = (c>>8)&255, b = c&255;
+    if (mixWhite){ r += (255-r)*mixWhite; g += (255-g)*mixWhite; b += (255-b)*mixWhite; }
+    r = Math.round(r*f); g = Math.round(g*f); b = Math.round(b*f);
+    return '#' + ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1);
   },
-  blockSVG(shape, tone, icon){
-    const s = 52, n = x => (+x).toFixed(1), vw = +n(shape.w*s), vh = +n(shape.h*s);
-    let body;
+  // photoreal wood grain: three turbulence layers (broad tone bands along the
+  // long axis, fine fibres, light sheen), softened along the grain and
+  // composited onto the shape's own alpha — so strokes and chamfers get
+  // textured too, with no clipPath needed. One filter per block, unique seed.
+  woodFilter(uid, vertical, seed, tone){
+    const bf = (a, x) => vertical ? `${x} ${a}` : `${a} ${x}`;
+    const blur = vertical ? '0.14 0.85' : '0.85 0.14';
+    const dark = this.shadeTone(tone, 0.62), fine = this.shadeTone(tone, 0.45), light = this.shadeTone(tone, 1, 0.72);
+    const layer = (i, freq, oct, gain, bias, color, op, sd) => `
+      <feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${oct}" seed="${sd}" result="t${i}"/>
+      <feColorMatrix in="t${i}" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  ${gain} ${gain} ${gain} 0 ${bias}" result="b${i}"/>
+      <feFlood flood-color="${color}" flood-opacity="${op}" result="c${i}"/>
+      <feComposite in="c${i}" in2="b${i}" operator="in" result="g${i}"/>`;
+    return `<filter id="${uid}" x="-5%" y="-5%" width="110%" height="110%">
+      ${layer(1, bf(0.0085, 0.11), 3, 2.2, -2.9, dark, .38, seed)}
+      ${layer(2, bf(0.05, 0.65),   2, 3.0, -4.5, fine, .20, seed+31)}
+      ${layer(3, bf(0.016, 0.22),  3, 2.4, -3.2, light, .25, seed+67)}
+      <feMerge result="grain"><feMergeNode in="g1"/><feMergeNode in="g3"/><feMergeNode in="g2"/></feMerge>
+      <feGaussianBlur in="grain" stdDeviation="${blur}" result="soft"/>
+      <feComposite in="soft" in2="SourceAlpha" operator="in" result="clip"/>
+      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="clip"/></feMerge>
+    </filter>`;
+  },
+  svgSeq: 0,
+  // Dropped blocks pass their real pixel size (pxW×pxH) so the grain renders
+  // 1:1 crisp — a 52-scale viewBox stretched by preserveAspectRatio="none"
+  // would blur it. Icons keep the small fixed-seed 52-scale version.
+  blockSVG(shape, tone, icon, pxW, pxH, seed){
+    const n = x => (+x).toFixed(1);
+    const vw = icon ? +n(shape.w*52) : Math.round(pxW), vh = icon ? +n(shape.h*52) : Math.round(pxH);
+    const k = vw / (shape.w*52);                 // scales the fixed insets/strokes
+    const uid = 'stkw' + (++this.svgSeq);
+    let body, shade;
     if (shape.key === 'tri'){
-      const p = `M6 ${n(vh-6)} L${n(vw/2)} 6 L${n(vw-6)} ${n(vh-6)} Z`;
-      body = `<path d="${p}" fill="${tone}" stroke="${tone}" stroke-width="7" stroke-linejoin="round"/>`
-        + `<path d="${p}" fill="url(#stkTop)"/><path d="${p}" fill="url(#stkBot)"/>`;
+      const p = `M${n(6*k)} ${n(vh-6*k)} L${n(vw/2)} ${n(6*k)} L${n(vw-6*k)} ${n(vh-6*k)} Z`;
+      body = `<path d="${p}" fill="${tone}" stroke="${tone}" stroke-width="${n(7*k)}" stroke-linejoin="round"/>`;
+      shade = `<path d="${p}" fill="url(#stkTop)"/><path d="${p}" fill="url(#stkBot)"/>`;
     } else if (shape.key === 'ball'){
-      const r = n(vw/2 - 2);
-      body = `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="${tone}"/>`
-        + `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="url(#stkBall)"/>`
-        + `<path d="M${n(vw*.5)} ${n(vh*.13)} Q${n(vw*.22)} ${n(vh*.5)} ${n(vw*.5)} ${n(vh*.87)}" fill="none" stroke="#7c4f22" stroke-width="${n(vw*.03)}" opacity=".2"/>`;
-    } else if (shape.key === 'cyl'){
-      // a flat-topped rounded post; cylindrical LOOK comes from horizontal shading
-      const rx = n(vw*0.12);
-      const R = a => `<rect x="1.5" y="1.5" width="${n(vw-3)}" height="${n(vh-3)}" rx="${rx}" fill="${a}"/>`;
-      body = `${R(tone)}${R('url(#stkCyl)')}${R('url(#stkTop)')}`;
+      const r = n(vw/2 - 2*k);
+      body = `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="${tone}"/>`;
+      shade = `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="url(#stkBall)"/>`;
     } else {
-      const rx = n(Math.min(vw,vh)*0.16);
-      const R = a => `<rect x="1.5" y="1.5" width="${n(vw-3)}" height="${n(vh-3)}" rx="${rx}" fill="${a}"/>`;
-      body = `${R(tone)}${R('url(#stkTop)')}${R('url(#stkBot)')}${this.grain(vw, vh)}`;
+      // cyl is a flat-topped rounded post; its cylindrical LOOK comes from the
+      // horizontal shading gradient over the vertical grain
+      const rx = n(shape.key === 'cyl' ? vw*0.12 : Math.min(vw,vh)*0.16);
+      const R = a => `<rect x="${n(1.5*k)}" y="${n(1.5*k)}" width="${n(vw-3*k)}" height="${n(vh-3*k)}" rx="${rx}" fill="${a}"/>`;
+      body = R(tone);
+      shade = (shape.key === 'cyl' ? R('url(#stkCyl)') : '') + R('url(#stkTop)') + (shape.key === 'cyl' ? '' : R('url(#stkBot)'));
     }
+    const inner = `<defs>${this.woodFilter(uid, vh > vw, seed || 7, tone)}</defs>`
+      + `<g filter="url(#${uid})">${body}</g>${shade}`;
     // blocks fill their w×h element (none, overflow shown for the strokes); picker
     // icons keep true aspect (meet) and are sized + clipped to the button
     return icon
-      ? `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" width="100%" height="100%" style="display:block">${body}</svg>`
-      : `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="none" style="overflow:visible">${body}</svg>`;
+      ? `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" width="100%" height="100%" style="display:block">${inner}</svg>`
+      : `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="none" style="overflow:visible">${inner}</svg>`;
   },
 
   walls(){
@@ -2496,7 +2528,7 @@ const StackerGame = {
     const ops = $('#stk-ops'), full = this.blocks.length >= this.MAX;
     // one wooden icon per shape — tap it to drop that block
     const picker = this.SHAPES.map((sh, i) =>
-      `<button class="fb-btn fb-shape" data-shape="${i}" aria-label="Drop a ${sh.key} block"${full ? ' disabled' : ''}>${this.blockSVG(sh, '#D8A05B', true)}</button>`).join('');
+      `<button class="fb-btn fb-shape" data-shape="${i}" aria-label="Drop a ${sh.key} block"${full ? ' disabled' : ''}>${this.blockSVG(sh, '#D8A05B', true, 0, 0, 11 + i*7)}</button>`).join('');
     ops.innerHTML = `<button class="fb-btn fb-reset" aria-label="Clear the blocks">↺</button>` + picker;
     ops.querySelector('.fb-reset').onclick = () => this.reset();
     if (!full) ops.querySelectorAll('.fb-shape').forEach(btn => { btn.onclick = () => this.drop(+btn.dataset.shape); });
@@ -2520,7 +2552,7 @@ const StackerGame = {
     const el = document.createElement('div');
     el.className = 'fb-block'; el.style.width = w + 'px'; el.style.height = h + 'px';
     el.style.transformOrigin = `${((shape.cx ?? .5)*100)}% ${((shape.cy ?? .5)*100)}%`;
-    el.innerHTML = this.blockSVG(shape, tone);
+    el.innerHTML = this.blockSVG(shape, tone, false, w, h, 1 + Math.floor(Math.random()*997));
     this.area().appendChild(el);
     const x = this.W*0.5 + (Math.random()*2-1)*U*1.1, y = h*0.62;   // just inside — the ceiling is above
     const b = { el, shape, w, h };

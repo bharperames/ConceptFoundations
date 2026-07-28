@@ -30,6 +30,15 @@ and can be grabbed and re-stacked on a grassy field. Realistic-cartoon look.
   `plank` (2.7×0.62 flat-wide), `tall` (0.72×1.95), `cyl` (flat-topped, cylindrical
   shading), `tri` (triangle/cone, body on its true **centroid** `cy:0.667`),
   `ball`. Rectangular shapes are ordered first (priority).
+- **Photoreal wood grain** (`woodFilter`): per-block SVG filter — three
+  `feTurbulence` layers (broad tone bands stretched along the long axis, fine
+  fibres, light sheen), colours derived from the block's tone (`shadeTone`),
+  softened along the grain, composited onto the shape's own **SourceAlpha**
+  (strokes/chamfers textured, no clipPath). Every dropped block gets a unique
+  seed; picker icons use fixed seeds. Dropped blocks render their SVG at REAL
+  pixel size (a 52-scale viewBox stretched by `preserveAspectRatio="none"`
+  would blur the texture). Perf @16 blocks: ~15.4ms/frame avg (filters raster
+  once per block; transforms don't re-render them).
 - **Drop controls:** a picker row (`#stk-ops`) with one wooden icon per shape —
   tap an icon to drop that block. Plus a reset `↺`. Capped at `MAX = 16` blocks.
   (Earlier there was a single random "＋"; it's now per-shape.)
