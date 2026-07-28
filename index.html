@@ -105,6 +105,28 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .home-header h1{font-size:clamp(26px,4.5vw,40px);font-weight:800;letter-spacing:-.5px;margin:0}
 .home-sub{color:var(--ink-soft);font-size:17px;margin:6px 0 0}
 .concept-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;max-width:900px;margin:28px auto 0}
+/* "All levels" mode — a single dense grid of every level, toggled on the home
+   screen (not a separate page). One flowing grid packs tightly: the only partial
+   row is the last one. A node-colored left bar keeps the grouping legible. */
+.all-levels{display:none;max-width:940px;margin:24px auto 0}
+#view-home.levels-mode #concept-grid,
+#view-home.levels-mode .home-hint,
+#view-home.levels-mode .mini-head,
+#view-home.levels-mode #mini-grid{display:none}
+#view-home.levels-mode .all-levels{display:block}
+.al-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:8px}
+.al-tile{
+  display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;
+  border:none;border-radius:12px;padding:9px 11px 9px 12px;cursor:pointer;color:var(--ink);
+  background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line);
+  border-left:5px solid var(--nc,#bcd);transition:transform .1s ease;min-height:52px;justify-content:center}
+.al-tile:active{transform:scale(.95)}
+.al-tile .alt-id{font-weight:800;font-size:14px;line-height:1}
+.al-tile .alt-name{font-size:11.5px;color:var(--ink-soft);font-weight:600;line-height:1.2}
+.al-tile.done{box-shadow:inset 0 0 0 1.5px var(--grass)}
+.al-tile.done .alt-id::after{content:' ★';color:var(--sun)}
+.al-tile.cur{box-shadow:inset 0 0 0 2px var(--sea)}
+.al-tile.locked{opacity:.4;cursor:default}
 .ccard{
   position:relative;width:196px;padding:20px 14px 16px;border:none;
   background:var(--card);border-radius:28px;text-align:center;
@@ -412,10 +434,9 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .fb-block svg{display:block;width:100%;height:100%}
 #view-stacker{overflow:hidden;touch-action:none;background:linear-gradient(180deg,#BFE3F5 0%,#DCF0FA 45%,#EAF7FC 100%)}
 .stacker-area{position:absolute;inset:0;overflow:hidden}
+/* the gradient is only a pre-JS fallback: start() fills the div with the
+   procedural lawn SVG (StackerGame.grassSVG — textured field + blade fringe) */
 .stk-ground{position:absolute;left:0;right:0;bottom:0;height:20%;background:linear-gradient(180deg,#72AB3E 0%,#5F9434 52%,#4E7C29 100%)}
-.stk-ground::before{content:"";position:absolute;left:0;right:0;top:-13px;height:15px;
-  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='15'%3E%3Cpath d='M0 15 L4 3 L8 15Z' fill='%2377B03C'/%3E%3Cpath d='M8 15 L13 1 L18 15Z' fill='%236AA034'/%3E%3Cpath d='M18 15 L22 4 L26 15Z' fill='%2377B03C'/%3E%3Cpath d='M25 15 L28 7 L30 15Z' fill='%236AA034'/%3E%3C/svg%3E") repeat-x bottom;
-  background-size:30px 15px}
 @media (prefers-color-scheme:dark){
   #view-stacker{background:linear-gradient(180deg,#16324A 0%,#1E4058 55%,#264C64 100%)}
   .stk-ground{background:linear-gradient(180deg,#4E7A32 0%,#3E6228 55%,#2F4C1F 100%)}
@@ -656,11 +677,12 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
     <button id="vol-icon" class="vol-icon" aria-label="Mute"></button>
     <input id="vol-slider" class="vol-slider" type="range" min="0" max="100" value="100" aria-label="Volume">
   </div>
-  <button id="btn-map" class="home-corner" aria-label="See all levels">
+  <button id="btn-map" class="home-corner" aria-label="Toggle all levels" aria-pressed="false">
     <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M3 4h8v7H3zM13 4h8v7h-8zM3 13h8v7H3zM13 13h8v7h-8z"/></svg>
-    <span>All levels</span>
+    <span class="bm-label">All levels</span>
   </button>
   <div id="concept-grid" class="concept-grid"></div>
+  <div id="all-levels" class="all-levels" aria-label="All levels"></div>
   <p class="home-hint">Grown-ups: press and hold a game to choose a level</p>
   <h2 class="mini-head">Mini games</h2>
   <div id="mini-grid" class="mini-grid">
@@ -767,16 +789,6 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
       <rect x="4.5" y="4.5" width="15" height="15" rx="2"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>
       <path d="M12 12 L18.5 8.5" stroke-linecap="round"/></svg>
   </button>
-</main>
-
-<!-- ══════════ LEVEL MAP (all sections & sub-levels) ══════════ -->
-<main id="view-map" class="view map hidden">
-  <header class="map-header">
-    <button id="btn-map-back" class="dash-back">&larr; Back to games</button>
-    <h1>All levels</h1>
-    <p class="map-hint">Every game and its levels — tap any level you've reached to jump straight in.</p>
-  </header>
-  <div id="map-body"></div>
 </main>
 
 <!-- ══════════ DASHBOARD ══════════ -->
@@ -2451,6 +2463,63 @@ const StackerGame = {
       <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="clip"/></feMerge>
     </filter>`;
   },
+  // cartoon-photoreal lawn: textured field (turbulence tone patches + blade
+  // streaks + light sheen over a green gradient) under a procedural fringe of
+  // irregular blades that pokes `over` px above the strip (behind the blocks).
+  // NOTE the fringe rows close in a shallow 5px footer — closing them to the
+  // bottom of the svg blankets the whole textured field in flat green.
+  grassSVG(W, H){
+    const rng = mulberry32(42), over = 20, n = x => (+x).toFixed(1);
+    const uid = 'stkg' + (++this.svgSeq), VH = H + over;
+    const fringe = (yBase, hMin, hMax, stepMin, stepMax, fill, op) => {
+      const foot = yBase + 5;
+      let d = `M0 ${n(foot)} L0 ${n(yBase)}`;
+      let x = 0;
+      while (x < W){
+        const step = stepMin + rng()*(stepMax-stepMin);
+        const h = hMin + rng()*(hMax-hMin);
+        const tip = x + step/2 + (rng()-0.5)*step*1.1;
+        d += ` L${n(x + step*0.18)} ${n(yBase)} L${n(tip)} ${n(yBase - h)} L${n(x + step*0.82)} ${n(yBase)}`;
+        x += step;
+      }
+      d += ` L${n(W)} ${n(yBase)} L${n(W)} ${n(foot)} Z`;
+      return `<path d="${d}" fill="${fill}" opacity="${op}"/>`;
+    };
+    const filt = (name, freq, oct, gain, bias, color, op, sd) => `
+      <filter id="${uid}${name}" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${oct}" seed="${sd}" result="t"/>
+        <feColorMatrix in="t" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  ${gain} ${gain} ${gain} 0 ${bias}" result="b"/>
+        <feFlood flood-color="${color}" flood-opacity="${op}"/>
+        <feComposite in2="b" operator="in"/>
+      </filter>`;
+    return `<svg viewBox="0 ${-over} ${W} ${VH}" width="${W}" height="${VH}"
+        style="position:absolute;left:0;bottom:0;display:block" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="${uid}f" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7FBC49"/><stop offset=".28" stop-color="#67A83A"/>
+          <stop offset=".7" stop-color="#4F8A2B"/><stop offset="1" stop-color="#3F6F22"/>
+        </linearGradient>
+        ${filt('p', '0.0045 0.022', 2, 2.0, -2.4, '#365F1D', .32, 51)}
+        ${filt('b', '0.16 0.028',   2, 2.6, -3.1, '#2E5A18', .5,  7)}
+        ${filt('l', '0.13 0.033',   2, 2.7, -3.4, '#C9E97A', .28, 20)}
+        <linearGradient id="${uid}s" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#D8F296" stop-opacity=".38"/><stop offset=".18" stop-color="#D8F296" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="${uid}d" x1="0" y1="0" x2="0" y2="1">
+          <stop offset=".3" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#132a08" stop-opacity=".5"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="${W}" height="${H}" fill="url(#${uid}f)"/>
+      <rect x="0" y="0" width="${W}" height="${H}" filter="url(#${uid}p)"/>
+      <rect x="0" y="0" width="${W}" height="${H}" filter="url(#${uid}b)"/>
+      <rect x="0" y="0" width="${W}" height="${H}" filter="url(#${uid}l)"/>
+      <rect x="0" y="0" width="${W}" height="${H}" fill="url(#${uid}s)"/>
+      ${fringe(2, 12, 24, 7, 13, '#3E7020', 1)}
+      ${fringe(1, 8, 18, 6, 11, '#5C9A31', 1)}
+      ${fringe(0, 5, 11, 5, 9, '#79B94A', .95)}
+      <rect x="0" y="0" width="${W}" height="${H}" fill="url(#${uid}d)"/>
+    </svg>`;
+  },
   svgSeq: 0,
   // Dropped blocks pass their real pixel size (pxW×pxH) so the grain renders
   // 1:1 crisp — a 52-scale viewBox stretched by preserveAspectRatio="none"
@@ -2460,20 +2529,25 @@ const StackerGame = {
     const vw = icon ? +n(shape.w*52) : Math.round(pxW), vh = icon ? +n(shape.h*52) : Math.round(pxH);
     const k = vw / (shape.w*52);                 // scales the fixed insets/strokes
     const uid = 'stkw' + (++this.svgSeq);
+    // sprites fill the physics box EDGE TO EDGE: no inset, and corner radius =
+    // the body's chamfer (min*0.06) — a bigger visual radius or any margin
+    // reads as stacked blocks "not touching" even when their bodies do
     let body, shade;
     if (shape.key === 'tri'){
-      const p = `M${n(6*k)} ${n(vh-6*k)} L${n(vw/2)} ${n(6*k)} L${n(vw-6*k)} ${n(vh-6*k)} Z`;
+      // stroke is centred: inset the path by half the stroke so the rounded
+      // stroke's OUTER edge lands exactly on the physics triangle
+      const p = `M${n(3.5*k)} ${n(vh-3.5*k)} L${n(vw/2)} ${n(3.5*k)} L${n(vw-3.5*k)} ${n(vh-3.5*k)} Z`;
       body = `<path d="${p}" fill="${tone}" stroke="${tone}" stroke-width="${n(7*k)}" stroke-linejoin="round"/>`;
       shade = `<path d="${p}" fill="url(#stkTop)"/><path d="${p}" fill="url(#stkBot)"/>`;
     } else if (shape.key === 'ball'){
-      const r = n(vw/2 - 2*k);
+      const r = n(vw/2);
       body = `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="${tone}"/>`;
       shade = `<circle cx="${n(vw/2)}" cy="${n(vh/2)}" r="${r}" fill="url(#stkBall)"/>`;
     } else {
       // cyl is a flat-topped rounded post; its cylindrical LOOK comes from the
       // horizontal shading gradient over the vertical grain
-      const rx = n(shape.key === 'cyl' ? vw*0.12 : Math.min(vw,vh)*0.16);
-      const R = a => `<rect x="${n(1.5*k)}" y="${n(1.5*k)}" width="${n(vw-3*k)}" height="${n(vh-3*k)}" rx="${rx}" fill="${a}"/>`;
+      const rx = n(Math.min(vw,vh)*0.06);
+      const R = a => `<rect x="0" y="0" width="${vw}" height="${vh}" rx="${rx}" fill="${a}"/>`;
       body = R(tone);
       shade = (shape.key === 'cyl' ? R('url(#stkCyl)') : '') + R('url(#stkTop)') + (shape.key === 'cyl' ? '' : R('url(#stkBot)'));
     }
@@ -2508,6 +2582,9 @@ const StackerGame = {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     cv.width = Math.round(this.W * this.dpr); cv.height = Math.round(this.H * this.dpr);
     cv.style.width = this.W + 'px'; cv.style.height = this.H + 'px';
+    // rebuild the lawn at the current width (fringe is width-dependent)
+    const ground = this.area().querySelector('.stk-ground');
+    if (ground) ground.innerHTML = this.grassSVG(Math.ceil(this.W), Math.ceil(this.H * 0.20));
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
     this.blocks = []; this.drag = null;
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
@@ -2538,6 +2615,13 @@ const StackerGame = {
       window.addEventListener('pointermove', e => this.onMove(e));
       window.addEventListener('pointerup', e => this.onUp(e));
       window.addEventListener('pointercancel', e => this.onUp(e));
+      // a context menu / focus loss can swallow the pointerup mid-drag,
+      // leaving the grab constraint alive forever (block frozen in the air) —
+      // suppress the menu on the play area and release the pinch on any
+      // interruption
+      this.area().addEventListener('contextmenu', e => { e.preventDefault(); this.onUp(); });
+      window.addEventListener('blur', () => this.onUp());
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.onUp(); });
       this.bound = true;
     }
   },
@@ -2805,6 +2889,7 @@ const StackerGame = {
   },
   onDown(e){
     if (!this.active || (e.target.closest && e.target.closest('.fb-ops'))) return;
+    if (this.drag) this.onUp();   // stale grab (missed pointerup) — release first
     const r = this.area().getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
     if (this.useMatter){
       const M = window.Matter;
@@ -4290,57 +4375,52 @@ function closePicker(){ $('#level-picker').classList.add('hidden'); }
 /* Level map: every node (section) and all its micro-levels as the same preview
    cards the long-press picker shows (subsection). */
 const LP_LOCK = `<span class="lp-lock"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V7a3 3 0 0 0-3-3z"/></svg></span>`;
-function renderMap(){
-  const body = $('#map-body');
-  const sections = NODES.map(node => {
-    const np = nodeProgress(node.key);
-    const cards = node.levels.map((lv, i) => {
+// node-colored accent for the dense "all levels" tiles (grouping cue)
+const NODE_ACCENT = { intro:'#7EC8F0', identity:'#4C86D8', magnitude:'#9B6DF2',
+  quantity:'#39B26B', spatial:'#F0894C', composition:'#E0A020', peekaboo:'#EC6A8E', causality:'#5FB0A0' };
+
+// "All levels" as a home-screen MODE: one dense grid of every level + the mini
+// games, packed continuously (no per-section rows, so no big partial-row gaps).
+function renderAllLevels(){
+  const tiles = [];
+  for (const node of NODES){
+    const np = nodeProgress(node.key), acc = NODE_ACCENT[node.key] || '#bcd';
+    node.levels.forEach((lv, i) => {
       const reachable = levelReachable(node, np, i);
       const done = np.mastered.includes(lv.id);
-      return `<button class="lp-card${reachable?'':' locked'}${done?' done':''}" data-node="${node.key}" data-i="${i}" ${reachable?'':'aria-disabled="true"'}>
-        ${miniPreview(node, lv)}
-        <span class="lp-name">Level ${lv.id}</span>
-        <span class="lp-desc">${lv.name}</span>
-        ${LP_LOCK}
-      </button>`;
-    }).join('');
-    return `<section class="map-section">
-      <div class="map-sec-head">${NICON[node.key] || ''}
-        <div><div class="ms-title">${node.num} · ${node.title}</div>
-        <div class="ms-sub">${node.parentName} · ${np.mastered.length}/${node.levels.length} done</div></div></div>
-      <div class="lp-grid">${cards}</div></section>`;
-  }).join('');
-  const bubbleIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:64%">
-    <svg viewBox="0 0 100 100"><circle cx="38" cy="42" r="22" fill="#5BB8EC" opacity=".7"/><circle cx="30" cy="34" r="6" fill="#fff" opacity=".95"/><circle cx="68" cy="60" r="15" fill="#9B7DE8" opacity=".7"/><circle cx="63" cy="54" r="4" fill="#fff" opacity=".95"/><circle cx="62" cy="28" r="10" fill="#4FCF98" opacity=".7"/><circle cx="59" cy="24" r="3" fill="#fff" opacity=".95"/></svg></span></div>`;
-  const puzzleIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:60%">
-    <svg viewBox="0 0 100 100"><rect x="14" y="14" width="34" height="34" rx="5" fill="#FFC02E"/><rect x="52" y="14" width="34" height="34" rx="5" fill="#FF5D55"/><rect x="14" y="52" width="34" height="34" rx="5" fill="#3D8BFF"/><rect x="52" y="52" width="34" height="34" rx="5" fill="#5FBF6A"/></svg></span></div>`;
-  const stackerIcon = `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:62%">
-    <svg viewBox="0 0 100 100"><rect x="30" y="20" width="26" height="26" rx="4" fill="#DFA75F"/><rect x="24" y="48" width="26" height="26" rx="4" fill="#E8B36B"/><rect x="52" y="48" width="26" height="26" rx="4" fill="#C08847"/><rect x="18" y="76" width="64" height="10" rx="5" fill="#A9C6E0"/></svg></span></div>`;
-  const mini = `<section class="map-section">
-    <div class="map-sec-head"><div><div class="ms-title">Mini games</div></div></div>
-    <div class="lp-grid">
-      <button class="lp-card" data-mini="bubbles">${bubbleIcon}<span class="lp-name">Bubble Pop</span><span class="lp-desc">Pop them before they land!</span></button>
-      <button class="lp-card" data-mini="puzzle">${puzzleIcon}<span class="lp-name">Picture Puzzle</span><span class="lp-desc">Tap tiles to build a picture!</span></button>
-      <button class="lp-card" data-mini="stacker">${stackerIcon}<span class="lp-name">Block Stacker</span><span class="lp-desc">Drop blocks and build!</span></button>
-    </div></section>`;
-  body.innerHTML = sections + mini;
-  body.querySelectorAll('.lp-card').forEach(el => {
+      const cur = i === np.levelIdx && !done && reachable;
+      tiles.push(`<button class="al-tile${done?' done':''}${cur?' cur':''}${reachable?'':' locked'}" style="--nc:${acc}" data-node="${node.key}" data-i="${i}" ${reachable?'':'aria-disabled="true"'}>
+        <span class="alt-id">${lv.id}</span><span class="alt-name">${lv.name}</span></button>`);
+    });
+  }
+  for (const [k, name] of [['bubbles','Bubble Pop'],['puzzle','Picture Puzzle'],['stacker','Block Stacker']])
+    tiles.push(`<button class="al-tile" style="--nc:#9DB4C4" data-mini="${k}"><span class="alt-id">Game</span><span class="alt-name">${name}</span></button>`);
+  const grid = $('#all-levels');
+  grid.innerHTML = `<div class="al-grid">${tiles.join('')}</div>`;
+  grid.querySelectorAll('.al-tile').forEach(el => {
     el.addEventListener('click', () => {
       if (el.dataset.mini === 'bubbles'){ Audio2.unlock(); BubbleGame.start(); return; }
       if (el.dataset.mini === 'puzzle'){ Audio2.unlock(); PuzzleGame.start(); return; }
       if (el.dataset.mini === 'stacker'){ Audio2.unlock(); StackerGame.start(); return; }
-      const node = NODES.find(n => n.key === el.dataset.node);
-      const i = parseInt(el.dataset.i, 10);
+      const node = NODES.find(n => n.key === el.dataset.node), i = parseInt(el.dataset.i, 10);
       if (!levelReachable(node, nodeProgress(node.key), i)){
         el.classList.add('wobble'); setTimeout(() => el.classList.remove('wobble'), 500); return;
       }
-      Audio2.unlock();
-      Engine.startLevel(node, node.levels[i]);
+      Audio2.unlock(); Engine.startLevel(node, node.levels[i]);
     });
   });
 }
+function setLevelsMode(on){
+  const home = $('#view-home');
+  home.classList.toggle('levels-mode', on);
+  $('#btn-map').setAttribute('aria-pressed', on ? 'true' : 'false');
+  $('#btn-map .bm-label').textContent = on ? 'Games' : 'All levels';
+  if (on) renderAllLevels();
+  home.scrollTop = 0;
+}
 
 function renderHome(){
+  setLevelsMode(false);   // always open home in the concept-card view
   const grid = $('#concept-grid');
   grid.innerHTML = '';
   for (const node of NODES){
@@ -4693,7 +4773,6 @@ function showView(name){
   $('#view-bubbles').classList.toggle('hidden', name!=='bubbles');
   $('#view-puzzle').classList.toggle('hidden', name!=='puzzle');
   $('#view-stacker').classList.toggle('hidden', name!=='stacker');
-  $('#view-map').classList.toggle('hidden', name!=='map');
   // the quick mute control rides along on the play screens only
   $('#play-vol').classList.toggle('hidden', !(name==='play' || name==='bubbles' || name==='puzzle' || name==='stacker'));
 }
@@ -4761,8 +4840,7 @@ function init(){
     syncVolUI();
   });
 
-  $('#btn-map').addEventListener('click', () => { renderMap(); showView('map'); });
-  $('#btn-map-back').addEventListener('click', () => { showView('home'); renderHome(); });
+  $('#btn-map').addEventListener('click', () => setLevelsMode(!$('#view-home').classList.contains('levels-mode')));
 
   // mini games
   document.querySelectorAll('.minicard').forEach(card => {

@@ -290,14 +290,22 @@ test('bubble pop: popping scores, a grounded bubble ends the round', async ({ pa
   expect(await page.locator('#bub-final').textContent()).toBe('1');
 });
 
-test('level map lists every section and jumps into a reached level', async ({ page }) => {
+test('all-levels toggles as a home mode with one dense grid of every level', async ({ page }) => {
   await boot(page);   // unlockAll → everything reachable
+  // toggle ON — no page change; the home swaps to the dense all-levels grid
   await page.locator('#btn-map').click();
-  await expect(page.locator('#view-map')).toBeVisible();
-  await expect(page.locator('.map-section')).toHaveCount(9);        // 8 nodes + mini games
-  await expect(page.locator('#map-body .lp-card')).toHaveCount(34); // 31 levels + 3 mini games
-  await expect(page.locator('#map-body .lp-preview').first()).toBeVisible();  // same preview cards as the picker
-  await page.locator('#map-body .lp-card[data-node="peekaboo"][data-i="0"]').click();
+  await expect(page.locator('#view-home')).toHaveClass(/levels-mode/);
+  await expect(page.locator('#concept-grid')).toBeHidden();
+  await expect(page.locator('#all-levels .al-grid')).toBeVisible();
+  await expect(page.locator('#all-levels .al-tile')).toHaveCount(34);   // 31 levels + 3 mini, one grid
+  await expect(page.locator('#btn-map .bm-label')).toHaveText('Games');
+  // toggle OFF — back to the concept-card view (still the home screen)
+  await page.locator('#btn-map').click();
+  await expect(page.locator('#view-home')).not.toHaveClass(/levels-mode/);
+  await expect(page.locator('#concept-grid')).toBeVisible();
+  // a tile jumps straight into that level
+  await page.locator('#btn-map').click();
+  await page.locator('#all-levels .al-tile[data-node="peekaboo"][data-i="0"]').click();
   await expect(page.locator('#view-play')).toBeVisible();
   expect(await page.evaluate(() => CF.Engine.level.id)).toBe('6.1');
 });
