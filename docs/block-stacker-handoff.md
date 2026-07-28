@@ -30,6 +30,18 @@ and can be grabbed and re-stacked on a grassy field. Realistic-cartoon look.
   `plank` (2.7×0.62 flat-wide), `tall` (0.72×1.95), `cyl` (flat-topped, cylindrical
   shading), `tri` (triangle/cone, body on its true **centroid** `cy:0.667`),
   `ball`. Rectangular shapes are ordered first (priority).
+- **Sprites match the physics box exactly**: no inset, corner radius = the
+  body chamfer (`min*0.06`), tri stroke inset by half its width, ball r = w/2.
+  Any visual margin reads as stacked blocks "not touching".
+- **Procedural lawn** (`grassSVG`, injected into `.stk-ground` on `start()`):
+  turbulence-textured field (tone patches, blade streaks, light sheen over a
+  green gradient) under a 3-row irregular blade fringe that overhangs 20px
+  above the strip. Gotcha: fringe rows close in a shallow 5px footer —
+  closing them to the svg bottom blankets the whole textured field.
+- **Drag interruption**: contextmenu on the area is suppressed and releases
+  the pinch; `blur`/hidden-tab also release; a fresh pointerdown drops any
+  stale drag — a swallowed pointerup used to leave the constraint alive
+  forever (block frozen mid-air).
 - **Photoreal wood grain** (`woodFilter`): per-block SVG filter — three
   `feTurbulence` layers (broad tone bands stretched along the long axis, fine
   fibres, light sheen), colours derived from the block's tone (`shadeTone`),
