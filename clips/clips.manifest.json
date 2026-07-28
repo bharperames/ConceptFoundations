@@ -106,15 +106,15 @@
         "name": "Yay",
         "text": "Yay!",
         "source_file": "raw_audio/icky_sticky_bubblegum.mp3",
-        "start": 177.553,
-        "end": 178.042,
-        "duration": 0.489,
+        "start": 177.683,
+        "end": 178.691,
+        "duration": 1.008,
         "has_music": 0,
         "voice_id": null,
-        "updated_at": "2026-07-22T16:55:58Z"
+        "updated_at": "2026-07-28T19:55:04Z"
       },
-      "src_sha256": "f8ae470e6304e75ab454d96164f03e4ae6e8b2f361c9b14d20a40913497a6073",
-      "dest_sha256": "e347708e9449d37171bd54cc9dc59873abdcee4b6cc7c8d4a1c006cf4966be37",
+      "src_sha256": "54cdc798b8641089aeb36d3895578ba56dc3d48ddc471665db06272c8ac897d0",
+      "dest_sha256": "7baa62ad5c537536f661d67d921c530464575ffca1faa878508590cc6b30a75f",
       "normalized": "-14.0 LUFS + limiter"
     },
     {

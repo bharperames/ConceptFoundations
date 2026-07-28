@@ -77,7 +77,11 @@ no lineage bookkeeping.
 
 ---
 
-## Re-trim request (2026-07-28): the "Yay!" clip is cut off
+## Re-trim request (2026-07-28): the "Yay!" clip is cut off — ✅ RESOLVED
+
+**Resolved same day:** the producer re-trimmed `asset_26bd51ec05cc` to
+`@ 177.683–178.691` (**1.008s**, was 0.489s). My sync re-pulled it on `updated_at`
+and 'Yay!' is back in the praise rotation. Original request below for the record.
 
 `yay` — **asset_26bd51ec05cc** — is trimmed too tight: the span is
 `raw_audio/icky_sticky_bubblegum.mp3 @ 177.553–178.042` = **0.489s**, which clips

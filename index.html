@@ -2650,6 +2650,13 @@ const StackerGame = {
           const bd = b.body;
           if (bd.speed > 45) M.Body.setVelocity(bd, { x: bd.velocity.x*45/bd.speed, y: bd.velocity.y*45/bd.speed });
           if (Math.abs(bd.angularVelocity) > .5) M.Body.setAngularVelocity(bd, Math.sign(bd.angularVelocity)*.5);
+          // settle damping: chamfered corners make stacks rock (the contact
+          // point flips corner to corner) and creep sideways; with sleeping
+          // off, bleed near-rest motion so towers actually come to rest
+          if (bd.speed < .25 && Math.abs(bd.angularVelocity) < .03 && (!this.drag || this.drag.b !== b)){
+            M.Body.setVelocity(bd, { x: bd.velocity.x*.85, y: bd.velocity.y*.85 });
+            M.Body.setAngularVelocity(bd, bd.angularVelocity*.85);
+          }
         }
         this.sync();
         this.raf = requestAnimationFrame(frame);
@@ -3803,10 +3810,7 @@ const Engine = {
     if (isTest){
       Audio2.correct();
       if (opts.at) FX.burst(opts.at[0], opts.at[1]);
-      // NB: 'Yay!' (yay.mp3) is dropped for now — its gold trim (0.489s) clips the
-      // tail, so it sounds cut off. Re-add once the producer re-trims it (see
-      // docs/message-to-mr-audioclips.md).
-      const PRAISE = ['We did it!','Hooray!','Great job!'];
+      const PRAISE = ['Yay!','We did it!','Hooray!','Great job!'];
       const praise = PRAISE[Math.floor(Math.random()*PRAISE.length)];
       // advance only after the praise finishes (clips run 0.5–2.4s), with a
       // floor so short praise still lands and a cap so we never hang on audio
