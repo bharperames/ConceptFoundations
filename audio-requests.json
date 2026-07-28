@@ -2,23 +2,12 @@
   "schema_version": 1,
   "consumer": "ConceptFoundations",
   "produces_for": "MR_AudioClips",
-  "about": "The consumer's git-tracked, human-authored demand ledger — phrases the app needs that the GOLD catalog does not have yet. `scripts/register_demand.py` PUSHES these into the shared catalog's `requests` table (assets.db), where the curator reads them and replies via `fulfilled_by`. This JSON is the authored source; the DB row is the shared interop surface, written only by that tool (single writer per column → no drift). See docs/audio-clip-contract.md §8 and docs/handoff-demand-tables.md.",
+  "about": "The consumer's git-tracked, human-authored demand ledger \u2014 phrases the app needs that the GOLD catalog does not have yet. `scripts/register_demand.py` PUSHES these into the shared catalog's `requests` table (assets.db), where the curator reads them and replies via `fulfilled_by`. This JSON is the authored source; the DB row is the shared interop surface, written only by that tool (single writer per column \u2192 no drift). See docs/audio-clip-contract.md \u00a78 and docs/handoff-demand-tables.md.",
   "invariants": [
     "This file lists ONLY open requests. Presence here == an open row in assets.db `requests`.",
     "Fulfillment is migration, not a flag. The producer sets `requests.fulfilled_by` on promotion; the consumer then wires the asset_id into clips/clips.manifest.json, adds a `usage` row, and DELETES the request from here (which deletes the DB row on the next register-demand). 'Done' == 'gone'.",
     "In-use dependencies are NOT authored here. clips/clips.manifest.json is the authoritative list of asset_ids we ship; register_demand.py mirrors it into the `usage` table for the 'don't de-curate these' signal.",
     "Run `make register-demand` to push this ledger into assets.db and read back fulfilled_by (OPEN / READY / STALE)."
   ],
-  "requests": [
-    {
-      "phrase": "you did it",
-      "norm": "you did it",
-      "used_in": ["mini-games/Picture Puzzle — each picture built, and the all-three finale"],
-      "priority": "medium",
-      "currently": "tts",
-      "constraints": { "max_duration_s": 1.6, "has_music": "either", "voice": "warm child-facing praise (second person)" },
-      "candidate_asset_ids": ["asset_98cf57f963af"],
-      "note": "Second-person 'You did it!' for the Picture Puzzle win. If no good 'you did it' recording exists, fulfil with the 'we did it' take — silver clip_ed372817a473 = gold asset_98cf57f963af (I already ship it as we_did_it.mp3). Producer's call. Once fulfilled I add 'you did it' → you_did_it.mp3 to CLIP_MAP and the existing wording upgrades from TTS to the clip with no reword."
-    }
-  ]
+  "requests": []
 }

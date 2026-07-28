@@ -230,6 +230,63 @@
       "src_sha256": "043d557abde88102fbd0804b3857a509f1b0869e441025ca1dd4c30321c8b10e",
       "dest_sha256": "1376d626ac1fdb191ebd3a2a8bf260cb9805424280eb2973b91d91d41c221e74",
       "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "cuckoo.mp3",
+      "phrase": "cuckoo",
+      "asset_id": "asset_dadec9e8cf36",
+      "asset": {
+        "name": "Cuckoo",
+        "text": "Cuckoo.",
+        "source_file": "raw_audio/cucoo_clock.mp3",
+        "start": 15.199,
+        "end": 16.268,
+        "duration": 1.069,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-22T15:23:41Z"
+      },
+      "src_sha256": "1be867d431e81da9206a31e63eb2e883e7dde506757dd4e424277379c57df724",
+      "dest_sha256": "459616c16b6f30943149160a29e1a68380fdb69f9c29dd894be3e9784957e02e",
+      "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "open_shut.mp3",
+      "phrase": "open them shut them",
+      "asset_id": "asset_05006fb342f6",
+      "asset": {
+        "name": "Open Them Shut Them",
+        "text": "Open, shut them.",
+        "source_file": "raw_audio/openshutthem.mp3",
+        "start": 9.106,
+        "end": 11.16,
+        "duration": 2.054,
+        "has_music": 1,
+        "voice_id": "Ms Rachel",
+        "updated_at": "2026-07-22T15:23:41Z"
+      },
+      "src_sha256": "62df30ab43541792592520e9c28f8821571a66cd488d5b7745cf84c942e4e106",
+      "dest_sha256": "e3206a9a7703e7e694c698b2ec348dc1449f89354ec7391314214265f9a9b71e",
+      "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "you_did_it.mp3",
+      "phrase": "you did it",
+      "asset_id": "asset_37ca3bdad31a",
+      "asset": {
+        "name": "You Did it - BEH",
+        "text": "You did it",
+        "source_file": "raw_audio/adhoc_f8a156083674.mp3",
+        "start": 1.437,
+        "end": 2.937,
+        "duration": 1.5,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-07-28T20:07:35Z"
+      },
+      "src_sha256": "34b9041ea7da89e83797927bfa4ff1608bf2710d69c9267e6f5fe30688e28b46",
+      "dest_sha256": "313ecce42b7b3abeef8b1cacd6f54624ffc2f8deda69187b6affb8d53ba25107",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }

@@ -376,6 +376,13 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 /* arcade button: the cap dips when pressed */
 .btn-cap{transition:transform .12s ease}
 .el.btn-down .btn-cap{transform:translateY(7px)}
+/* Intro taps: cuckoo bird pops out, box lid opens & shuts */
+.cuckoo-bird{transform-box:fill-box;transform-origin:center bottom;opacity:0}
+.el.cuckoo-out .cuckoo-bird{animation:cuckooOut 1.1s ease}
+@keyframes cuckooOut{0%{transform:translateY(55%) scale(.5);opacity:0}22%{transform:translateY(-24%) scale(1.08);opacity:1}42%{transform:translateY(0) scale(1)}72%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(55%) scale(.5);opacity:0}}
+.box-lid{transform-box:fill-box;transform-origin:center bottom}
+.el.box-open .box-lid{animation:boxLid 2s ease}
+@keyframes boxLid{0%,100%{transform:rotate(0)}18%{transform:rotate(-46deg)}30%{transform:rotate(-40deg)}55%{transform:rotate(-46deg)}78%{transform:rotate(0)}}
 /* Intro taps: a bubble pops, a spider scurries */
 .el.bub-pop{animation:bubPop .4s ease forwards;pointer-events:none}
 @keyframes bubPop{0%{transform:translate(-50%,-50%) scale(1);opacity:1}45%{transform:translate(-50%,-50%) scale(1.25);opacity:.8}100%{transform:translate(-50%,-50%) scale(.2);opacity:0}}
@@ -909,6 +916,9 @@ const Audio2 = (() => {
     'lets play hide and seek': 'lets_play_hide_and_seek.mp3',
     'uh oh': 'uh_oh.mp3',
     'pop': 'pop.mp3',
+    'cuckoo': 'cuckoo.mp3',
+    'you did it': 'you_did_it.mp3',
+    'open them shut them': 'open_shut.mp3',
     'bubble bubble bubble bubble bubble pop': 'bubble_pop.mp3',
     // itsy-bitsy-spider song (spout cause→effect) — one continuous take, 3 lines
     'the itsy bitsy spider went up the water spout': 'spider_up.mp3',
@@ -1145,6 +1155,25 @@ const BUBBLE_ART = () => wrap(`<g class="hit">
   <circle cx="50" cy="50" r="40" fill="none" stroke="#ffffff" stroke-width="6" opacity=".25"/>
   <ellipse cx="37" cy="34" rx="13" ry="9" fill="#ffffff" opacity=".7" transform="rotate(-30 37 34)"/>
   <circle cx="64" cy="62" r="4" fill="#ffffff" opacity=".55"/></g>`);
+// a cuckoo clock — tap → the bird pops out of the top door (Intro)
+const CUCKOO_CLOCK = () => wrap(`<g class="hit">
+  <g class="cuckoo-bird"><ellipse cx="50" cy="20" rx="8" ry="6.5" fill="#E07B39"/>
+    <circle cx="50" cy="13" r="5.5" fill="#E8934F"/><path d="M55 12 L63 10.5 L55 15 Z" fill="#F0B429"/>
+    <circle cx="48" cy="12" r="1.5" fill="#2a2a2a"/></g>
+  <path d="M24 42 L50 22 L76 42 Z" fill="#8B5A2B"/>
+  <rect x="30" y="42" width="40" height="44" rx="4" fill="#A9713A"/>
+  <rect x="43" y="30" width="14" height="13" rx="2" fill="#5c3b1c"/>
+  <circle cx="50" cy="64" r="13" fill="#F4E4C1"/><circle cx="50" cy="64" r="13" fill="none" stroke="#5c3b1c" stroke-width="2"/>
+  <line x1="50" y1="64" x2="50" y2="56" stroke="#5c3b1c" stroke-width="2" stroke-linecap="round"/>
+  <line x1="50" y1="64" x2="56" y2="64" stroke="#5c3b1c" stroke-width="2" stroke-linecap="round"/>
+  <rect x="46" y="84" width="8" height="9" rx="2" fill="#8B5A2B"/></g>`);
+// a lidded box — tap → the lid opens and shuts ("open them, shut them") (Intro)
+const OPEN_SHUT_BOX = () => wrap(`<g class="hit">
+  <rect x="26" y="40" width="48" height="10" rx="3" fill="#7a4e12"/>
+  <rect x="24" y="50" width="52" height="36" rx="5" fill="#E0A020"/>
+  <rect x="24" y="50" width="52" height="9" rx="5" fill="#C98A18"/>
+  <g class="box-lid"><rect x="22" y="40" width="56" height="13" rx="5" fill="#F4B733"/>
+    <rect x="44" y="35" width="12" height="8" rx="3" fill="#C98A18"/></g></g>`);
 // a big pushable arcade button on a base (cause→effect: press → fireworks)
 const PUSH_BTN = (cap) => wrap(`<g class="hit">
   <ellipse cx="50" cy="86" rx="33" ry="8" fill="#1e2c3b" opacity=".18"/>
@@ -1229,6 +1258,10 @@ const NODES = [
       make(rng){ return introTapLevel(rng, { kind:'button' }); }},
     { id:'0.3', name:'Tap the spider', focus:'Touch → effect: tap the spider, it scurries',
       make(rng){ return introTapLevel(rng, { kind:'spider' }); }},
+    { id:'0.4', name:'Tap the clock', focus:'Touch → effect: tap the clock, the cuckoo pops out',
+      make(rng){ return introTapLevel(rng, { kind:'cuckoo' }); }},
+    { id:'0.5', name:'Open, shut it', focus:'Touch → effect: tap the box, the lid opens and shuts',
+      make(rng){ return introTapLevel(rng, { kind:'box' }); }},
   ],
 },
 {
@@ -1693,6 +1726,8 @@ function introTapLevel(rng, {kind}){
     bubble: { say:'Pop the bubble!',   art: () => BUBBLE_ART(),        s: 32 },
     button: { say:'Press the button!', art: () => PUSH_BTN('#E5484D'), s: 36 },
     spider: { say:'Tap the spider!',   art: () => SPIDER(),            s: 26 },
+    cuckoo: { say:'Tap the clock!',    art: () => CUCKOO_CLOCK(),      s: 34 },
+    box:    { say:'Open, shut it!',    art: () => OPEN_SHUT_BOX(),     s: 34 },
   }[kind];
   const spots = [[50, 50], [38, 44], [62, 56]];
   const mkTest = i => {
@@ -3109,6 +3144,14 @@ const Engine = {
       if (el){ el.classList.add('scurry'); setTimeout(() => el && el.classList.remove('scurry'), 900); }
       Audio2.snapSnd(); Audio2.speak('Wheee!');
       delay = 1100;
+    } else if (kind === 'cuckoo'){
+      if (el){ el.classList.remove('cuckoo-out'); void el.offsetWidth; el.classList.add('cuckoo-out'); }
+      Audio2.speak('Cuckoo!');   // curated cuckoo clip
+      delay = 1300;
+    } else if (kind === 'box'){
+      if (el){ el.classList.remove('box-open'); void el.offsetWidth; el.classList.add('box-open'); }
+      Audio2.speak('Open them, shut them!');   // curated "Open, shut them" clip
+      delay = 2100;
     } else {
       FX.burst(x, y);
     }

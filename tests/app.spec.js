@@ -250,7 +250,7 @@ test('long-press opens the level picker; a card starts that level', async ({ pag
   await page.waitForTimeout(750);
   await page.mouse.up();
   await expect(page.locator('#level-picker')).toBeVisible();
-  await expect(page.locator('.lp-card')).toHaveCount(3);   // Intro (first card) has 3 levels
+  await expect(page.locator('.lp-card')).toHaveCount(5);   // Intro (first card) has 5 taps
   await page.locator('.lp-card').nth(2).click();
   expect(await page.evaluate(() => CF.Engine.level.id)).toBe('0.3');
 });
@@ -295,7 +295,7 @@ test('level map lists every section and jumps into a reached level', async ({ pa
   await page.locator('#btn-map').click();
   await expect(page.locator('#view-map')).toBeVisible();
   await expect(page.locator('.map-section')).toHaveCount(9);        // 8 nodes + mini games
-  await expect(page.locator('#map-body .lp-card')).toHaveCount(32); // 29 levels + 3 mini games
+  await expect(page.locator('#map-body .lp-card')).toHaveCount(34); // 31 levels + 3 mini games
   await expect(page.locator('#map-body .lp-preview').first()).toBeVisible();  // same preview cards as the picker
   await page.locator('#map-body .lp-card[data-node="peekaboo"][data-i="0"]').click();
   await expect(page.locator('#view-play')).toBeVisible();
