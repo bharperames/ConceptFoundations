@@ -225,7 +225,7 @@ test('block stacker mini-game: per-shape drop, grab-move, cap, reset', async ({ 
   expect(await page.evaluate(() => CF.StackerGame.blocks.length)).toBe(30);
   await expect(page.locator('#stk-ops .fb-shape').first()).toBeEnabled();
   // reset clears the field
-  await page.locator('#stk-ops .fb-reset').click();
+  await page.locator('#stk-reset').click();
   await expect(page.locator('#stacker-area .fb-block')).toHaveCount(0);
 });
 

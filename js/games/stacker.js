@@ -238,13 +238,15 @@ const StackerGame = {
       // suppress the menu on the play area and release the pinch on any
       // interruption
       this.area().addEventListener('contextmenu', e => { e.preventDefault(); this.onUp(); });
-      window.addEventListener('blur', () => this.onUp());
-      document.addEventListener('visibilitychange', () => { if (document.hidden) this.onUp(); });
+      window.addEventListener('blur', () => { this.onUp(); this.stopStream(); });
+      document.addEventListener('visibilitychange', () => { if (document.hidden){ this.onUp(); this.stopStream(); } });
+      $('#stk-reset').addEventListener('click', () => this.reset());
       this.bound = true;
     }
   },
   stop(){
     this.active = false;
+    this.stopStream();
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
     this.blocks = []; this.drag = null;
     if (this.eng && window.Matter){ window.Matter.World.clear(this.eng.world, false); this.eng = null; }
@@ -258,17 +260,31 @@ const StackerGame = {
     }
     this.blocks = []; this.drag = null;
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
-    if (this.active) this.renderOps();
     this.drawDebug();
   },
   renderOps(){
-    const ops = $('#stk-ops'), full = this.blocks.length >= this.MAX;
-    // one wooden icon per shape — tap it to drop that block
-    const picker = this.SHAPES.map((sh, i) =>
-      `<button class="fb-btn fb-shape" data-shape="${i}" aria-label="Drop a ${sh.key} block"${full ? ' disabled' : ''}>${this.blockSVG(sh, '#D8A05B', true, 0, 0, 11 + i*7)}</button>`).join('');
-    ops.innerHTML = `<button class="fb-btn fb-reset" aria-label="Clear the blocks">↺</button>` + picker;
-    ops.querySelector('.fb-reset').onclick = () => this.reset();
-    if (!full) ops.querySelectorAll('.fb-shape').forEach(btn => { btn.onclick = () => this.drop(+btn.dataset.shape); });
+    const ops = $('#stk-ops');
+    // one wooden icon per shape — tap to drop one, press & HOLD for a steady
+    // stream (the interval clears on pointerup/leave/cancel). No cap, so the
+    // buttons are bound once and drop() never re-renders them (a re-render
+    // mid-hold would replace the button under the finger and kill the stream)
+    ops.innerHTML = this.SHAPES.map((sh, i) =>
+      `<button class="fb-btn fb-shape" data-shape="${i}" aria-label="Drop a ${sh.key} block">${this.blockSVG(sh, '#D8A05B', true, 0, 0, 11 + i*7)}</button>`).join('');
+    ops.querySelectorAll('.fb-shape').forEach(btn => {
+      const i = +btn.dataset.shape;
+      btn.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        this.stopStream();
+        this.drop(i);
+        this._streamT = setTimeout(() => { this._streamI = setInterval(() => this.drop(i), 320); }, 450);
+      });
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel'])
+        btn.addEventListener(ev, () => this.stopStream());
+    });
+  },
+  stopStream(){
+    clearTimeout(this._streamT); clearInterval(this._streamI);
+    this._streamT = this._streamI = 0;
   },
   makeBody(shape, x, y, w, h){
     const M = window.Matter;
@@ -296,16 +312,16 @@ const StackerGame = {
     el.style.transformOrigin = `${((shape.cx ?? .5)*100)}% ${((shape.cy ?? .5)*100)}%`;
     el.innerHTML = this.blockSVG(shape, tone, false, w, h, 1 + Math.floor(Math.random()*997));
     this.area().appendChild(el);
-    const x = this.W*0.5 + (Math.random()*2-1)*U*1.1, y = h*0.62;   // just inside — the ceiling is above
+    // one fixed chute, square spawn: consecutive drops stack as they fall
+    const x = this.W*0.5, y = h*0.62;   // just inside — the ceiling is above
     const b = { el, shape, w, h };
     if (this.useMatter){
       b.body = this.makeBody(shape, x, y, w, h);
-      window.Matter.Body.setAngle(b.body, (Math.random()-0.5)*0.25);
       window.Matter.World.add(this.eng.world, b.body);
     } else {
       Object.assign(b, { x, y, vy: 0, done: false, held: false });
     }
-    this.blocks.push(b); this.renderOps(); this.sync(); this.loop();
+    this.blocks.push(b); this.sync(); this.loop();
   },
   sync(){
     if (this.useMatter){
@@ -413,12 +429,35 @@ const StackerGame = {
           // would hover when its support slides out from under it
           for (const b of this.blocks) if (b.body.isSleeping) M.Sleeping.set(b.body, false);
           this.moveDragTarget();
-          // pinch-grip friction: bleed the held block's spin each frame so an
-          // off-centre grab droops smoothly instead of pendulum-whipping.
-          // Light damping while it hangs FREE (heavy damping made the swing
-          // crawl and stall short of vertical), heavy while grinding contact.
+          // the pinch grip. While TOUCHING: a FIRM two-finger grip — an angle
+          // servo back to the grip angle, so a tower balanced on the held
+          // block can't tip it (a single-point axle made lifting a loaded
+          // block virtually impossible: the load flipped the base ~55°).
+          // While FREE: light damping so the pendulum swings naturally.
           const bd = this.drag.b.body;
-          M.Body.setAngularVelocity(bd, bd.angularVelocity * (this.drag.touching ? .85 : .9));
+          if (this.drag.touching){
+            M.Body.setAngularVelocity(bd, bd.angularVelocity * .5 + (this.drag.ang0 - bd.angle) * .3);
+            // balance assist for the carried stack: damp rider sway and blend
+            // their lateral velocity toward the carrier — a tower of skinny
+            // blocks survives being carried by its base (toy blocks "grip")
+            const set = new Set([bd]);
+            for (let pass = 0; pass < 3; pass++){
+              for (const p of this.eng.pairs.list){
+                if (!p.isActive) continue;
+                const A = p.collision.parentA, B = p.collision.parentB;
+                if (A.isStatic || B.isStatic) continue;
+                const lo = A.position.y > B.position.y ? A : B, hi = lo === A ? B : A;
+                if (set.has(lo) && !set.has(hi)) set.add(hi);
+              }
+            }
+            set.delete(bd);
+            for (const r of set){
+              M.Body.setAngularVelocity(r, r.angularVelocity * .88);
+              M.Body.setVelocity(r, { x: r.velocity.x + (bd.velocity.x - r.velocity.x) * .15, y: r.velocity.y });
+            }
+          } else {
+            M.Body.setAngularVelocity(bd, bd.angularVelocity * .9);
+          }
           // held-gravity boost (×7 while hanging free): world gravity is ~10×
           // below real scale for blocks this size (stack-stability tradeoff),
           // but pointer accelerations are real-world — the trailing angle
@@ -530,11 +569,16 @@ const StackerGame = {
     let lx = tx - ax, ly = ty - ay, touching = false;
     for (const p of this.eng.pairs.list){
       if (!p.isActive) continue;
-      let nx0, ny0;   // unit vector from the held block INTO the obstacle
-      if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
-      else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
+      let nx0, ny0, other;   // unit vector from the held block INTO the obstacle
+      if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; other = p.collision.parentB; }
+      else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; other = p.collision.parentA; }
       else continue;
       touching = true;
+      // CARRYING exemption: pressing UP into a dynamic block that rests on
+      // the held one is how you lift a stack — the rider is free to
+      // accelerate away, so there is no penetration fight to slip out of.
+      // Capping it throttled bottom-block lifts to ~¼ of pointer speed.
+      if (!other.isStatic && ny0 < -0.5) continue;
       const cap = Math.max(0, 4 - (p.collision.depth || 0));
       const dd = lx*nx0 + ly*ny0;
       if (dd > cap){ lx -= (dd - cap)*nx0; ly -= (dd - cap)*ny0; }
@@ -605,7 +649,7 @@ const StackerGame = {
       M.World.add(this.eng.world, con);
       // finger→anchor offset stays constant: the target follows pointer DELTAS
       // (rate/lead-limited in moveDragTarget), so pickup itself never jumps
-      this.drag = { b, con, ox: px - ax, oy: py - ay, tx: px, ty: py };
+      this.drag = { b, con, ox: px - ax, oy: py - ay, tx: px, ty: py, ang0: body.angle };
       b.el.style.zIndex = 9;
     } else {
       const b = this.hit(px, py); if (!b) return;

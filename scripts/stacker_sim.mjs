@@ -194,6 +194,7 @@ export function grabAnchor(c, shape, w, h, loc){
 }
 export function makeDrag(c, body, gx, gy, shape, w, h){
   Body.setVelocity(body, {x:0,y:0}); Body.setAngularVelocity(body, 0);
+  body._ang0 = body.angle;   // the pinch remembers its grip angle (firm-grip servo)
   const dx=gx-body.position.x, dy=gy-body.position.y;
   const ca=Math.cos(-body.angle), sa=Math.sin(-body.angle);
   const an = grabAnchor(c, shape||{key:'cube'}, w||U, h||U, { x: dx*ca - dy*sa, y: dx*sa + dy*ca });
@@ -203,14 +204,41 @@ export function makeDrag(c, body, gx, gy, shape, w, h){
     pointB:{x:off.x, y:off.y},
     stiffness:c.dragStiff, damping:c.dragDamp, angularStiffness:c.angStiff, length:0 });
 }
+// bodies riding on the held block (transitively): the carried set
+export function carriedSet(eng, held){
+  const set = new Set([held]);
+  for (let pass = 0; pass < 3; pass++){
+    for (const p of eng.pairs.list){
+      if (!p.isActive) continue;
+      const A = p.collision.parentA, B = p.collision.parentB;
+      if (A.isStatic || B.isStatic) continue;
+      const lo = A.position.y > B.position.y ? A : B, hi = lo === A ? B : A;
+      if (set.has(lo) && !set.has(hi)) set.add(hi);
+    }
+  }
+  set.delete(held);
+  return set;
+}
 export function dragTick(c, eng, body, dt){
   // a drag is active: nothing may sleep (a slept block would hover when its
   // support is pulled out from under it — the original enableSleeping bug)
   for (const b of Composite.allBodies(eng.world)) if (b.isSleeping) Sleeping.set(b, false);
-  // grip friction: heavy while the block is grinding against something,
-  // light while it swings free (else the pendulum crawls near vertical)
-  const f = body._touching === false ? c.holdSpinFree : c.holdSpin;
-  if (f < 1) Body.setAngularVelocity(body, body.angularVelocity * f);
+  // grip: while TOUCHING, a firm two-finger pinch — an angle servo back to
+  // the grip angle, so a tower balanced on the held block can't tip it (a
+  // single-point axle made lifting a loaded block virtually impossible);
+  // while FREE, light damping so the pendulum swings naturally
+  if (body._touching === false){
+    if (c.holdSpinFree < 1) Body.setAngularVelocity(body, body.angularVelocity * c.holdSpinFree);
+  } else {
+    Body.setAngularVelocity(body, body.angularVelocity * c.gripDamp + (body._ang0 - body.angle) * c.gripK);
+  }
+  // balance assist for the carried stack: damp rider sway and blend their
+  // lateral velocity toward the carrier — a tower of skinny blocks survives
+  // being carried by its base (toy blocks "grip" each other a little)
+  if (c.riderPull > 0) for (const r of carriedSet(eng, body)){
+    Body.setAngularVelocity(r, r.angularVelocity * c.riderSpin);
+    Body.setVelocity(r, { x: r.velocity.x + (body.velocity.x - r.velocity.x) * c.riderPull, y: r.velocity.y });
+  }
   // held-gravity boost: world gravity is ~10x below real scale for this block
   // size (stack-stability compromise), but pointer accelerations are real —
   // the trailing angle atan(a/g) made carried blocks stream like weightless
@@ -238,11 +266,16 @@ export function moveDrag(c, eng, con, body, tx, ty){
   let lx = tx - ax, ly = ty - ay, touching = false;
   for (const p of eng.pairs.list){
     if (!p.isActive) continue;
-    let nx0, ny0;   // unit vector pointing from the held block INTO the obstacle
-    if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; }
-    else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; }
+    let nx0, ny0, other;   // unit vector pointing from the held block INTO the obstacle
+    if (p.collision.parentA === body){ nx0 = -p.collision.normal.x; ny0 = -p.collision.normal.y; other = p.collision.parentB; }
+    else if (p.collision.parentB === body){ nx0 = p.collision.normal.x; ny0 = p.collision.normal.y; other = p.collision.parentA; }
     else continue;
     touching = true;
+    // CARRYING exemption: pressing UP into a dynamic block that rests on the
+    // held one is how you lift a stack — the rider is free to accelerate
+    // away, so there is no penetration fight to slip out of. Capping it
+    // throttled bottom-block lifts to ~a quarter of pointer speed.
+    if (!other.isStatic && ny0 < -0.5) continue;
     // depth-adaptive: permitted press shrinks by the CURRENT penetration, so
     // a braced press self-limits at ~pressAllow px instead of accumulating
     // (the position solver only corrects a fraction of overlap per frame — a
@@ -493,6 +526,62 @@ export function runCapeDrag(c){
   return { cruise, recover };
 }
 
+// stack a cube on a cube, grab the BOTTOM one, drag straight UP at pointer
+// speed: the pair should rise with the pointer (carrying), proportionally and
+// smoothly — not throttled to a crawl by the contact-slip treating the block
+// resting ON the held one as an obstacle being "pressed into".
+export function runLiftCarry(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const A = makeBody(SHAPES[0], W/2, floorY-U/2, U, U, c);
+  const B = makeBody(SHAPES[0], W/2, floorY-U*1.5-1, U, U, c);
+  World.add(eng.world,[A,B]);
+  for (let k=0;k<60;k++) step(eng,dt,c);
+  const con = makeDrag(c, A, A.position.x, A.position.y, SHAPES[0], U, U);
+  World.add(eng.world, con);
+  const y0 = A.position.y, N = 60, v = 6;
+  let jerk=0, prevVy=0;
+  for (let k=0;k<N;k++){
+    moveDrag(c, eng, con, A, con.pointA.x, con.pointA.y - v);
+    dragTick(c, eng, A, dt);
+    const vy = A.velocity.y;
+    jerk = Math.max(jerk, Math.abs(vy - prevVy)); prevVy = vy;
+  }
+  const rise = y0 - A.position.y;
+  return {
+    ratio: rise / (N*v),                                  // 1 = tracks the pointer
+    jerk,                                                 // vertical velocity spikes
+    carried: B.position.y < A.position.y - U*0.5,         // top block still riding on it
+  };
+}
+
+// the screenshot case: two tall blocks standing on a brick — grab the brick
+// and lift the whole tower into the air. The pinch must hold its angle
+// against the inverted-pendulum load or everything topples.
+export function runTowerLift(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const bw=2*U, bh=1*U, tw=0.72*U, th=1.95*U;
+  const brick = makeBody(SHAPES[1], W/2, floorY-bh/2, bw, bh, c);
+  const t1 = makeBody(SHAPES[3], W/2, floorY-bh-th/2-1, tw, th, c);
+  const t2 = makeBody(SHAPES[3], W/2, floorY-bh-th*1.5-2, tw, th, c);
+  World.add(eng.world, [brick, t1, t2]);
+  for (let k=0;k<80;k++) step(eng,dt,c);
+  const con = makeDrag(c, brick, brick.position.x, brick.position.y, SHAPES[1], bw, bh);
+  World.add(eng.world, con);
+  let heldTilt=0;
+  const x0 = con.pointA.x;
+  for (let k=0;k<220;k++){
+    // a real hand: rises briskly with lateral wobble, then holds
+    const ty = con.pointA.y - (k<30 ? 5 : 0);
+    const tx = x0 + (k<120 ? Math.sin(k/7)*10 : 0);
+    moveDrag(c, eng, con, brick, tx, ty);
+    dragTick(c, eng, brick, dt);
+    heldTilt = Math.max(heldTilt, Math.abs(brick.angle));
+  }
+  const towerUp = t1.position.y < brick.position.y - th*0.3 && t2.position.y < t1.position.y - th*0.3
+    && Math.abs(t1.angle) < 0.35 && Math.abs(t2.angle) < 0.35;
+  return { towerUp, heldTilt, lifted: floorY - brick.position.y > 100 };
+}
+
 export function evaluate(c, n){
   const rng = mulberry32(12345);
   let maxPen=0, deep=0, floats=0, esc=0, nan=0;
@@ -504,6 +593,8 @@ export function evaluate(c, n){
     ocSpike:+oc.spike.toFixed(1), ocSpin:+oc.maxAV.toFixed(3), ocLag:+oc.lag.toFixed(1), ocEndAngle:+oc.endAngle.toFixed(2), ocTVert:oc.tVert, ocOver:+oc.overshoot.toFixed(2), slideJerk:+sl.jerk.toFixed(1), slideSpin:+sl.maxAV.toFixed(3),
     rotSpike:+rot.spike.toFixed(1), rotDrift:+rot.drift.toFixed(1), fling:runFling(c),
     cape:(x=>({cruise:+(x.cruise*180/Math.PI).toFixed(0), recover:x.recover}))(runCapeDrag(c)),
+    lift:(x=>({ratio:+x.ratio.toFixed(2), jerk:+x.jerk.toFixed(1), carried:x.carried}))(runLiftCarry(c)),
+    towerLift:(x=>({up:x.towerUp, tilt:+x.heldTilt.toFixed(2), lifted:x.lifted}))(runTowerLift(c)),
     towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
     press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames,pushed:+p.pushed.toFixed(1)}))(runBlockPress(c, false)),
     pressBraced:(p=>({osc:+p.osc.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames}))(runBlockPress(c, true)),
@@ -523,7 +614,8 @@ export const BASE = { gravity:2.2, posIter:12, velIter:8, conIter:3, slop:0.05, 
   maxV:45, maxAV:0.5, snap:true, dragStep:40, dragLead:U,     // anti-tunnel clamps + grab snapping + drag-target limits
   settleV:0.25, settleF:0.85,                                 // near-rest damping (kills stacked-corner rocking)
   pressAllow:4, holdDead:3, holdSpinFree:0.9, angStiffFree:0, heldG:7,    // held free block runs near-real gravity
-  alignSnap:true };                                           // near-rest blocks ease onto exact 90-deg axes  // free hang: FULL gravity torque, light damping                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
+  alignSnap:true, gripDamp:0.5, gripK:0.3,      // firm-grip angle servo while carrying
+  riderSpin:0.88, riderPull:0.15 };              // carried-stack balance assist                                           // near-rest blocks ease onto exact 90-deg axes  // free hang: FULL gravity torque, light damping                                 // contact-press cap (≈chamfer px) + hold-still dead-zone
 import { fileURLToPath } from 'node:url';
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 const N = +(process.argv[2]||300);

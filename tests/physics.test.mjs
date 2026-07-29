@@ -162,3 +162,24 @@ test('carry: dragging a block grabbed by its top end trails gently, no weightles
 });
 import { runCapeDrag } from '../scripts/stacker_sim.mjs';
 function runCapeDragWrapped(){ return runCapeDrag(C); }
+
+test('lift a stack: dragging the bottom block up tracks the pointer and carries the rider', () => {
+  const r = runLiftCarryWrapped();
+  assert.ok(r.ratio > 0.85, `rise was only ${(r.ratio*100).toFixed(0)}% of the pointer motion (contact-slip throttle)`);
+  assert.ok(r.carried, 'the block on top fell off during a straight lift');
+  assert.ok(r.jerk < 6, `vertical velocity jerk ${r.jerk.toFixed(1)} px/frame — unstable lift`);
+});
+import { runLiftCarry } from '../scripts/stacker_sim.mjs';
+function runLiftCarryWrapped(){ return runLiftCarry(C); }
+
+test('tower lift: carrying a 2-tall tower by its base survives a wobbly hand', () => {
+  const r = runTowerLiftWrapped();
+  assert.ok(r.lifted, 'the stack never got off the ground');
+  assert.ok(r.towerUp, 'the tower toppled during the carry');
+  assert.ok(r.heldTilt < 0.15, `held base tilted ${r.heldTilt.toFixed(2)} rad — grip not firm`);
+  // the metric must still detect the old single-point-axle failure (guards the guard)
+  const axle = runTowerLift({ ...C, gripK: 0, gripDamp: 0.85, riderPull: 0 });
+  assert.ok(!axle.towerUp, 'metric went blind: an axle pinch should topple this tower');
+});
+import { runTowerLift } from '../scripts/stacker_sim.mjs';
+function runTowerLiftWrapped(){ return runTowerLift(C); }

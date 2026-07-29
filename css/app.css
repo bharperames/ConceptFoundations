@@ -407,13 +407,16 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 }
 /* Block Stacker mini-game: drop + shape-switch + reset controls, falling blocks */
 .fb-ops{position:absolute;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:30;display:flex;flex-wrap:wrap;gap:9px;align-items:center;justify-content:center;max-width:94vw}
-.fb-btn{width:50px;height:50px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+.fb-btn{width:66px;height:66px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
   font-family:var(--round);font-weight:800;font-size:28px;line-height:1;color:#fff;box-shadow:0 5px 14px rgba(30,60,90,.28);transition:transform .1s}
 .fb-btn:active{transform:scale(.9)}
 .fb-btn:disabled{opacity:.4;cursor:default}
 .fb-add{background:#4C86D8}
-.fb-reset{background:#8AA0B4;font-size:24px}
-.fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:7px}
+/* reset lives alone in the top-right corner — out of the picker row so a
+   streak of drop-taps can't accidentally clear the field */
+.fb-reset{background:#8AA0B4;font-size:30px;color:#fff}
+#stk-reset{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:30}
+.fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:9px;touch-action:none}
 /* physics-debug toggle: sits beside the volume control, barely-there like it;
    lights up while the annotation overlay is on */
 .play-vol.stk-dbg{left:calc(max(14px,env(safe-area-inset-left)) + 48px)}
