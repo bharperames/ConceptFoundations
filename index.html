@@ -53,6 +53,16 @@
       <span class="cname">Picture Puzzle</span>
       <span class="clevel">Tap tiles to build a picture!</span>
     </button>
+    <button class="minicard" data-mini="gears">
+      <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M50 12 l5 9 10-3 1 10 10 2-4 10 8 6-8 6 4 10-10 2-1 10-10-3-5 9-5-9-10 3-1-10-10-2 4-10-8-6 8-6-4-10 10-2 1-10 10 3z" fill="#3D8BFF"/>
+        <circle cx="50" cy="50" r="13" fill="#fff"/>
+        <path d="M78 22 l3 6 7-2 0 7 7 1-3 7 5 4-5 4 3 7-7 1 0 7-7-2-3 6-3-6-7 2 0-7-7-1 3-7-5-4 5-4-3-7 7-1 0-7 7 2z" fill="#FFC02E"/>
+        <circle cx="78" cy="52" r="8" fill="#fff"/>
+      </svg>
+      <span class="cname">Gear Wall</span>
+      <span class="clevel">Place gears, make them spin!</span>
+    </button>
     <button class="minicard" data-mini="stacker">
       <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
         <rect x="30" y="20" width="26" height="26" rx="4" fill="#DFA75F"/>
@@ -124,6 +134,15 @@
       <button id="btn-bub-again" class="btn-primary bub-again">Play again</button>
     </div>
   </div>
+</main>
+
+<main id="view-gears" class="view hidden">
+  <button id="btn-gr-home" class="btn-round btn-exit" aria-label="Back to games">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.8 11h2.4v9h5.2v-6h3.2v6h5.2v-9h2.4z"/></svg>
+  </button>
+  <div id="gears-area" class="gears-area"></div>
+  <div id="gr-ops" class="fb-ops"></div>
+  <button id="gr-reset" class="fb-btn fb-reset" aria-label="Clear the gears">↺</button>
 </main>
 
 <main id="view-stacker" class="view hidden">

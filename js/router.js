@@ -14,8 +14,9 @@ function showView(name){
   $('#view-bubbles').classList.toggle('hidden', name!=='bubbles');
   $('#view-puzzle').classList.toggle('hidden', name!=='puzzle');
   $('#view-stacker').classList.toggle('hidden', name!=='stacker');
+  $('#view-gears').classList.toggle('hidden', name!=='gears');
   // the quick mute control rides along on the play screens only
-  $('#play-vol').classList.toggle('hidden', !(name==='play' || name==='bubbles' || name==='puzzle' || name==='stacker'));
+  $('#play-vol').classList.toggle('hidden', !(name==='play' || name==='bubbles' || name==='puzzle' || name==='stacker' || name==='gears'));
 }
 
 export { showView };

@@ -229,6 +229,44 @@ test('block stacker mini-game: per-shape drop, grab-move, cap, reset', async ({ 
   await expect(page.locator('#stacker-area .fb-block')).toHaveCount(0);
 });
 
+test('gear wall mini-game: spawn, mesh-snap, motor tri-switch drives exact ratios, reset', async ({ page }) => {
+  await boot(page);
+  await page.locator('.minicard[data-mini="gears"]').click();
+  await expect(page.locator('#view-gears')).toBeVisible();
+  await expect(page.locator('#gr-ops .gr-pick')).toHaveCount(6);   // 5 sizes + motor
+  const r = await page.evaluate(async () => {
+    const g = CF.GearGame;
+    const m = g.spawn(-1, true);                     // motor (12t)
+    m.x = 300; m.y = 380; g.syncOne(m);
+    const a = g.spawn(3, false);                     // 20t, dropped a few px off mesh
+    a.x = 300 + (12+20)*8/2 + 6; a.y = 384;
+    // release path: snap + solve (what onUp does after a drag)
+    const gw = await import('./js/games/gearworks.js');
+    gw.snap(g.gears, g.gears.indexOf(a)); g.syncOne(a); g.solveNow();
+    const rect = g.area().getBoundingClientRect();
+    // quick tap on the motor hub cycles the tri-switch: off -> run
+    g.onDown({ clientX: rect.left + m.x, clientY: rect.top + m.y, target: g.area() });
+    g.onUp();
+    const dist = Math.hypot(a.x - m.x, a.y - m.y);
+    const t0 = { m: m.angle, a: a.angle };
+    await new Promise(res => setTimeout(res, 500));
+    const dm = m.angle - t0.m, da = a.angle - t0.a;
+    // reverse: second tap
+    g.onDown({ clientX: rect.left + m.x, clientY: rect.top + m.y, target: g.area() });
+    g.onUp();
+    const t1 = { m: m.angle };
+    await new Promise(res => setTimeout(res, 300));
+    return { sw1: 1, meshErr: Math.abs(dist - (12+20)*8/2), dm, ratio: da/dm,
+             reversed: (m.angle - t1.m) < 0, count: g.gears.length };
+  });
+  expect(r.meshErr).toBeLessThan(1e-6);              // magnetic snap = exact mesh
+  expect(r.dm).toBeGreaterThan(0.4);                 // the motor actually spins
+  expect(Math.abs(r.ratio - (-12/20))).toBeLessThan(1e-6);   // exact gear ratio
+  expect(r.reversed).toBe(true);                     // tri-switch third state
+  await page.locator('#gr-reset').click();
+  expect(await page.evaluate(() => CF.GearGame.gears.length)).toBe(0);
+});
+
 test('4.3: a missed star stays where it was set down (no zap-back)', async ({ page }) => {
   await boot(page);
   await startLevel(page, 'spatial', 2);
@@ -297,7 +335,7 @@ test('all-levels toggles as a home mode with one dense grid of every level', asy
   await expect(page.locator('#view-home')).toHaveClass(/levels-mode/);
   await expect(page.locator('#concept-grid')).toBeHidden();
   await expect(page.locator('#all-levels .al-grid')).toBeVisible();
-  await expect(page.locator('#all-levels .al-tile')).toHaveCount(34);   // 31 levels + 3 mini, one grid
+  await expect(page.locator('#all-levels .al-tile')).toHaveCount(35);   // 31 levels + 4 mini, one grid
   await expect(page.locator('#btn-map .bm-label')).toHaveText('Games');
   // toggle OFF — back to the concept-card view (still the home screen)
   await page.locator('#btn-map').click();

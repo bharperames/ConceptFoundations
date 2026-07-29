@@ -6,6 +6,7 @@ import { Celebrate, FX } from './fx.js';
 import { BubbleGame } from './games/bubble.js';
 import { PuzzleGame } from './games/puzzle.js';
 import { StackerGame } from './games/stacker.js';
+import { GearGame } from './games/gears.js';
 import { NODES } from './nodes.js';
 import { showView } from './router.js';
 import { Store } from './store.js';
@@ -85,6 +86,7 @@ function init(){
       if (card.dataset.mini === 'bubbles') BubbleGame.start();
       else if (card.dataset.mini === 'puzzle') PuzzleGame.start();
       else if (card.dataset.mini === 'stacker') StackerGame.start();
+      else if (card.dataset.mini === 'gears') GearGame.start();
     });
   });
   const bubStage = $('#bub-canvas');
@@ -99,6 +101,7 @@ function init(){
   $('#btn-puz-home').addEventListener('click', () => { showView('home'); renderHome(); });
   $('#btn-puz-again').addEventListener('click', () => PuzzleGame.start());
   $('#btn-stk-home').addEventListener('click', () => { StackerGame.stop(); showView('home'); renderHome(); });
+  $('#btn-gr-home').addEventListener('click', () => { GearGame.stop(); showView('home'); renderHome(); });
   $('#stk-dbg-btn').addEventListener('click', e => {
     StackerGame.debug = !StackerGame.debug;
     e.currentTarget.classList.toggle('on', StackerGame.debug);
@@ -133,7 +136,7 @@ function init(){
   }
 
   // scripting hook for the test harness (drive trials, run simulations headlessly)
-  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame, StackerGame,
+  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame, StackerGame, GearGame,
     computeStats, computeInsights, renderDash, renderHome, showView };
 }
 init();

@@ -5,6 +5,7 @@ import { Engine } from './engine.js';
 import { BubbleGame } from './games/bubble.js';
 import { PuzzleGame } from './games/puzzle.js';
 import { StackerGame } from './games/stacker.js';
+import { GearGame } from './games/gears.js';
 import { NODES } from './nodes.js';
 import { Store, nodeProgress } from './store.js';
 
@@ -99,8 +100,9 @@ function renderAllLevels(){
     bubbles: `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:64%"><svg viewBox="0 0 100 100"><circle cx="38" cy="42" r="22" fill="#5BB8EC" opacity=".7"/><circle cx="30" cy="34" r="6" fill="#fff" opacity=".95"/><circle cx="68" cy="60" r="15" fill="#9B7DE8" opacity=".7"/><circle cx="63" cy="54" r="4" fill="#fff" opacity=".95"/><circle cx="62" cy="28" r="10" fill="#4FCF98" opacity=".7"/><circle cx="59" cy="24" r="3" fill="#fff" opacity=".95"/></svg></span></div>`,
     puzzle: `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:60%"><svg viewBox="0 0 100 100"><rect x="14" y="14" width="34" height="34" rx="5" fill="#FFC02E"/><rect x="52" y="14" width="34" height="34" rx="5" fill="#FF5D55"/><rect x="14" y="52" width="34" height="34" rx="5" fill="#3D8BFF"/><rect x="52" y="52" width="34" height="34" rx="5" fill="#5FBF6A"/></svg></span></div>`,
     stacker: `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:62%"><svg viewBox="0 0 100 100"><rect x="30" y="20" width="26" height="26" rx="4" fill="#DFA75F"/><rect x="24" y="48" width="26" height="26" rx="4" fill="#E8B36B"/><rect x="52" y="48" width="26" height="26" rx="4" fill="#C08847"/><rect x="18" y="76" width="64" height="10" rx="5" fill="#A9C6E0"/></svg></span></div>`,
+    gears: `<div class="lp-preview"><span class="lp-el" style="left:50%;top:50%;width:62%"><svg viewBox="0 0 100 100"><path d="M42 14 l4 7 8-2 1 8 8 2-3 8 6 5-6 5 3 8-8 2-1 8-8-2-4 7-4-7-8 2-1-8-8-2 3-8-6-5 6-5-3-8 8-2 1-8 8 2z" fill="#3D8BFF"/><circle cx="42" cy="52" r="10" fill="#fff"/><path d="M74 30 l3 5 6-1 0 6 6 1-2 6 4 3-4 3 2 6-6 1 0 6-6-1-3 5-3-5-6 1 0-6-6-1 2-6-4-3 4-3-2-6 6-1 0-6 6 1z" fill="#FFC02E"/><circle cx="74" cy="56" r="7" fill="#fff"/></svg></span></div>`,
   };
-  for (const [k, name] of [['bubbles','Bubble Pop'],['puzzle','Picture Puzzle'],['stacker','Block Stacker']])
+  for (const [k, name] of [['bubbles','Bubble Pop'],['puzzle','Picture Puzzle'],['stacker','Block Stacker'],['gears','Gear Wall']])
     tiles.push(`<button class="al-tile" style="--nc:#9DB4C4" data-mini="${k}">${MINI_ICON[k]}
       <span class="alt-txt"><span class="alt-id">Game</span><span class="alt-name">${name}</span></span></button>`);
   const grid = $('#all-levels');
@@ -110,6 +112,7 @@ function renderAllLevels(){
       if (el.dataset.mini === 'bubbles'){ Audio2.unlock(); BubbleGame.start(); return; }
       if (el.dataset.mini === 'puzzle'){ Audio2.unlock(); PuzzleGame.start(); return; }
       if (el.dataset.mini === 'stacker'){ Audio2.unlock(); StackerGame.start(); return; }
+      if (el.dataset.mini === 'gears'){ Audio2.unlock(); GearGame.start(); return; }
       const node = NODES.find(n => n.key === el.dataset.node), i = parseInt(el.dataset.i, 10);
       if (!levelReachable(node, nodeProgress(node.key), i)){
         el.classList.add('wobble'); setTimeout(() => el.classList.remove('wobble'), 500); return;
