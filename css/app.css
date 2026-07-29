@@ -420,6 +420,9 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 /* physics-debug toggle: sits beside the volume control, barely-there like it;
    lights up while the annotation overlay is on */
 .play-vol.stk-dbg{left:calc(max(14px,env(safe-area-inset-left)) + 48px)}
+/* planet-ball skin toggle: dim beside the debug button; lit while active */
+.play-vol.stk-planet{left:calc(max(14px,env(safe-area-inset-left)) + 96px);font-size:20px}
+.play-vol.stk-planet.on{opacity:.95}
 .play-vol.stk-dbg.on{opacity:.95;color:#2E7DD1}
 /* positioned by transform ONLY (left/top stay 0): the compositor caches each
    block's expensive raster (wood-grain SVG filter + drop-shadow) as a layer

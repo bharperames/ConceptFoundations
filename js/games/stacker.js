@@ -2,6 +2,7 @@ import { SHAPES } from '../art.js';
 import { Audio2 } from '../audio.js';
 import { $, mulberry32 } from '../core.js';
 import { showView } from '../router.js';
+import { Store } from '../store.js';
 
 const StackerGame = {
   TONES: ['#D8A05B','#C88A45','#E0B274','#BE8038','#CF9550','#D6A868','#B87636'],
@@ -18,6 +19,9 @@ const StackerGame = {
     { key:'wedge', w:3,    h:1,    cx:0.667, cy:0.667 },   // ramp: right triangle, centroid ⅔ across/down
   ],
   MAX: Infinity,   // no block cap — drop as many as the device can carry
+  // optional planet skin for balls: successive drops cycle Mercury → Neptune
+  PLANETS: ['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune'],
+  planetBalls: false, planetIdx: 0,
   blocks: [], raf: 0, drag: null, U: 0, W: 0, H: 0, floorY: 0, active: false, bound: false,
   eng: null, useMatter: false, lastClack: 0, debug: false, dpr: 1,
   area(){ return $('#stacker-area'); },
@@ -129,6 +133,81 @@ const StackerGame = {
       <rect x="0" y="0" width="${W}" height="${H}" fill="url(#${uid}d)"/>
     </svg>`;
   },
+  // idealized planet discs (procedural SVG — the app ships no image assets).
+  // The TEXTURE layer rotates with the physics body; the LIGHTING (limb
+  // darkening + highlight) lives in a separate counter-rotated layer so the
+  // sun stays put while the planet spins — the core trick that reads as a
+  // rotating sphere instead of a spinning sticker. See sync().
+  planetSVG(idx, d, uid){
+    const n = x => (+x).toFixed(1), r = d/2, C = v => n(v*d);
+    const crater = (x, y, cr) => `<circle cx="${C(x)}" cy="${C(y)}" r="${C(cr)}" fill="#000" opacity=".16"/>
+      <circle cx="${C(x - cr*0.18)}" cy="${C(y - cr*0.18)}" r="${C(cr*0.72)}" fill="#fff" opacity=".07"/>`;
+    // gently bowed horizontal band (quadratic bows fake the sphere's curvature)
+    const band = (y0, h, color, op) => {
+      const bow = (y0 + h/2 - 0.5) * 0.16 * d;
+      return `<path d="M0 ${C(y0)} Q ${n(r)} ${n(y0*d + bow)} ${n(d)} ${C(y0)} L ${n(d)} ${C(y0 + h)} Q ${n(r)} ${n((y0 + h)*d + bow)} 0 ${C(y0 + h)} Z" fill="${color}" opacity="${op}"/>`;
+    };
+    const speckle = (seed, color, op, f) => `<filter id="${uid}n" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="${f}" numOctaves="2" seed="${seed}"/>
+        <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.4 2.4 2.4 0 -2.8"/>
+        <feFlood flood-color="${color}" flood-opacity="${op}" result="k"/>
+        <feComposite in="k" in2="SourceGraphic" operator="atop"/>
+      </filter>`;
+    const P = {
+      mercury: { base:'#9A938C', defs: speckle(9, '#5E574F', .5, 0.09),
+        art: `<rect width="${d}" height="${d}" filter="url(#${uid}n)" opacity=".5"/>`
+          + crater(.32,.34,.10) + crater(.62,.55,.07) + crater(.44,.72,.08) + crater(.68,.28,.05) + crater(.24,.58,.05) },
+      venus: { base:'#E4C48F', defs: speckle(23, '#C79A55', .45, 0.028),
+        art: `<rect width="${d}" height="${d}" filter="url(#${uid}n)" opacity=".6"/>`
+          + band(.18,.14,'#F2DDB5',.5) + band(.48,.12,'#D3A968',.4) + band(.72,.1,'#F2DDB5',.35) },
+      earth: { base:'#2E6FBD', defs:'',
+        art: `<path d="M ${C(.18)} ${C(.32)} q ${C(.1)} ${C(-.14)} ${C(.24)} ${C(-.06)} q ${C(.14)} ${C(.06)} ${C(.05)} ${C(.16)} q ${C(-.1)} ${C(.1)} ${C(-.22)} ${C(.05)} Z" fill="#4E9C4E"/>
+          <path d="M ${C(.55)} ${C(.52)} q ${C(.16)} ${C(-.05)} ${C(.22)} ${C(.08)} q ${C(.02)} ${C(.14)} ${C(-.12)} ${C(.18)} q ${C(-.14)} ${C(-.04)} ${C(-.1)} ${C(-.26)} Z" fill="#5C9C46"/>
+          <path d="M ${C(.3)} ${C(.68)} q ${C(.1)} ${C(-.04)} ${C(.14)} ${C(.05)} q ${C(-.02)} ${C(.1)} ${C(-.12)} ${C(.08)} Z" fill="#C9B36A"/>
+          <ellipse cx="${n(r)}" cy="${C(.06)}" rx="${C(.2)}" ry="${C(.06)}" fill="#fff" opacity=".9"/>
+          <path d="M ${C(.12)} ${C(.5)} q ${C(.2)} ${C(-.06)} ${C(.4)} 0" stroke="#fff" stroke-width="${C(.045)}" fill="none" stroke-linecap="round" opacity=".75"/>
+          <path d="M ${C(.5)} ${C(.78)} q ${C(.18)} ${C(-.05)} ${C(.34)} ${C(.02)}" stroke="#fff" stroke-width="${C(.04)}" fill="none" stroke-linecap="round" opacity=".7"/>` },
+      mars: { base:'#C4552E', defs: speckle(41, '#8E3B1F', .5, 0.05),
+        art: `<rect width="${d}" height="${d}" filter="url(#${uid}n)" opacity=".55"/>
+          <ellipse cx="${n(r)}" cy="${C(.05)}" rx="${C(.16)}" ry="${C(.055)}" fill="#fff" opacity=".92"/>
+          <ellipse cx="${C(.6)}" cy="${C(.55)}" rx="${C(.14)}" ry="${C(.07)}" fill="#8E3B1F" opacity=".5"/>` },
+      jupiter: { base:'#E8D3AE', defs:'',
+        art: band(.08,.1,'#C9A272',.9) + band(.24,.09,'#F2E4C4',.9) + band(.37,.12,'#B67A50',.9)
+          + band(.53,.09,'#E8D3AE',.9) + band(.66,.1,'#C9A272',.85) + band(.8,.09,'#F2E4C4',.8)
+          + `<ellipse cx="${C(.62)}" cy="${C(.6)}" rx="${C(.11)}" ry="${C(.065)}" fill="#C1503C"/>
+             <ellipse cx="${C(.62)}" cy="${C(.6)}" rx="${C(.07)}" ry="${C(.04)}" fill="#D97A5E"/>` },
+      saturn: { base:'#E8D5A8', defs:'',
+        art: band(.15,.12,'#D9BE8C',.85) + band(.42,.1,'#C9A86F',.8) + band(.68,.12,'#D9BE8C',.75),
+        // sticker-style rings drawn over the disc (decor only — physics is the ball)
+        over: `<g transform="rotate(-18 ${n(r)} ${n(r)})" fill="none">
+          <ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.72)}" ry="${C(.2)}" stroke="#D9C08A" stroke-width="${C(.055)}" opacity=".95"/>
+          <ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.6)}" ry="${C(.16)}" stroke="#B79A69" stroke-width="${C(.04)}" opacity=".8"/></g>` },
+      uranus: { base:'#9FD8DD', defs:'',
+        art: band(.25,.12,'#B8E4E8',.6) + band(.55,.1,'#8CC8CE',.5)
+          + `<ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.14)}" ry="${C(.68)}" fill="none" stroke="#E8F4F5" stroke-width="${C(.03)}" opacity=".4" transform="rotate(8 ${n(r)} ${n(r)})"/>` },
+      neptune: { base:'#2C4FBF', defs:'',
+        art: `<ellipse cx="${C(.42)}" cy="${C(.46)}" rx="${C(.12)}" ry="${C(.07)}" fill="#1B347F"/>
+          <path d="M ${C(.2)} ${C(.3)} q ${C(.2)} ${C(-.05)} ${C(.42)} ${C(-.01)}" stroke="#DCE8FF" stroke-width="${C(.035)}" fill="none" stroke-linecap="round" opacity=".7"/>
+          <path d="M ${C(.35)} ${C(.72)} q ${C(.18)} ${C(-.04)} ${C(.32)} ${C(.01)}" stroke="#DCE8FF" stroke-width="${C(.03)}" fill="none" stroke-linecap="round" opacity=".55"/>` },
+    };
+    const p = P[this.PLANETS[idx]];
+    return `<svg viewBox="0 0 ${d} ${d}" preserveAspectRatio="none" style="position:absolute;inset:0;overflow:visible">
+      <defs>${p.defs}<clipPath id="${uid}c"><circle cx="${n(r)}" cy="${n(r)}" r="${n(r)}"/></clipPath></defs>
+      <g clip-path="url(#${uid}c)"><circle cx="${n(r)}" cy="${n(r)}" r="${n(r)}" fill="${p.base}"/>${p.art}</g>
+      ${p.over || ''}</svg>`;
+  },
+  // the counter-rotated lighting layer shared by every planet
+  planetShade(d, uid){
+    const n = x => (+x).toFixed(1), r = d/2;
+    return `<svg viewBox="0 0 ${d} ${d}" preserveAspectRatio="none" style="position:absolute;inset:0">
+      <defs><radialGradient id="${uid}sh" cx=".32" cy=".28" r=".92">
+        <stop offset="0" stop-color="#fff" stop-opacity=".38"/>
+        <stop offset=".38" stop-color="#fff" stop-opacity="0"/>
+        <stop offset=".78" stop-color="#04080f" stop-opacity=".12"/>
+        <stop offset="1" stop-color="#04080f" stop-opacity=".52"/>
+      </radialGradient></defs>
+      <circle cx="${n(r)}" cy="${n(r)}" r="${n(r)}" fill="url(#${uid}sh)"/></svg>`;
+  },
   svgSeq: 0,
   // Dropped blocks pass their real pixel size (pxW×pxH) so the grain renders
   // 1:1 crisp — a 52-scale viewBox stretched by preserveAspectRatio="none"
@@ -227,6 +306,8 @@ const StackerGame = {
         }
       });
     }
+    this.planetBalls = !!Store.settings().planetBalls;
+    const plBtn = $('#stk-planet-btn'); if (plBtn) plBtn.classList.toggle('on', this.planetBalls);
     this.active = true; this.renderOps(); this.loop();
     if (!this.bound){
       this.area().addEventListener('pointerdown', e => this.onDown(e));
@@ -241,6 +322,11 @@ const StackerGame = {
       window.addEventListener('blur', () => { this.onUp(); this.stopStream(); });
       document.addEventListener('visibilitychange', () => { if (document.hidden){ this.onUp(); this.stopStream(); } });
       $('#stk-reset').addEventListener('click', () => this.reset());
+      $('#stk-planet-btn').addEventListener('click', e => {
+        this.planetBalls = !this.planetBalls;
+        e.currentTarget.classList.toggle('on', this.planetBalls);
+        const st = Store.settings(); st.planetBalls = this.planetBalls; Store.saveSettings(st);
+      });
       this.bound = true;
     }
   },
@@ -310,11 +396,19 @@ const StackerGame = {
     const el = document.createElement('div');
     el.className = 'fb-block'; el.style.width = w + 'px'; el.style.height = h + 'px';
     el.style.transformOrigin = `${((shape.cx ?? .5)*100)}% ${((shape.cy ?? .5)*100)}%`;
-    el.innerHTML = this.blockSVG(shape, tone, false, w, h, 1 + Math.floor(Math.random()*997));
+    const asPlanet = shape.key === 'ball' && this.planetBalls;
+    if (asPlanet){
+      const uid = 'pl' + (++this.svgSeq);
+      el.innerHTML = this.planetSVG(this.planetIdx % this.PLANETS.length, w, uid) + this.planetShade(w, uid);
+      this.planetIdx++;
+    } else {
+      el.innerHTML = this.blockSVG(shape, tone, false, w, h, 1 + Math.floor(Math.random()*997));
+    }
     this.area().appendChild(el);
     // one fixed chute, square spawn: consecutive drops stack as they fall
     const x = this.W*0.5, y = h*0.62;   // just inside — the ceiling is above
     const b = { el, shape, w, h };
+    if (asPlanet) b.shadeEl = el.lastElementChild;   // sync() counter-rotates it
     if (this.useMatter){
       b.body = this.makeBody(shape, x, y, w, h);
       window.Matter.World.add(this.eng.world, b.body);
@@ -329,6 +423,9 @@ const StackerGame = {
         const p = b.body.position, cx = b.shape.cx ?? .5, cy = b.shape.cy ?? .5;
         // integer px keeps sprites crisp (sub-pixel was the old fuzzy-block bug)
         b.el.style.transform = `translate(${Math.round(p.x - cx*b.w)}px, ${Math.round(p.y - cy*b.h)}px) rotate(${b.body.angle}rad)`;
+        // planets: the lighting layer counter-rotates so the sun stays fixed
+        // in screen space while the surface spins under it
+        if (b.shadeEl) b.shadeEl.style.transform = `rotate(${-b.body.angle}rad)`;
       }
     } else {
       for (const b of this.blocks){
