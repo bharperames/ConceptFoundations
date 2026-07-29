@@ -215,9 +215,10 @@ const StackerGame = {
   // grain like old screen-printed toy blocks.
   letterBlockSVG(d, seed){
     const uid = 'lb' + (++this.svgSeq), n = x => (+x).toFixed(1);
-    // a fresh field greets its builder: the first cubes spell SEAN, then the
-    // alphabet runs A, B, C, ... (reset starts the greeting over)
-    const HI = 'SEAN';
+    // a fresh field greets its builder: the first cubes spell SEAN, then
+    // BALL, then GRANDPA, and only then the alphabet runs A, B, C, ...
+    // (reset starts the greeting over)
+    const HI = 'SEAN' + 'BALL' + 'GRANDPA';
     const letter = this.letterIdx < HI.length
       ? HI[this.letterIdx]
       : String.fromCharCode(65 + ((this.letterIdx - HI.length) % 26));
