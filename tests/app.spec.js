@@ -233,7 +233,7 @@ test('gear wall mini-game: spawn, mesh-snap, motor tri-switch drives exact ratio
   await boot(page);
   await page.locator('.minicard[data-mini="gears"]').click();
   await expect(page.locator('#view-gears')).toBeVisible();
-  await expect(page.locator('#gr-ops .gr-pick')).toHaveCount(6);   // 5 sizes + motor
+  await expect(page.locator('#gr-ops .gr-pick')).toHaveCount(7);   // 5 sizes + motor + cuckoo clock
   const r = await page.evaluate(async () => {
     const g = CF.GearGame;
     const m = g.spawn(-1, true);                     // motor (12t)

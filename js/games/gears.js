@@ -11,7 +11,8 @@ import { $, mulberry32 } from '../core.js';
 import { showView } from '../router.js';
 import {
   MODULE, TEETH, MOTOR_TEETH, MOTOR_W, pitchR, outerR, rootR,
-  meshes, solve, snap, phaseAlign, gearPath, SNAP_DIST,
+  meshes, solve, snap, phaseAlign, gearPath, SNAP_DIST, MESH_TOL,
+  illegalOverlaps, resolvePlacement, phaseError,
 } from './gearworks.js';
 
 const COLORS = [
@@ -28,6 +29,15 @@ const GearGame = {
     Audio2.unlock(); showView('gears');
     const r = this.area().getBoundingClientRect();
     this.W = r.width; this.H = r.height;
+    let cv = $('#gr-dbg-cv');
+    if (!cv){
+      cv = document.createElement('canvas'); cv.id = 'gr-dbg-cv';
+      cv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:20';
+      this.area().appendChild(cv);
+    }
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(this.W * this.dpr); cv.height = Math.round(this.H * this.dpr);
+    cv.style.width = this.W + 'px'; cv.style.height = this.H + 'px';
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
     this.active = true;
     this.renderOps();
@@ -39,6 +49,11 @@ const GearGame = {
       window.addEventListener('pointercancel', e => this.onUp(e));
       this.area().addEventListener('contextmenu', e => { e.preventDefault(); this.onUp(); });
       $('#gr-reset').addEventListener('click', () => this.reset());
+      $('#gr-dbg-btn').addEventListener('click', e => {
+        this.debug = !this.debug;
+        e.currentTarget.classList.toggle('on', this.debug);
+        this.drawDebug();
+      });
       this.bound = true;
     }
   },
@@ -95,10 +110,10 @@ const GearGame = {
     };
     if (clock) g.y = Math.max(g.y, outerR(teeth)*3.4);   // room for the chalet above
     // nudge sideways until the spawn spot doesn't bury an existing gear
-    for (let k = 0; k < 14; k++){
-      const clash = this.gears.some(o => Math.hypot(o.x-g.x, o.y-g.y) < (outerR(o.teeth)+outerR(g.teeth))*0.8);
+    for (let k = 0; k < 18; k++){
+      const clash = this.gears.some(o => Math.hypot(o.x-g.x, o.y-g.y) < (outerR(o.teeth)+outerR(g.teeth)) + 4);
       if (!clash) break;
-      g.x = this.W/2 + ((k%2 ? 1 : -1) * Math.ceil((k+1)/2)) * outerR(g.teeth) * 1.1;
+      g.x = this.W/2 + ((k%2 ? 1 : -1) * Math.ceil((k+1)/2)) * outerR(g.teeth) * 1.15;
     }
     const el = document.createElement('div');
     el.className = 'gr-gear';
@@ -165,14 +180,17 @@ const GearGame = {
       <g class="grc-house">
         <rect x="${n(-W/2)}" y="${n(bodyTop)}" width="${n(W)}" height="${n(bodyBot-bodyTop)}" rx="${n(R*0.12)}" fill="#A9713A" stroke="#7a4e12" stroke-width="2.5"/>
         <path d="M ${n(-W/2 - R*0.16)} ${n(bodyTop + R*0.06)} L 0 ${n(peak)} L ${n(W/2 + R*0.16)} ${n(bodyTop + R*0.06)} Z" fill="#8B5A2B" stroke="#6b431a" stroke-width="2.5" stroke-linejoin="round"/>
-        <g class="grc-bird" transform="translate(${n(dx)} ${n(dy + dh*0.28)})">
-          <ellipse cx="0" cy="1" rx="${n(dw*0.42)}" ry="${n(dh*0.34)}" fill="#E07B39"/>
-          <circle cx="0" cy="${n(-dh*0.3)}" r="${n(dw*0.28)}" fill="#E8934F"/>
-          <path d="M ${n(dw*0.22)} ${n(-dh*0.36)} L ${n(dw*0.62)} ${n(-dh*0.44)} L ${n(dw*0.24)} ${n(-dh*0.18)} Z" fill="#F0B429"/>
-          <circle cx="${n(-dw*0.1)}" cy="${n(-dh*0.34)}" r="2" fill="#2a2a2a"/>
+        <rect x="${n(dx-dw/2)}" y="${n(dy-dh/2)}" width="${n(dw)}" height="${n(dh)}" rx="3" fill="#3a2410"/>
+        <g class="grc-bird" transform="translate(${n(dx)} ${n(dy + dh*0.3)})">
+          <ellipse cx="0" cy="1" rx="${n(dw*0.4)}" ry="${n(dh*0.32)}" fill="#E07B39"/>
+          <path d="M ${n(-dw*0.34)} 0 q ${n(-dw*0.24)} ${n(-dh*0.1)} ${n(-dw*0.2)} ${n(dh*0.22)} q ${n(dw*0.16)} ${n(dh*0.06)} ${n(dw*0.3)} ${n(-dh*0.06)} Z" fill="#C96A2F"/>
+          <circle cx="0" cy="${n(-dh*0.32)}" r="${n(dw*0.27)}" fill="#E8934F"/>
+          <path d="M ${n(dw*0.2)} ${n(-dh*0.38)} L ${n(dw*0.58)} ${n(-dh*0.46)} L ${n(dw*0.22)} ${n(-dh*0.2)} Z" fill="#F0B429"/>
+          <circle cx="${n(-dw*0.08)}" cy="${n(-dh*0.36)}" r="2" fill="#2a2a2a"/>
         </g>
-        <rect class="grc-doorL" x="${n(dx-dw/2)}" y="${n(dy-dh/2)}" width="${n(dw/2)}" height="${n(dh)}" rx="2" fill="#5c3b1c"/>
-        <rect class="grc-doorR" x="${n(dx)}" y="${n(dy-dh/2)}" width="${n(dw/2)}" height="${n(dh)}" rx="2" fill="#503216"/>
+        <rect class="grc-doorL" x="${n(dx-dw/2-dw*0.16)}" y="${n(dy-dh/2)}" width="${n(dw*0.18)}" height="${n(dh)}" rx="2" fill="#5c3b1c"/>
+        <rect class="grc-doorR" x="${n(dx+dw/2-dw*0.02)}" y="${n(dy-dh/2)}" width="${n(dw*0.18)}" height="${n(dh)}" rx="2" fill="#503216"/>
+        <rect x="${n(dx-dw/2)}" y="${n(dy+dh/2-2)}" width="${n(dw)}" height="3.5" rx="1.5" fill="#5c3b1c"/>
         <circle cx="${n(fx)}" cy="${n(fy)}" r="${n(fr)}" fill="#F4E4C1" stroke="#5c3b1c" stroke-width="3"/>
         ${[0,1,2,3].map(k => `<circle cx="${n(fx + Math.sin(k*Math.PI/2)*fr*0.8)}" cy="${n(fy - Math.cos(k*Math.PI/2)*fr*0.8)}" r="1.8" fill="#5c3b1c"/>`).join('')}
         <line class="grc-mh" x1="${n(fx)}" y1="${n(fy)}" x2="${n(fx)}" y2="${n(fy - fr*0.72)}" stroke="#5c3b1c" stroke-width="3" stroke-linecap="round"/>
@@ -212,6 +230,55 @@ const GearGame = {
     svg.insertAdjacentHTML('beforeend', this.motorHub(g, rootR(g.teeth)));
   },
 
+  // ── debug overlay: the TRUE geometry driving the simulation ──
+  // pitch circles (the real meshing surfaces), tooth-phase ticks, mesh links
+  // with their ratio, outer/root circles, per-gear ω, jam markers
+  drawDebug(){
+    const cv = $('#gr-dbg-cv'); if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.W, this.H);
+    if (!this.debug || !this.active) return;
+    ctx.lineWidth = 1; ctx.font = '10px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center';
+    // mesh links first
+    for (const [i, j] of meshes(this.gears, this.drag ? this.drag.g : undefined)){
+      const a = this.gears[i], b = this.gears[j];
+      ctx.strokeStyle = '#41B6FF';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+      const label = `${a.teeth}:${b.teeth}  φ${(phaseError(a,b)).toFixed(2)}`;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.fillStyle = '#BDE3FF'; ctx.lineJoin = 'round';
+      ctx.strokeText(label, mx, my - 4); ctx.fillText(label, mx, my - 4); ctx.lineWidth = 1;
+    }
+    for (let i = 0; i < this.gears.length; i++){
+      const g = this.gears[i], pr = pitchR(g.teeth);
+      // pitch circle — THE physical meshing surface
+      ctx.strokeStyle = this.sol.jam.has(i) ? '#FF3B30' : '#19E68C';
+      ctx.beginPath(); ctx.arc(g.x, g.y, pr, 0, 7); ctx.stroke();
+      // outer + root circles, faint
+      ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.arc(g.x, g.y, outerR(g.teeth), 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(g.x, g.y, rootR(g.teeth), 0, 7); ctx.stroke();
+      ctx.setLineDash([]);
+      // tooth-phase ticks on the pitch circle — interleave is visible truth
+      ctx.strokeStyle = '#FFD23F';
+      for (let k = 0; k < g.teeth; k++){
+        const a = g.angle + k * 2*Math.PI/g.teeth;
+        ctx.beginPath();
+        ctx.moveTo(g.x + Math.cos(a)*(pr-4), g.y + Math.sin(a)*(pr-4));
+        ctx.lineTo(g.x + Math.cos(a)*(pr+4), g.y + Math.sin(a)*(pr+4));
+        ctx.stroke();
+      }
+      // centre + ω
+      ctx.fillStyle = '#FF4FD8';
+      ctx.beginPath(); ctx.arc(g.x, g.y, 2.2, 0, 7); ctx.fill();
+      const w = this.sol.w[i] || 0;
+      const lbl = `${g.teeth}t ${w ? (w>0?'+':'') + w.toFixed(2) + 'r/s' : (this.sol.jam.has(i) ? 'JAM' : '·')}`;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.fillStyle = '#fff'; ctx.lineJoin = 'round';
+      ctx.strokeText(lbl, g.x, g.y - pitchR(g.teeth) - 8); ctx.fillText(lbl, g.x, g.y - pitchR(g.teeth) - 8);
+      ctx.lineWidth = 1;
+    }
+  },
   solveNow(){
     this.sol = solve(this.gears, this.drag ? this.drag.g : undefined);
     for (let i = 0; i < this.gears.length; i++){
@@ -251,6 +318,7 @@ const GearGame = {
           }
         }
       }
+      if (this.debug) this.drawDebug();
       this.raf = requestAnimationFrame(frame);
     };
     this.raf = requestAnimationFrame(frame);
@@ -270,7 +338,7 @@ const GearGame = {
     const px = e.clientX - r.left, py = e.clientY - r.top;
     const g = this.hit(px, py);
     if (!g) return;
-    this.drag = { g, ox: px - g.x, oy: py - g.y, sx: px, sy: py, t0: performance.now(), moved: false };
+    this.drag = { g, ox: px - g.x, oy: py - g.y, sx: px, sy: py, t0: performance.now(), moved: false, homeX: g.x, homeY: g.y, homeA: g.angle };
     g.el.style.zIndex = 9;
     this.solveNow();                       // dragged gear leaves the train
     Audio2.unlock();
@@ -306,20 +374,13 @@ const GearGame = {
       Audio2.snapSnd();
     } else if (d.moved){
       const didSnap = snap(this.gears, this.gears.indexOf(g));
-      // never leave two gears buried in each other: push out of the deepest
-      for (const o of this.gears){
-        if (o === g) continue;
-        const min = (rootR(o.teeth) + rootR(g.teeth)) * 0.9;
-        const dist = Math.hypot(g.x - o.x, g.y - o.y);
-        if (dist < min){
-          const th = Math.atan2(g.y - o.y, g.x - o.x) || 0.7;
-          g.x = o.x + Math.cos(th) * (pitchR(o.teeth) + pitchR(g.teeth));
-          g.y = o.y + Math.sin(th) * (pitchR(o.teeth) + pitchR(g.teeth));
-          phaseAlign(o, g);
-          break;
-        }
-      }
-      if (didSnap) Audio2.snapSnd();
+      // buried teeth are not a thing on the real toy: legalize (push out to
+      // exact mesh) or, if the spot truly can't take the piece, bounce it
+      // back where it came from
+      if (!resolvePlacement(this.gears, this.gears.indexOf(g))){
+        g.x = d.homeX; g.y = d.homeY; g.angle = d.homeA;
+        Audio2.wrong();
+      } else if (didSnap) Audio2.snapSnd();
       this.syncOne(g);
     }
     const jammedBefore = this.sol.jam.size;

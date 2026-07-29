@@ -101,7 +101,7 @@ test('magnetic snap: near-miss placement lands at the exact mesh distance', () =
   assert.ok(Math.abs(d - exact(a, g)) < 1e-6, `distance ${d} != exact mesh`);
 });
 
-test('snap between two gears meets BOTH mesh circles', () => {
+test('snap between two gears meets BOTH mesh circles', async () => {
   // a 12-tooth gear can bridge two 16-tooth gears iff their spacing is under
   // twice the 16↔12 mesh distance (2·112) — use 200, drop g near the true
   // intersection point (400, 249.6) but a few px off
@@ -110,9 +110,14 @@ test('snap between two gears meets BOTH mesh circles', () => {
   const g = G(12, 400, 245);
   const gears = [a, b, g];
   assert.ok(snap(gears, 2));
+  // contract: the anchor mesh stays EXACT; the second may float within mesh
+  // tolerance (real-toy backlash) in exchange for teeth that actually
+  // interleave — the planet-roll trades sub-tolerance distance for phase
   const dA = Math.hypot(g.x - a.x, g.y - a.y), dB = Math.hypot(g.x - b.x, g.y - b.y);
-  assert.ok(Math.abs(dA - exact(a, g)) < 1e-6 && Math.abs(dB - exact(b, g)) < 1e-6,
-    `dA=${dA.toFixed(2)} dB=${dB.toFixed(2)}`);
+  const gwm = await import('../js/games/gearworks.js');
+  assert.ok(Math.abs(dA - exact(a, g)) < 1e-6, `anchor dA=${dA.toFixed(2)} not exact`);
+  assert.ok(Math.abs(dB - exact(b, g)) <= gwm.MESH_TOL + 1e-9, `dB=${dB.toFixed(2)} out of mesh`);
+  assert.ok(gwm.phaseError(a, g) < 0.35 && gwm.phaseError(b, g) < 0.35, 'teeth do not interleave');
 });
 
 test('phase alignment interleaves teeth: φA + φB ≡ π (mod 2π)', () => {
@@ -147,4 +152,17 @@ test('gear outline is a valid closed path with one tooth per count', () => {
     assert.ok(d.startsWith('M') && d.endsWith('Z'));
     assert.equal((d.match(/Q/g) || []).length, t*2, 'two flanks per tooth');
   }
+});
+
+test('buried placement is illegal: between mesh and clear is not placeable', async () => {
+  const gw = await import('../js/games/gearworks.js');
+  const a = G(16, 300, 300);
+  const g = G(16, 300 + gw.rootR(16)*2 + 4, 300);      // teeth fully buried
+  assert.equal(gw.illegalOverlaps([a, g], 1).length, 1);
+  assert.ok(gw.resolvePlacement([a, g], 1), 'should legalize by pushing to mesh');
+  const d = Math.hypot(g.x - a.x, g.y - a.y);
+  assert.ok(Math.abs(d - exact(a, g)) < 1e-6, 'resolved to exact mesh');
+  // clear placement and exact mesh are both legal
+  const far = G(16, 800, 300);
+  assert.equal(gw.illegalOverlaps([a, far], 1).length, 0);
 });

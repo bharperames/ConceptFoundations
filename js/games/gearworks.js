@@ -23,8 +23,8 @@ export const MESH_TOL = MODULE * 0.28;         // |d - (r1+r2)| within this = me
 export const SNAP_DIST = MODULE * 2.4;         // magnet capture range for snapping
 
 export const pitchR = teeth => MODULE * teeth / 2;
-export const outerR = teeth => pitchR(teeth) + MODULE * 0.95;   // addendum ≈ 1m
-export const rootR  = teeth => pitchR(teeth) - MODULE * 1.05;   // dedendum ≈ 1.05m
+export const outerR = teeth => pitchR(teeth) + MODULE * 0.9;    // addendum 0.9m
+export const rootR  = teeth => pitchR(teeth) - MODULE * 1.1;    // dedendum 1.1m (0.2m root clearance)
 
 export function meshes(gears, skip){
   const out = [];
@@ -122,6 +122,7 @@ export function snap(gears, i){
       if (Math.hypot(pick.x - g.x, pick.y - g.y) <= SNAP_DIST * 2){
         g.x = pick.x; g.y = pick.y;
         phaseAlign(A, g);
+        rollToFit(gears, i, A);
         return true;
       }
     }
@@ -131,14 +132,98 @@ export function snap(gears, i){
   g.x = A.x + Math.cos(th) * cands[0].ideal;
   g.y = A.y + Math.sin(th) * cands[0].ideal;
   phaseAlign(A, g);
+  rollToFit(gears, i, A);
   return true;
+}
+
+// planet-roll: keep g phase-locked and at exact distance to anchor A, and
+// sweep its position around A a little to make the OTHER meshed neighbours'
+// tooth phases drop in too (closing a chain into a loop generally can't be
+// fixed by rotating g alone). One planetary tooth period around A is
+// 2π/(N_A + N_g); searching ±half of one covers every distinct phase offset.
+export function rollToFit(gears, i, A){
+  const g = gears[i];
+  // the neighbour set is FIXED at entry — re-querying mid-sweep would let a
+  // pose that breaks a mesh entirely score as 'no error left'
+  const others = meshes(gears).filter(([p, q]) => p === i || q === i)
+    .map(([p, q]) => gears[p === i ? q : p]).filter(o => o !== A);
+  if (!others.length) return;
+  const R = pitchR(A.teeth) + pitchR(g.teeth);
+  const psi0 = Math.atan2(g.y - A.y, g.x - A.x);
+  const span = Math.PI / (A.teeth + g.teeth);      // ± half a planetary tooth
+  const score = () => {
+    let worst = 0;
+    for (const o of others){
+      const dErr = Math.abs(Math.hypot(o.x-g.x, o.y-g.y) - (pitchR(o.teeth)+pitchR(g.teeth)));
+      // out of mesh tolerance = far worse than any phase problem
+      worst = Math.max(worst, dErr > MESH_TOL ? 99 + dErr : phaseError(g, o));
+    }
+    return worst;
+  };
+  let best = { s: score(), x: g.x, y: g.y, ang: g.angle };
+  if (best.s < 0.12) return;
+  for (let k = -20; k <= 20; k++){
+    const psi = psi0 + span * k / 20;
+    g.x = A.x + Math.cos(psi) * R;
+    g.y = A.y + Math.sin(psi) * R;
+    phaseAlign(A, g);
+    const s = score();
+    if (s < best.s) best = { s, x: g.x, y: g.y, ang: g.angle };
+  }
+  g.x = best.x; g.y = best.y; g.angle = best.ang;
+}
+
+// how far a meshed pair is from perfect tooth interleave (0 = perfect;
+// radians of tooth-phase, pi = tooth-on-tooth)
+export function phaseError(a, b){
+  const th = Math.atan2(b.y - a.y, b.x - a.x);
+  const s = a.teeth*(th - a.angle) + b.teeth*(th + Math.PI - b.angle);
+  const e = ((s - Math.PI) % (2*Math.PI) + 3*Math.PI) % (2*Math.PI) - Math.PI;
+  return Math.abs(e);
+}
+
+// legality: against every other gear a placement is either MESHED (centre
+// distance within tolerance of the pitch sum) or CLEAR (outside the sum of
+// outer radii). Anything between is buried teeth — not placeable on the toy.
+export function illegalOverlaps(gears, i){
+  const g = gears[i], out = [];
+  for (let j = 0; j < gears.length; j++){
+    if (j === i) continue;
+    const o = gears[j];
+    const d = Math.hypot(o.x - g.x, o.y - g.y);
+    const meshD = pitchR(o.teeth) + pitchR(g.teeth);
+    if (Math.abs(d - meshD) <= MESH_TOL) continue;               // meshed
+    const clearD = outerR(o.teeth) + outerR(g.teeth) - 1;
+    if (d < clearD) out.push({ j, depth: clearD - d });
+  }
+  return out.sort((a, b) => b.depth - a.depth);
+}
+
+// make gear i legal: snap buried overlaps out to exact mesh (a few passes);
+// returns true if legal at the end, false if the caller should reject/revert
+export function resolvePlacement(gears, i){
+  const g = gears[i];
+  for (let pass = 0; pass < 6; pass++){
+    const bad = illegalOverlaps(gears, i);
+    if (!bad.length) return true;
+    const o = gears[bad[0].j];
+    const th = Math.atan2(g.y - o.y, g.x - o.x) || 0.6;
+    const meshD = pitchR(o.teeth) + pitchR(g.teeth);
+    g.x = o.x + Math.cos(th) * meshD;
+    g.y = o.y + Math.sin(th) * meshD;
+    phaseAlign(o, g);
+    rollToFit(gears, i, o);
+  }
+  return illegalOverlaps(gears, i).length === 0;
 }
 
 // toy-plastic gear outline: rounded trapezoid teeth around the root circle
 export function gearPath(teeth){
   const r = pitchR(teeth), ro = outerR(teeth), rr = rootR(teeth);
   const P = 2 * Math.PI / teeth;              // angular pitch
-  const tipW = P * 0.24, rootShoulder = P * 0.34;   // half-widths
+  // real teeth TAPER: ~half the pitch at the pitch circle, much slimmer at
+  // the tip — fat tips (the old 0.24P) visually collide even in perfect phase
+  const tipW = P * 0.13, rootShoulder = P * 0.31;   // half-widths
   const pt = (rad, ang) => `${(rad*Math.cos(ang)).toFixed(1)} ${(rad*Math.sin(ang)).toFixed(1)}`;
   let d = '';
   for (let k = 0; k < teeth; k++){
