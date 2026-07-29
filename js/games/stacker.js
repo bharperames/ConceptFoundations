@@ -22,7 +22,7 @@ const StackerGame = {
   MAX: Infinity,   // no block cap — drop as many as the device can carry
   // optional planet skin for balls: successive drops cycle Mercury → Neptune
   PLANETS: ['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune'],
-  planetBalls: false, planetIdx: 0,
+  planetBalls: false, planetIdx: 0, letterIdx: 0,
   blocks: [], raf: 0, drag: null, U: 0, W: 0, H: 0, floorY: 0, active: false, bound: false,
   eng: null, useMatter: false, lastClack: 0, debug: false, dpr: 1,
   area(){ return $('#stacker-area'); },
@@ -208,6 +208,34 @@ const StackerGame = {
         <stop offset="1" stop-color="#04080f" stop-opacity=".52"/>
       </radialGradient></defs>
       <circle cx="${n(r)}" cy="${n(r)}" r="${n(r)}" fill="url(#${uid}sh)"/></svg>`;
+  },
+  // fancy-mode cubes: vintage alphabet blocks — aged cream face, debossed
+  // frame, engraved serif letter cycling A-Z in a worn 4-colour palette. The
+  // wood-grain filter runs OVER the letter too, so the paint sits under the
+  // grain like old screen-printed toy blocks.
+  letterBlockSVG(d, seed){
+    const uid = 'lb' + (++this.svgSeq), n = x => (+x).toFixed(1);
+    const letter = String.fromCharCode(65 + (this.letterIdx % 26));
+    const col = ['#3b5ea8','#b8442e','#c9a12e','#4a7a3a'][this.letterIdx % 4];
+    this.letterIdx++;
+    const rx = n(d*0.06), fs = d*0.62, cx = d/2, ty = d/2 + fs*0.355;
+    const o = d*0.012;   // engrave/deboss offset
+    const F = `font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="${n(fs)}" text-anchor="middle"`;
+    const frame = (dx, dy, stroke, op) =>
+      `<rect x="${n(d*0.09 + dx)}" y="${n(d*0.09 + dy)}" width="${n(d*0.82)}" height="${n(d*0.82)}" rx="${n(d*0.02)}" fill="none" stroke="${stroke}" stroke-width="${n(d*0.018)}" opacity="${op}"/>`;
+    return `<svg viewBox="0 0 ${d} ${d}" preserveAspectRatio="none" style="overflow:visible">
+      <defs>${this.woodFilter(uid, false, seed, '#E6DCC2')}</defs>
+      <g filter="url(#${uid})">
+        <rect width="${d}" height="${d}" rx="${rx}" fill="#E9DFC6"/>
+        ${frame(o, o, '#fff8ea', .55)}${frame(-o*.7, -o*.7, '#4a3b28', .4)}
+        <text x="${n(cx - o)}" y="${n(ty - o)}" ${F} fill="#3a2d1c" opacity=".42">${letter}</text>
+        <text x="${n(cx + o)}" y="${n(ty + o)}" ${F} fill="#fff8ea" opacity=".5">${letter}</text>
+        <text x="${n(cx)}" y="${n(ty)}" ${F} fill="${col}" opacity=".9">${letter}</text>
+      </g>
+      <rect width="${d}" height="${d}" rx="${rx}" fill="url(#stkTop)"/>
+      <rect width="${d}" height="${d}" rx="${rx}" fill="url(#stkBot)"/>
+      <rect x="1" y="1" width="${n(d-2)}" height="${n(d-2)}" rx="${rx}" fill="none" stroke="#5a4630" stroke-width="1.6" opacity=".3"/>
+    </svg>`;
   },
   svgSeq: 0,
   // Dropped blocks pass their real pixel size (pxW×pxH) so the grain renders
@@ -420,6 +448,9 @@ const StackerGame = {
         const uid = 'pl' + (++this.svgSeq);
         el.innerHTML = this.planetSVG(this.PLANETS.indexOf(planetName), w, uid) + this.planetShade(w, uid);
       }
+    } else if (shape.key === 'cube' && this.planetBalls){
+      // fancy mode: cubes become vintage alphabet blocks
+      el.innerHTML = this.letterBlockSVG(w, 1 + Math.floor(Math.random()*997));
     } else {
       el.innerHTML = this.blockSVG(shape, tone, false, w, h, 1 + Math.floor(Math.random()*997));
     }
