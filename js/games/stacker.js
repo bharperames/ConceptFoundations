@@ -336,6 +336,7 @@ const StackerGame = {
       });
     }
     this.planetBalls = !!Store.settings().planetBalls;
+    this.planetIdx = 0; this.letterIdx = 0;   // fresh session: Mercury / "A"
     const plBtn = $('#stk-planet-btn'); if (plBtn) plBtn.classList.toggle('on', this.planetBalls);
     this.active = true; this.renderOps(); this.loop();
     if (!this.bound){
@@ -374,6 +375,7 @@ const StackerGame = {
       for (const b of this.blocks) window.Matter.World.remove(this.eng.world, b.body);
     }
     this.blocks = []; this.drag = null;
+    this.planetIdx = 0; this.letterIdx = 0;   // fancy cycles restart: Mercury / "A"
     this.area().querySelectorAll('.fb-block').forEach(e => e.remove());
     this.drawDebug();
   },
