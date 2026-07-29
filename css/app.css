@@ -438,6 +438,18 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   filter:drop-shadow(0 3px 4px rgba(10,20,30,.35))}
 .gr-pick{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #8FA4B4;padding:8px}
 .gr-pick-motor{box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #FFC02E}
+.gr-pick-clock{box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #A9713A}
+/* cuckoo pop: doors slide apart, the bird springs out and retreats */
+.grc-bird{opacity:0;transform-box:fill-box;transform-origin:center bottom}
+.grc-pop .grc-bird{animation:grcPop 1.3s ease}
+@keyframes grcPop{0%{transform:translateY(60%) scale(.4);opacity:0}
+  18%{transform:translateY(-46%) scale(1.12);opacity:1}
+  40%{transform:translateY(-30%) scale(1)}
+  78%{transform:translateY(-30%) scale(1);opacity:1}
+  100%{transform:translateY(60%) scale(.4);opacity:0}}
+.grc-doorL,.grc-doorR{transition:transform .22s ease}
+.grc-pop .grc-doorL{transform:translateX(-58%)}
+.grc-pop .grc-doorR{transform:translateX(58%)}
 .fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:9px;touch-action:none}
 /* physics-debug toggle: sits beside the volume control, barely-there like it;
    lights up while the annotation overlay is on */

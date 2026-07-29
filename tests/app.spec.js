@@ -263,6 +263,22 @@ test('gear wall mini-game: spawn, mesh-snap, motor tri-switch drives exact ratio
   expect(r.dm).toBeGreaterThan(0.4);                 // the motor actually spins
   expect(Math.abs(r.ratio - (-12/20))).toBeLessThan(1e-6);   // exact gear ratio
   expect(r.reversed).toBe(true);                     // tri-switch third state
+  // cuckoo clock: drive its input gear a full revolution -> the bird pops
+  const cuckoo = await page.evaluate(async () => {
+    const g = CF.GearGame, gw = await import('./js/games/gearworks.js');
+    g.reset();
+    const clock = g.spawn(-1, false, true);
+    clock.x = 430; clock.y = 430; g.syncOne(clock);
+    const m = g.spawn(-1, true);
+    m.x = clock.x - (12+12)*8/2 - 4; m.y = 431;
+    gw.snap(g.gears, g.gears.indexOf(m)); g.syncOne(m);
+    m.sw = 1; g.refreshHub(m); g.solveNow();
+    clock.acc = 6.2;                                 // a hair from one full turn
+    await new Promise(res => setTimeout(res, 600));
+    return { pops: clock.pops || 0, handGeared: !!clock.mHand.getAttribute('transform') };
+  });
+  expect(cuckoo.pops).toBeGreaterThanOrEqual(1);
+  expect(cuckoo.handGeared).toBe(true);
   await page.locator('#gr-reset').click();
   expect(await page.evaluate(() => CF.GearGame.gears.length)).toBe(0);
 });
