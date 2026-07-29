@@ -153,17 +153,31 @@ const Audio2 = (() => {
     o.start(ctx.currentTime + t0); o.stop(ctx.currentTime + t0 + dur + 0.05);
   }
   function clack(intensity){
-    // wood-on-wood impact: a short band-passed noise burst, gain from speed
+    // wood-on-wood impact: a deep, subdued CLUNK — a damped low knock (fast
+    // pitch drop, like a woodblock an octave down) plus a tiny lowpassed
+    // contact tick. The old 1.4kHz bandpassed noise burst read as tinny.
     if (!ctx || muted) return;
-    const dur = 0.045;
+    const t0 = ctx.currentTime, k = clamp(intensity, .15, 1);
+    // body knock: 150–230 Hz falling to ~55% over 70ms, gone in ~120ms
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    const f0 = 150 + Math.random()*40 + k*40;      // small per-hit variation
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f0, t0);
+    o.frequency.exponentialRampToValueAtTime(f0*0.55, t0 + 0.07);
+    og.gain.setValueAtTime(0.85*k, t0);
+    og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.11);
+    o.connect(og); og.connect(master);
+    o.start(t0); o.stop(t0 + 0.12);
+    // contact transient: 30ms of noise through a dark lowpass
+    const dur = 0.03;
     const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate*dur), ctx.sampleRate);
     const data = buf.getChannelData(0);
     for (let i=0;i<data.length;i++) data[i] = (Math.random()*2-1) * Math.pow(1 - i/data.length, 2);
     const src = ctx.createBufferSource(); src.buffer = buf;
-    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 1400; bp.Q.value = 1.2;
-    const g = ctx.createGain(); g.gain.value = 0.55 * clamp(intensity, .15, 1);
-    src.connect(bp); bp.connect(g); g.connect(master);
-    src.start(ctx.currentTime);
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 550 + 450*k; lp.Q.value = 0.7;
+    const g = ctx.createGain(); g.gain.value = 0.4 * k;
+    src.connect(lp); lp.connect(g); g.connect(master);
+    src.start(t0);
   }
   const correct  = () => { tone(660,0,.18,'triangle'); tone(880,.12,.25,'triangle'); };
   const wrong    = () => { tone(180,0,.22,'sine',.1); };
