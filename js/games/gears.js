@@ -199,9 +199,11 @@ const GearGame = {
         <rect class="grc-doorR" x="${n(dx-0.5)}" y="${n(dy-dh/2-1)}" width="${n(dw/2+1.5)}" height="${n(dh+2)}" rx="2" fill="#503216" stroke="#3a2410" stroke-width="1"/>
         <rect x="${n(dx-dw/2)}" y="${n(dy+dh/2-2)}" width="${n(dw)}" height="3.5" rx="1.5" fill="#5c3b1c"/>
         <circle cx="${n(fx)}" cy="${n(fy)}" r="${n(fr)}" fill="#F4E4C1" stroke="#5c3b1c" stroke-width="3"/>
-        ${[0,1,2,3].map(k => `<circle cx="${n(fx + Math.sin(k*Math.PI/2)*fr*0.8)}" cy="${n(fy - Math.cos(k*Math.PI/2)*fr*0.8)}" r="1.8" fill="#5c3b1c"/>`).join('')}
-        <line class="grc-mh" x1="${n(fx)}" y1="${n(fy)}" x2="${n(fx)}" y2="${n(fy - fr*0.72)}" stroke="#5c3b1c" stroke-width="3" stroke-linecap="round"/>
-        <line class="grc-hh" x1="${n(fx)}" y1="${n(fy)}" x2="${n(fx)}" y2="${n(fy - fr*0.45)}" stroke="#5c3b1c" stroke-width="3.6" stroke-linecap="round"/>
+        ${[['12',0,-1],['3',1,0],['6',0,1],['9',-1,0]].map(([t, ux, uy]) =>
+          `<text x="${n(fx + ux*fr*0.66)}" y="${n(fy + uy*fr*0.66 + fr*0.13)}" font-family="Georgia,serif" font-weight="700" font-size="${n(fr*0.36)}" fill="#5c3b1c" text-anchor="middle">${t}</text>`).join('')}
+        ${[1,2,4,5,7,8,10,11].map(k => `<circle cx="${n(fx + Math.sin(k*Math.PI/6)*fr*0.78)}" cy="${n(fy - Math.cos(k*Math.PI/6)*fr*0.78)}" r="1.4" fill="#5c3b1c" opacity=".75"/>`).join('')}
+        <line class="grc-mh" x1="${n(fx)}" y1="${n(fy)}" x2="${n(fx)}" y2="${n(fy - fr*0.6)}" stroke="#5c3b1c" stroke-width="3" stroke-linecap="round"/>
+        <line class="grc-hh" x1="${n(fx)}" y1="${n(fy)}" x2="${n(fx)}" y2="${n(fy - fr*0.4)}" stroke="#5c3b1c" stroke-width="3.6" stroke-linecap="round"/>
       </g>
       <circle class="gr-jamring" r="${n(rr*0.98)}" fill="none" stroke="#E24A3B" stroke-width="4" opacity="0"/>
     </svg>`;
