@@ -108,7 +108,7 @@ const GearGame = {
       x: this.W/2, y: Math.min(this.H*0.3, outerR(teeth) + this.H*0.14),
       angle: 0, color: COLORS[this.colorIdx++ % COLORS.length],
     };
-    if (clock) g.y = Math.max(g.y, outerR(teeth)*3.4);   // room for the chalet above
+    if (clock) g.y = Math.max(g.y, outerR(teeth)*3.9);   // room for the chalet above
     // nudge sideways until the spawn spot doesn't bury an existing gear
     for (let k = 0; k < 18; k++){
       const clash = this.gears.some(o => Math.hypot(o.x-g.x, o.y-g.y) < (outerR(o.teeth)+outerR(g.teeth)) + 4);
@@ -172,22 +172,28 @@ const GearGame = {
   // never rotates; only the .grc-rot gear (and the geared clock hands) spin.
   clockSVG(g){
     const R = outerR(g.teeth), rr = rootR(g.teeth), n = x => (+x).toFixed(1);
-    const W = R*2.3, bodyTop = -R*2.6, bodyBot = -R*0.55, peak = -R*3.35;
-    const fx = 0, fy = -R*1.35, fr = R*0.62;             // clock face
-    const dx = 0, dy = -R*2.15, dw = R*0.62, dh = R*0.56; // door
+    // the input gear sits half INSIDE the case: the housing's bottom edge
+    // runs through the gear centre, so only the driving teeth peek out below
+    const W = R*2.3, bodyTop = -R*2.95, bodyBot = R*0.06, peak = -R*3.7;
+    const fx = 0, fy = -R*1.05, fr = R*0.62;             // clock face
+    const dx = 0, dy = -R*2.3, dw = R*0.62, dh = R*0.56; // door
     const tooth = `<path d="${gearPath(g.teeth)}" fill="#F0B429" stroke="#B9821A" stroke-width="2.5" stroke-linejoin="round"/>`;
     return `<svg viewBox="${-R} ${-R} ${R*2} ${R*2}" style="display:block;width:100%;height:100%;overflow:visible">
+      <g class="grc-rot">${tooth}
+        <circle r="${n(rr*0.42)}" fill="#fff" opacity=".5"/>
+        <circle r="${n(rr*0.14)}" fill="#7a4e12"/>
+      </g>
       <g class="grc-house">
         <rect x="${n(-W/2)}" y="${n(bodyTop)}" width="${n(W)}" height="${n(bodyBot-bodyTop)}" rx="${n(R*0.12)}" fill="#A9713A" stroke="#7a4e12" stroke-width="2.5"/>
         <path d="M ${n(-W/2 - R*0.16)} ${n(bodyTop + R*0.06)} L 0 ${n(peak)} L ${n(W/2 + R*0.16)} ${n(bodyTop + R*0.06)} Z" fill="#8B5A2B" stroke="#6b431a" stroke-width="2.5" stroke-linejoin="round"/>
         <rect x="${n(dx-dw/2)}" y="${n(dy-dh/2)}" width="${n(dw)}" height="${n(dh)}" rx="3" fill="#3a2410"/>
-        <g class="grc-bird" transform="translate(${n(dx)} ${n(dy + dh*0.3)})">
+        <g transform="translate(${n(dx)} ${n(dy + dh*0.3)})"><g class="grc-bird">
           <ellipse cx="0" cy="1" rx="${n(dw*0.4)}" ry="${n(dh*0.32)}" fill="#E07B39"/>
           <path d="M ${n(-dw*0.34)} 0 q ${n(-dw*0.24)} ${n(-dh*0.1)} ${n(-dw*0.2)} ${n(dh*0.22)} q ${n(dw*0.16)} ${n(dh*0.06)} ${n(dw*0.3)} ${n(-dh*0.06)} Z" fill="#C96A2F"/>
           <circle cx="0" cy="${n(-dh*0.32)}" r="${n(dw*0.27)}" fill="#E8934F"/>
           <path d="M ${n(dw*0.2)} ${n(-dh*0.38)} L ${n(dw*0.58)} ${n(-dh*0.46)} L ${n(dw*0.22)} ${n(-dh*0.2)} Z" fill="#F0B429"/>
           <circle cx="${n(-dw*0.08)}" cy="${n(-dh*0.36)}" r="2" fill="#2a2a2a"/>
-        </g>
+        </g></g>
         <rect class="grc-doorL" x="${n(dx-dw/2-dw*0.16)}" y="${n(dy-dh/2)}" width="${n(dw*0.18)}" height="${n(dh)}" rx="2" fill="#5c3b1c"/>
         <rect class="grc-doorR" x="${n(dx+dw/2-dw*0.02)}" y="${n(dy-dh/2)}" width="${n(dw*0.18)}" height="${n(dh)}" rx="2" fill="#503216"/>
         <rect x="${n(dx-dw/2)}" y="${n(dy+dh/2-2)}" width="${n(dw)}" height="3.5" rx="1.5" fill="#5c3b1c"/>
@@ -195,11 +201,6 @@ const GearGame = {
         ${[0,1,2,3].map(k => `<circle cx="${n(fx + Math.sin(k*Math.PI/2)*fr*0.8)}" cy="${n(fy - Math.cos(k*Math.PI/2)*fr*0.8)}" r="1.8" fill="#5c3b1c"/>`).join('')}
         <line class="grc-mh" x1="${n(fx)}" y1="${n(fy)}" x2="${n(fx)}" y2="${n(fy - fr*0.72)}" stroke="#5c3b1c" stroke-width="3" stroke-linecap="round"/>
         <line class="grc-hh" x1="${n(fx)}" y1="${n(fy)}" x2="${n(fx)}" y2="${n(fy - fr*0.45)}" stroke="#5c3b1c" stroke-width="3.6" stroke-linecap="round"/>
-        <rect x="${n(-R*0.14)}" y="${n(bodyBot - 2)}" width="${n(R*0.28)}" height="${n(R*0.5)}" fill="#7a4e12"/>
-      </g>
-      <g class="grc-rot">${tooth}
-        <circle r="${n(rr*0.42)}" fill="#fff" opacity=".5"/>
-        <circle r="${n(rr*0.14)}" fill="#7a4e12"/>
       </g>
       <circle class="gr-jamring" r="${n(rr*0.98)}" fill="none" stroke="#E24A3B" stroke-width="4" opacity="0"/>
     </svg>`;
@@ -328,7 +329,7 @@ const GearGame = {
     for (let i = this.gears.length - 1; i >= 0; i--){
       const g = this.gears[i], R = outerR(g.teeth);
       if (Math.hypot(px - g.x, py - g.y) <= R) return g;
-      if (g.clock && Math.abs(px - g.x) <= R*1.2 && py >= g.y - R*3.4 && py <= g.y) return g;
+      if (g.clock && Math.abs(px - g.x) <= R*1.2 && py >= g.y - R*3.8 && py <= g.y) return g;
     }
     return null;
   },
