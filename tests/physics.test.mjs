@@ -183,3 +183,11 @@ test('tower lift: carrying a 2-tall tower by its base survives a wobbly hand', (
 });
 import { runTowerLift } from '../scripts/stacker_sim.mjs';
 function runTowerLiftWrapped(){ return runTowerLift(C); }
+
+test('droop landing: a held plank\'s falling end rests on a block — no paddle-bounce', () => {
+  const r = runDroopLandWrapped();
+  assert.ok(r.reversals <= 2, `${r.reversals} spin reversals after contact — paddle-whack loop`);
+  assert.ok(r.endSpin < 0.02, `still spinning at ${r.endSpin.toFixed(3)} rad/frame after 3s`);
+});
+import { runDroopLand } from '../scripts/stacker_sim.mjs';
+function runDroopLandWrapped(){ return runDroopLand(C); }

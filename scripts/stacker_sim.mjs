@@ -229,6 +229,10 @@ export function dragTick(c, eng, body, dt){
   // while FREE, light damping so the pendulum swings naturally
   if (body._touching === false){
     if (c.holdSpinFree < 1) Body.setAngularVelocity(body, body.angularVelocity * c.holdSpinFree);
+    // the pinch re-grips the CURRENT angle while swinging free — else, when a
+    // drooping end lands on something, the servo below would yank the block
+    // back to its stale grab-time angle: a paddle-whack bounce loop
+    body._ang0 = body.angle;
   } else {
     Body.setAngularVelocity(body, body.angularVelocity * c.gripDamp + (body._ang0 - body.angle) * c.gripK);
   }
@@ -582,6 +586,33 @@ export function runTowerLift(c){
   return { towerUp, heldTilt, lifted: floorY - brick.position.y > 100 };
 }
 
+// hold a plank by its RIGHT end with the left end above a cube; the end
+// droops, strikes the cube — and must come to REST on it, not paddle-bounce
+// (the firm-grip servo once yanked back to the stale grab angle on contact)
+export function runDroopLand(c){
+  const eng=makeWorld(c), dt=1000/60;
+  const pw=2.7*U, ph=0.62*U;
+  const cube = makeBody(SHAPES[0], W/2 - pw*0.35, floorY-U/2, U, U, c);
+  const plank = makeBody(SHAPES[2], W/2, floorY-ph/2, pw, ph, c);
+  World.add(eng.world, [cube, plank]);
+  Body.setPosition(plank, { x: W/2 + U*0.8, y: floorY - ph/2 });
+  for (let k=0;k<50;k++) step(eng,dt,c);
+  const con = makeDrag(c, plank, plank.position.x + pw*0.42, plank.position.y, SHAPES[2], pw, ph);
+  World.add(eng.world, con);
+  for (let k=0;k<40;k++){ moveDrag(c, eng, con, plank, con.pointA.x, con.pointA.y - 5); dragTick(c, eng, plank, dt); }
+  // now hold still: the left end droops onto the cube — count bounce reversals
+  let reversals=0, prevVy=0, maxUp=0;
+  for (let k=0;k<240;k++){
+    moveDrag(c, eng, con, plank, con.pointA.x, con.pointA.y);
+    dragTick(c, eng, plank, dt);
+    const vy = plank.angularVelocity;
+    if (k>20 && Math.sign(vy) !== Math.sign(prevVy) && Math.abs(vy) > .02) reversals++;
+    prevVy = vy;
+    if (k>60) maxUp = Math.max(maxUp, -plank.angularVelocity * Math.sign(1));
+  }
+  return { reversals, endSpin: Math.abs(plank.angularVelocity) };
+}
+
 export function evaluate(c, n){
   const rng = mulberry32(12345);
   let maxPen=0, deep=0, floats=0, esc=0, nan=0;
@@ -595,6 +626,7 @@ export function evaluate(c, n){
     cape:(x=>({cruise:+(x.cruise*180/Math.PI).toFixed(0), recover:x.recover}))(runCapeDrag(c)),
     lift:(x=>({ratio:+x.ratio.toFixed(2), jerk:+x.jerk.toFixed(1), carried:x.carried}))(runLiftCarry(c)),
     towerLift:(x=>({up:x.towerUp, tilt:+x.heldTilt.toFixed(2), lifted:x.lifted}))(runTowerLift(c)),
+    droop:(x=>({rev:x.reversals, endSpin:+x.endSpin.toFixed(3)}))(runDroopLand(c)),
     towerDrift:+runTowerCreep(c).drift.toFixed(1), towerPath:+runTowerCreep(c).path.toFixed(1),
     press:(p=>({osc:+p.osc.toFixed(1),spike:+p.spike.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames,pushed:+p.pushed.toFixed(1)}))(runBlockPress(c, false)),
     pressBraced:(p=>({osc:+p.osc.toFixed(1),overlap:+p.overlap.toFixed(1),end:+p.endOverlap.toFixed(1),vis:p.visFrames}))(runBlockPress(c, true)),

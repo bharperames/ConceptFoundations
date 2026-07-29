@@ -3,6 +3,7 @@ import { Audio2 } from '../audio.js';
 import { $, mulberry32 } from '../core.js';
 import { showView } from '../router.js';
 import { Store } from '../store.js';
+import { PlanetGL, ringOverlay } from './planets.js';
 
 const StackerGame = {
   TONES: ['#D8A05B','#C88A45','#E0B274','#BE8038','#CF9550','#D6A868','#B87636'],
@@ -397,10 +398,26 @@ const StackerGame = {
     el.className = 'fb-block'; el.style.width = w + 'px'; el.style.height = h + 'px';
     el.style.transformOrigin = `${((shape.cx ?? .5)*100)}% ${((shape.cy ?? .5)*100)}%`;
     const asPlanet = shape.key === 'ball' && this.planetBalls;
+    let planetName = null, glCv = null;
     if (asPlanet){
-      const uid = 'pl' + (++this.svgSeq);
-      el.innerHTML = this.planetSVG(this.planetIdx % this.PLANETS.length, w, uid) + this.planetShade(w, uid);
+      planetName = this.PLANETS[this.planetIdx % this.PLANETS.length];
       this.planetIdx++;
+      if (PlanetGL.ok()){
+        // the REAL thing: a WebGL-shaded sphere sampling an equirect texture.
+        // The element does NOT rotate (sync passes the body angle to the
+        // shader as longitude) — so the ring overlays correctly hold still
+        // while the surface spins beneath them.
+        glCv = document.createElement('canvas');
+        const res = Math.min(Math.round(w * this.dpr), 288);
+        glCv.width = glCv.height = res;
+        glCv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+        el.appendChild(glCv);
+        el.insertAdjacentHTML('beforeend', ringOverlay(planetName, w));
+      } else {
+        // no WebGL → the SVG planets (flat but shaded) still work
+        const uid = 'pl' + (++this.svgSeq);
+        el.innerHTML = this.planetSVG(this.PLANETS.indexOf(planetName), w, uid) + this.planetShade(w, uid);
+      }
     } else {
       el.innerHTML = this.blockSVG(shape, tone, false, w, h, 1 + Math.floor(Math.random()*997));
     }
@@ -408,7 +425,8 @@ const StackerGame = {
     // one fixed chute, square spawn: consecutive drops stack as they fall
     const x = this.W*0.5, y = h*0.62;   // just inside — the ceiling is above
     const b = { el, shape, w, h };
-    if (asPlanet) b.shadeEl = el.lastElementChild;   // sync() counter-rotates it
+    if (glCv){ b.glCv = glCv; b.glCtx = glCv.getContext('2d'); b.planetName = planetName; b.lastSpin = null; }
+    else if (asPlanet) b.shadeEl = el.lastElementChild;   // SVG fallback: sync() counter-rotates it
     if (this.useMatter){
       b.body = this.makeBody(shape, x, y, w, h);
       window.Matter.World.add(this.eng.world, b.body);
@@ -422,10 +440,21 @@ const StackerGame = {
       for (const b of this.blocks){
         const p = b.body.position, cx = b.shape.cx ?? .5, cy = b.shape.cy ?? .5;
         // integer px keeps sprites crisp (sub-pixel was the old fuzzy-block bug)
-        b.el.style.transform = `translate(${Math.round(p.x - cx*b.w)}px, ${Math.round(p.y - cy*b.h)}px) rotate(${b.body.angle}rad)`;
-        // planets: the lighting layer counter-rotates so the sun stays fixed
-        // in screen space while the surface spins under it
-        if (b.shadeEl) b.shadeEl.style.transform = `rotate(${-b.body.angle}rad)`;
+        if (b.glCv){
+          // GL planets: the element itself never rotates — the body angle
+          // becomes shader longitude, so the surface wraps around the limb
+          // while the (screen-space) lighting and rings hold still
+          b.el.style.transform = `translate(${Math.round(p.x - cx*b.w)}px, ${Math.round(p.y - cy*b.h)}px)`;
+          if (b.lastSpin === null || Math.abs(b.body.angle - b.lastSpin) > 0.0015){
+            b.lastSpin = b.body.angle;
+            PlanetGL.draw(b.planetName, b.body.angle, b.glCv, b.glCtx);
+          }
+        } else {
+          b.el.style.transform = `translate(${Math.round(p.x - cx*b.w)}px, ${Math.round(p.y - cy*b.h)}px) rotate(${b.body.angle}rad)`;
+          // SVG-fallback planets: the lighting layer counter-rotates so the
+          // sun stays fixed in screen space while the surface spins under it
+          if (b.shadeEl) b.shadeEl.style.transform = `rotate(${-b.body.angle}rad)`;
+        }
       }
     } else {
       for (const b of this.blocks){
@@ -532,6 +561,9 @@ const StackerGame = {
           // block virtually impossible: the load flipped the base ~55°).
           // While FREE: light damping so the pendulum swings naturally.
           const bd = this.drag.b.body;
+          if (!this.drag.touching) this.drag.ang0 = bd.angle;   // re-grip the current angle while free:
+          // else a drooping end landing on a block gets yanked back toward the
+          // stale grab-time angle — a violent paddle-whack bounce loop
           if (this.drag.touching){
             M.Body.setAngularVelocity(bd, bd.angularVelocity * .5 + (this.drag.ang0 - bd.angle) * .3);
             // balance assist for the carried stack: damp rider sway and blend
