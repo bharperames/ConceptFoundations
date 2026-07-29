@@ -411,8 +411,10 @@ const StackerGame = {
         const res = Math.min(Math.round(w * this.dpr), 288);
         glCv.width = glCv.height = res;
         glCv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+        // z-order sandwich: far ring arc BEHIND the globe, near arc in front
+        el.insertAdjacentHTML('beforeend', ringOverlay(planetName, w, 'back'));
         el.appendChild(glCv);
-        el.insertAdjacentHTML('beforeend', ringOverlay(planetName, w));
+        el.insertAdjacentHTML('beforeend', ringOverlay(planetName, w, 'front'));
       } else {
         // no WebGL → the SVG planets (flat but shaded) still work
         const uid = 'pl' + (++this.svgSeq);

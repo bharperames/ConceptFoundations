@@ -282,22 +282,38 @@ const PlanetGL = {
   },
 };
 
-// sticker-style ring overlays (the part everyone liked) — they no longer spin
-// with the ball, which is CORRECT now: the planet rotates, the rings hold still
-function ringOverlay(name, d){
+// ring overlays, z-buffered the DOM way: each ring ellipse is split along its
+// major axis into a FAR arc and a NEAR arc, and the planet canvas is
+// sandwiched between them (back svg -> WebGL globe -> front svg), so the far
+// side genuinely passes behind the planet. The split line crosses the rings
+// exactly at the limb, and the two halves are the same ellipse, so the joint
+// is seamless in the open-space wings. Rings hold still while the globe
+// spins beneath them — correct, since the element itself never rotates.
+const RINGS = {
+  saturn: { rot: -19, rings: [
+    [.85, .24, '#cdb684', .075, .55],
+    [.74, .2,  '#e5d4a8', .05,  .95],
+    [.63, .165,'#b59a6b', .035, .85],
+    [.56, .145,'#8f7a55', .014, .6],
+  ]},
+  uranus: { rot: 74, rings: [
+    [.72, .16, '#dff2f4', .02, .5],
+  ]},
+};
+function ringOverlay(name, d, half){
+  const cfg = RINGS[name];
+  if (!cfg) return '';
   const n = x => (+x).toFixed(1), r = d/2, C = v => n(v*d);
-  if (name === 'saturn') return `<svg viewBox="0 0 ${d} ${d}" style="position:absolute;inset:0;overflow:visible" aria-hidden="true">
-    <g transform="rotate(-19 ${n(r)} ${n(r)})" fill="none">
-      <ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.85)}" ry="${C(.24)}" stroke="#cdb684" stroke-width="${C(.075)}" opacity=".55"/>
-      <ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.74)}" ry="${C(.2)}" stroke="#e5d4a8" stroke-width="${C(.05)}" opacity=".95"/>
-      <ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.63)}" ry="${C(.165)}" stroke="#b59a6b" stroke-width="${C(.035)}" opacity=".85"/>
-      <ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.56)}" ry="${C(.145)}" stroke="#8f7a55" stroke-width="${C(.014)}" opacity=".6"/>
-    </g></svg>`;
-  if (name === 'uranus') return `<svg viewBox="0 0 ${d} ${d}" style="position:absolute;inset:0;overflow:visible" aria-hidden="true">
-    <g transform="rotate(74 ${n(r)} ${n(r)})" fill="none">
-      <ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(.72)}" ry="${C(.16)}" stroke="#dff2f4" stroke-width="${C(.02)}" opacity=".5"/>
-    </g></svg>`;
-  return '';
+  const uid = 'rg' + name + half + Math.floor(Math.random()*1e6);
+  // in ring-local coords the far arc is above the major axis (y < r)
+  const clip = half === 'back'
+    ? `<rect x="${n(-d)}" y="${n(-d)}" width="${n(3*d)}" height="${n(d + r)}"/>`
+    : `<rect x="${n(-d)}" y="${n(r)}" width="${n(3*d)}" height="${n(2*d)}"/>`;
+  const ell = cfg.rings.map(([rx, ry, col, wsc, op]) =>
+    `<ellipse cx="${n(r)}" cy="${n(r)}" rx="${C(rx)}" ry="${C(ry)}" stroke="${col}" stroke-width="${C(wsc)}" opacity="${op}"/>`).join('');
+  return `<svg viewBox="0 0 ${d} ${d}" style="position:absolute;inset:0;overflow:visible" aria-hidden="true">
+    <defs><clipPath id="${uid}">${clip}</clipPath></defs>
+    <g transform="rotate(${cfg.rot} ${n(r)} ${n(r)})"><g clip-path="url(#${uid})" fill="none">${ell}</g></g></svg>`;
 }
 
 export { PlanetGL, ringOverlay, NAMES as PLANET_NAMES };
