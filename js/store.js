@@ -1,4 +1,3 @@
-import { Telemetry } from './telemetry.js';
 
 const Store = {
   KEY_S:'cf_sessions_v2', KEY_P:'cf_progress_v2', KEY_C:'cf_settings_v2',

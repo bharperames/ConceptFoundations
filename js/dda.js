@@ -1,4 +1,3 @@
-import { FX } from './fx.js';
 import { nodeProgress, saveNodeProgress } from './store.js';
 
 function applyRunOutcome(node, level, results){

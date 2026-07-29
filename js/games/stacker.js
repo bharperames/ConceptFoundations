@@ -1,7 +1,6 @@
 import { SHAPES } from '../art.js';
 import { Audio2 } from '../audio.js';
-import { $, clamp, mulberry32, pick } from '../core.js';
-import { Engine } from '../engine.js';
+import { $, mulberry32 } from '../core.js';
 import { showView } from '../router.js';
 
 const StackerGame = {
