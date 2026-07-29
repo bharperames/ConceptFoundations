@@ -439,17 +439,21 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .gr-pick{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #8FA4B4;padding:8px}
 .gr-pick-motor{box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #FFC02E}
 .gr-pick-clock{box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #A9713A}
-/* the cuckoo lives in its open doorway, and springs forward on the hour */
+/* classic cuckoo: doors closed at rest (bird hidden beneath them); on the
+   hour the doors swing aside, the bird springs out, calls, retreats, and
+   the doors shut — one choreographed timeline */
 .grc-bird{transform-box:fill-box;transform-origin:center bottom}
 .grc-pop .grc-bird{animation:grcPop 1.3s ease}
-@keyframes grcPop{0%{transform:translateY(0) scale(1)}
-  18%{transform:translateY(-46%) scale(1.28)}
-  42%{transform:translateY(-32%) scale(1.18)}
-  76%{transform:translateY(-32%) scale(1.18)}
-  100%{transform:translateY(0) scale(1)}}
-.grc-doorL,.grc-doorR{transition:transform .22s ease}
-.grc-pop .grc-doorL{transform:translateX(-26%)}
-.grc-pop .grc-doorR{transform:translateX(26%)}
+@keyframes grcPop{0%,8%{transform:translateY(6%) scale(1)}
+  26%{transform:translateY(-52%) scale(1.3)}
+  46%{transform:translateY(-36%) scale(1.2)}
+  72%{transform:translateY(-36%) scale(1.2)}
+  92%,100%{transform:translateY(6%) scale(1)}}
+.grc-doorL,.grc-doorR{transform-box:fill-box}
+.grc-pop .grc-doorL{animation:grcDoorL 1.3s ease}
+.grc-pop .grc-doorR{animation:grcDoorR 1.3s ease}
+@keyframes grcDoorL{0%{transform:translateX(0)}12%,84%{transform:translateX(-105%)}100%{transform:translateX(0)}}
+@keyframes grcDoorR{0%{transform:translateX(0)}12%,84%{transform:translateX(105%)}100%{transform:translateX(0)}}
 .fb-shape{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #E8B36B;padding:9px;touch-action:none}
 /* physics-debug toggle: sits beside the volume control, barely-there like it;
    lights up while the annotation overlay is on */

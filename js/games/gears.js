@@ -21,6 +21,7 @@ const COLORS = [
 ];
 
 const GearGame = {
+  FACE_Y: -1.05,   // clock-face centre, in units of the gear's outer radius
   gears: [], raf: 0, active: false, bound: false, drag: null,
   W: 0, H: 0, seq: 0, colorIdx: 0, sol: { w: [], jam: new Set() },
   area(){ return $('#gears-area'); },
@@ -175,7 +176,7 @@ const GearGame = {
     // the input gear sits half INSIDE the case: the housing's bottom edge
     // runs through the gear centre, so only the driving teeth peek out below
     const W = R*2.3, bodyTop = -R*2.95, bodyBot = R*0.06, peak = -R*3.7;
-    const fx = 0, fy = -R*1.05, fr = R*0.62;             // clock face
+    const fx = 0, fy = R*this.FACE_Y, fr = R*0.62;       // clock face
     const dx = 0, dy = -R*2.3, dw = R*0.62, dh = R*0.56; // door
     const tooth = `<path d="${gearPath(g.teeth)}" fill="#F0B429" stroke="#B9821A" stroke-width="2.5" stroke-linejoin="round"/>`;
     return `<svg viewBox="${-R} ${-R} ${R*2} ${R*2}" style="display:block;width:100%;height:100%;overflow:visible">
@@ -187,15 +188,15 @@ const GearGame = {
         <rect x="${n(-W/2)}" y="${n(bodyTop)}" width="${n(W)}" height="${n(bodyBot-bodyTop)}" rx="${n(R*0.12)}" fill="#A9713A" stroke="#7a4e12" stroke-width="2.5"/>
         <path d="M ${n(-W/2 - R*0.16)} ${n(bodyTop + R*0.06)} L 0 ${n(peak)} L ${n(W/2 + R*0.16)} ${n(bodyTop + R*0.06)} Z" fill="#8B5A2B" stroke="#6b431a" stroke-width="2.5" stroke-linejoin="round"/>
         <rect x="${n(dx-dw/2)}" y="${n(dy-dh/2)}" width="${n(dw)}" height="${n(dh)}" rx="3" fill="#3a2410"/>
-        <g transform="translate(${n(dx)} ${n(dy + dh*0.3)})"><g class="grc-bird">
+        <g transform="translate(${n(dx)} ${n(dy + dh*0.12)})"><g class="grc-bird">
           <ellipse cx="0" cy="1" rx="${n(dw*0.4)}" ry="${n(dh*0.32)}" fill="#E07B39"/>
           <path d="M ${n(-dw*0.34)} 0 q ${n(-dw*0.24)} ${n(-dh*0.1)} ${n(-dw*0.2)} ${n(dh*0.22)} q ${n(dw*0.16)} ${n(dh*0.06)} ${n(dw*0.3)} ${n(-dh*0.06)} Z" fill="#C96A2F"/>
           <circle cx="0" cy="${n(-dh*0.32)}" r="${n(dw*0.27)}" fill="#E8934F"/>
           <path d="M ${n(dw*0.2)} ${n(-dh*0.38)} L ${n(dw*0.58)} ${n(-dh*0.46)} L ${n(dw*0.22)} ${n(-dh*0.2)} Z" fill="#F0B429"/>
           <circle cx="${n(-dw*0.08)}" cy="${n(-dh*0.36)}" r="2" fill="#2a2a2a"/>
         </g></g>
-        <rect class="grc-doorL" x="${n(dx-dw/2-dw*0.16)}" y="${n(dy-dh/2)}" width="${n(dw*0.18)}" height="${n(dh)}" rx="2" fill="#5c3b1c"/>
-        <rect class="grc-doorR" x="${n(dx+dw/2-dw*0.02)}" y="${n(dy-dh/2)}" width="${n(dw*0.18)}" height="${n(dh)}" rx="2" fill="#503216"/>
+        <rect class="grc-doorL" x="${n(dx-dw/2-1)}" y="${n(dy-dh/2-1)}" width="${n(dw/2+1.5)}" height="${n(dh+2)}" rx="2" fill="#5c3b1c" stroke="#3a2410" stroke-width="1"/>
+        <rect class="grc-doorR" x="${n(dx-0.5)}" y="${n(dy-dh/2-1)}" width="${n(dw/2+1.5)}" height="${n(dh+2)}" rx="2" fill="#503216" stroke="#3a2410" stroke-width="1"/>
         <rect x="${n(dx-dw/2)}" y="${n(dy+dh/2-2)}" width="${n(dw)}" height="3.5" rx="1.5" fill="#5c3b1c"/>
         <circle cx="${n(fx)}" cy="${n(fy)}" r="${n(fr)}" fill="#F4E4C1" stroke="#5c3b1c" stroke-width="3"/>
         ${[0,1,2,3].map(k => `<circle cx="${n(fx + Math.sin(k*Math.PI/2)*fr*0.8)}" cy="${n(fy - Math.cos(k*Math.PI/2)*fr*0.8)}" r="1.8" fill="#5c3b1c"/>`).join('')}
@@ -295,7 +296,7 @@ const GearGame = {
       g.el.style.transform = `translate(${(g.x - R).toFixed(1)}px, ${(g.y - R).toFixed(1)}px)`;
       const deg = g.angle * 180 / Math.PI;
       g.rotEl.setAttribute('transform', `rotate(${deg.toFixed(2)})`);
-      const fx = 0, fy = -R*1.35;
+      const fx = 0, fy = R*this.FACE_Y;
       g.mHand.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${fx} ${fy.toFixed(1)})`);
       g.hHand.setAttribute('transform', `rotate(${(-deg/12).toFixed(2)} ${fx} ${fy.toFixed(1)})`);
     } else {
