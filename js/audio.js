@@ -179,6 +179,22 @@ const Audio2 = (() => {
     src.connect(lp); lp.connect(g); g.connect(master);
     src.start(t0);
   }
+  function bell(){
+    // church-bell partial stack on C5: hum, prime, tierce (the minor third
+    // that makes a bell sound like a bell), quint, nominal — lower partials
+    // ring longer, tiny detune keeps repeated strikes alive
+    if (!ctx || muted) return;
+    const t0 = ctx.currentTime;
+    for (const [f, amp, dur] of [[261.6,.16,1.9],[523.3,.4,1.5],[622.3,.22,1.2],[784,.14,1.0],[1046.5,.1,.6]]){
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = f * (1 + (Math.random()-.5)*.004);
+      g.gain.setValueAtTime(amp*.8, t0);
+      g.gain.exponentialRampToValueAtTime(.0004, t0 + dur);
+      o.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + dur + .05);
+    }
+  }
   const correct  = () => { tone(660,0,.18,'triangle'); tone(880,.12,.25,'triangle'); };
   const wrong    = () => { tone(180,0,.22,'sine',.1); };
   const snapSnd  = () => { tone(520,0,.1,'triangle',.12); tone(780,.06,.12,'triangle',.12); };
@@ -204,7 +220,7 @@ const Audio2 = (() => {
       src.connect(master); src.start();
     }).catch(() => {});
   }
-  return { unlock, speak, correct, wrong, snapSnd, fanfare, clack, pop, sfx, setVolume, getVolume };
+  return { unlock, speak, correct, wrong, snapSnd, fanfare, clack, pop, bell, sfx, setVolume, getVolume };
 })();
 
 /* ════════════════════════════════ 3 · Art (flat SVG, no raster) ═══════════ */

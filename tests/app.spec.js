@@ -233,7 +233,7 @@ test('gear wall mini-game: spawn, mesh-snap, motor tri-switch drives exact ratio
   await boot(page);
   await page.locator('.minicard[data-mini="gears"]').click();
   await expect(page.locator('#view-gears')).toBeVisible();
-  await expect(page.locator('#gr-ops .gr-pick')).toHaveCount(7);   // 5 sizes + motor + cuckoo clock
+  await expect(page.locator('#gr-ops .gr-pick')).toHaveCount(8);   // 5 sizes + motor + bell tower + cuckoo clock
   const r = await page.evaluate(async () => {
     const g = CF.GearGame;
     const m = g.spawn(-1, true);                     // motor (12t)
@@ -279,6 +279,21 @@ test('gear wall mini-game: spawn, mesh-snap, motor tri-switch drives exact ratio
   });
   expect(cuckoo.pops).toBeGreaterThanOrEqual(1);
   expect(cuckoo.handGeared).toBe(true);
+  // bell tower: same drive contract — one ring per driven revolution
+  const bell = await page.evaluate(async () => {
+    const g = CF.GearGame, gw = await import('./js/games/gearworks.js');
+    g.reset();
+    const tower = g.spawn(-1, false, false, true);
+    tower.x = 430; tower.y = 430; g.syncOne(tower);
+    const m = g.spawn(-1, true);
+    m.x = tower.x - (12+12)*8/2 - 4; m.y = 431;
+    gw.snap(g.gears, g.gears.indexOf(m)); g.syncOne(m);
+    m.sw = 1; g.refreshHub(m); g.solveNow();
+    tower.acc = 6.2;
+    await new Promise(res => setTimeout(res, 600));
+    return { rings: tower.rings || 0 };
+  });
+  expect(bell.rings).toBeGreaterThanOrEqual(1);
   await page.locator('#gr-reset').click();
   expect(await page.evaluate(() => CF.GearGame.gears.length)).toBe(0);
 });

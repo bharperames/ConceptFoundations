@@ -71,19 +71,31 @@ const GearGame = {
 
   renderOps(){
     const ops = $('#gr-ops');
-    // one icon per gear size (smallest → biggest), then the motor
-    const icon = (teeth, motor) => {
+    // one icon per gear size in its toy colour (size ↔ colour, so the icon
+    // predicts the piece); the MOTOR is distinguished by material instead —
+    // gunmetal body, dark hub, yellow bolt
+    const icon = (teeth, motor, i) => {
       const R = outerR(teeth), s = 46;
+      const [body, dark] = motor ? ['#6B7684', '#4A545F'] : COLORS[i % COLORS.length];
       return `<svg viewBox="${-R} ${-R} ${R*2} ${R*2}" width="${s}" height="${s}" style="display:block">
-        <path d="${gearPath(teeth)}" fill="${motor ? '#FFC02E' : '#9DB4C4'}" stroke="${motor ? '#D3980F' : '#7C93A3'}" stroke-width="2"/>
+        <path d="${gearPath(teeth)}" fill="${body}" stroke="${dark}" stroke-width="2"/>
         ${motor
           ? `<circle r="${rootR(teeth)*.55}" fill="#374B5C"/><path d="M 2 ${-rootR(teeth)*.34} L -5 2 L 0 2 L -2 ${rootR(teeth)*.34} L 5 -2 L 0 -2 Z" fill="#FFC02E"/>`
-          : `<circle r="${rootR(teeth)*.42}" fill="#fff" opacity=".55"/>`}
+          : `<circle r="${rootR(teeth)*.42}" fill="#fff" opacity=".7"/><circle r="${rootR(teeth)*.16}" fill="${dark}"/>`}
       </svg>`;
     };
     ops.innerHTML = TEETH.map((t, i) =>
-      `<button class="fb-btn gr-pick" data-teeth="${i}" aria-label="Add a ${t}-tooth gear">${icon(t, false)}</button>`).join('')
-      + `<button class="fb-btn gr-pick gr-pick-motor" data-motor="1" aria-label="Add a motor gear">${icon(MOTOR_TEETH, true)}</button>`
+      `<button class="fb-btn gr-pick" data-teeth="${i}" aria-label="Add a ${t}-tooth gear">${icon(t, false, i)}</button>`).join('')
+      + `<button class="fb-btn gr-pick gr-pick-motor" data-motor="1" aria-label="Add a motor gear">${icon(MOTOR_TEETH, true, 0)}</button>`
+      + `<button class="fb-btn gr-pick gr-pick-bell" data-bell="1" aria-label="Add a bell tower">
+          <svg viewBox="0 0 48 48" width="46" height="46" style="display:block">
+            <path d="M11 15 L24 4 L37 15 Z" fill="#8E6B4A"/>
+            <rect x="14" y="15" width="20" height="21" rx="2.5" fill="#B9AFA2"/>
+            <path d="M17 30 L17 22 A 7 7 0 0 1 31 22 L31 30 Z" fill="#4a4239"/>
+            <path d="M20 27 C 20 22.5 21.5 21 24 21 C 26.5 21 28 22.5 28 27 L 29 28.5 L 19 28.5 Z" fill="#E8B84B" stroke="#B9821A" stroke-width="1.4"/>
+            <circle cx="24" cy="29.6" r="1.4" fill="#8a6a1c"/>
+            <path d="M24 36 l2.5 4.5 5-1.5 .5 5-5 2-3-3-3 3-5-2 .5-5 5 1.5z" fill="#C9CDD4"/>
+          </svg></button>`
       + `<button class="fb-btn gr-pick gr-pick-clock" data-clock="1" aria-label="Add a cuckoo clock">
           <svg viewBox="0 0 48 48" width="46" height="46" style="display:block">
             <path d="M10 16 L24 5 L38 16 Z" fill="#8B5A2B"/>
@@ -96,20 +108,20 @@ const GearGame = {
     ops.querySelectorAll('.gr-pick').forEach(btn => {
       btn.addEventListener('pointerdown', e => {
         e.preventDefault();
-        this.spawn(btn.dataset.motor || btn.dataset.clock ? -1 : +btn.dataset.teeth,
-          !!btn.dataset.motor, !!btn.dataset.clock);
+        this.spawn((btn.dataset.motor || btn.dataset.clock || btn.dataset.bell) ? -1 : +btn.dataset.teeth,
+          !!btn.dataset.motor, !!btn.dataset.clock, !!btn.dataset.bell);
       });
     });
   },
 
-  spawn(teethIdx, motor, clock){
-    const teeth = (motor || clock) ? MOTOR_TEETH : TEETH[teethIdx];
+  spawn(teethIdx, motor, clock, bell){
+    const teeth = (motor || clock || bell) ? MOTOR_TEETH : TEETH[teethIdx];
     const g = {
-      id: ++this.seq, teeth, motor, clock, sw: 0,
+      id: ++this.seq, teeth, motor, clock, bell, sw: 0,
       x: this.W/2, y: Math.min(this.H*0.3, outerR(teeth) + this.H*0.14),
-      angle: 0, color: COLORS[this.colorIdx++ % COLORS.length],
+      angle: 0, color: COLORS[(motor || clock || bell) ? 0 : teethIdx % COLORS.length],
     };
-    if (clock) g.y = Math.max(g.y, outerR(teeth)*3.9);   // room for the chalet above
+    if (clock || bell) g.y = Math.max(g.y, outerR(teeth)*3.9);   // room for the housing above
     // nudge sideways until the spawn spot doesn't bury an existing gear
     for (let k = 0; k < 18; k++){
       const clash = this.gears.some(o => Math.hypot(o.x-g.x, o.y-g.y) < (outerR(o.teeth)+outerR(g.teeth)) + 4);
@@ -123,7 +135,7 @@ const GearGame = {
     el.innerHTML = this.gearSVG(g);
     this.area().appendChild(el);
     g.el = el;
-    if (clock){
+    if (clock || bell){
       g.rotEl = el.querySelector('.grc-rot');
       g.mHand = el.querySelector('.grc-mh');
       g.hHand = el.querySelector('.grc-hh');
@@ -146,8 +158,9 @@ const GearGame = {
 
   gearSVG(g){
     if (g.clock) return this.clockSVG(g);
+    if (g.bell) return this.bellSVG(g);
     const R = outerR(g.teeth), rr = rootR(g.teeth);
-    const [body, dark] = g.motor ? ['#FFC02E', '#D3980F'] : g.color;
+    const [body, dark] = g.motor ? ['#6B7684', '#4A545F'] : g.color;   // motor = gunmetal, like its icon
     // pinwheel swirl cut-outs like the toy: curved wedges around the hub
     const swirls = [];
     const nS = 5, ri = rr * 0.32, ro2 = rr * 0.8;
@@ -207,6 +220,47 @@ const GearGame = {
       </g>
       <circle class="gr-jamring" r="${n(rr*0.98)}" fill="none" stroke="#E24A3B" stroke-width="4" opacity="0"/>
     </svg>`;
+  },
+  // campanile: stone tower, open belfry with a swinging bell, the input gear
+  // half inside the base — one ring per driven revolution
+  bellSVG(g){
+    const R = outerR(g.teeth), rr = rootR(g.teeth), n = x => (+x).toFixed(1);
+    const W = R*1.9, bodyTop = -R*3.0, bodyBot = R*0.06, peak = -R*3.9;
+    const ax = 0, ay = -R*1.9, aw = R*1.15, ah = R*1.5;    // belfry arch
+    const bellW = aw*0.62, bellH = ah*0.52;
+    const hangY = ay - ah*0.45;                             // bell pivot
+    const tooth = `<path d="${gearPath(g.teeth)}" fill="#C9CDD4" stroke="#8A919C" stroke-width="2.5" stroke-linejoin="round"/>`;
+    return `<svg viewBox="${-R} ${-R} ${R*2} ${R*2}" style="display:block;width:100%;height:100%;overflow:visible">
+      <g class="grc-rot">${tooth}
+        <circle r="${n(rr*0.42)}" fill="#fff" opacity=".5"/>
+        <circle r="${n(rr*0.14)}" fill="#5b626c"/>
+      </g>
+      <g class="grc-house">
+        <rect x="${n(-W/2)}" y="${n(bodyTop)}" width="${n(W)}" height="${n(bodyBot-bodyTop)}" rx="${n(R*0.1)}" fill="#B9AFA2" stroke="#847A6D" stroke-width="2.5"/>
+        <rect x="${n(-W/2)}" y="${n(bodyTop)}" width="${n(W)}" height="${n(R*0.35)}" fill="#a89d8f"/>
+        <path d="M ${n(-W/2 - R*0.14)} ${n(bodyTop + R*0.04)} L 0 ${n(peak)} L ${n(W/2 + R*0.14)} ${n(bodyTop + R*0.04)} Z" fill="#8E6B4A" stroke="#6b4e33" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="0" cy="${n(peak - 4)}" r="3.4" fill="#E8B84B" stroke="#B9821A" stroke-width="1.5"/>
+        <path d="M ${n(ax-aw/2)} ${n(ay+ah/2)} L ${n(ax-aw/2)} ${n(ay-ah*0.16)} A ${n(aw/2)} ${n(aw/2)} 0 0 1 ${n(ax+aw/2)} ${n(ay-ah*0.16)} L ${n(ax+aw/2)} ${n(ay+ah/2)} Z" fill="#4a4239"/>
+        <g transform="translate(${n(ax)} ${n(hangY)})"><g class="grb-bell">
+          <rect x="-2" y="-3" width="4" height="6" fill="#6b4e33"/>
+          <path d="M ${n(-bellW/2)} ${n(bellH*0.78)}
+            C ${n(-bellW/2)} ${n(bellH*0.2)} ${n(-bellW*0.28)} ${n(bellH*0.06)} ${n(-bellW*0.2)} ${n(bellH*0.02)}
+            C ${n(-bellW*0.12)} ${n(-bellH*0.05)} ${n(bellW*0.12)} ${n(-bellH*0.05)} ${n(bellW*0.2)} ${n(bellH*0.02)}
+            C ${n(bellW*0.28)} ${n(bellH*0.06)} ${n(bellW/2)} ${n(bellH*0.2)} ${n(bellW/2)} ${n(bellH*0.78)}
+            L ${n(bellW*0.56)} ${n(bellH*0.92)} L ${n(-bellW*0.56)} ${n(bellH*0.92)} Z"
+            fill="#E8B84B" stroke="#B9821A" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="0" cy="${n(bellH*1.02)}" r="${n(bellW*0.14)}" fill="#8a6a1c"/>
+        </g></g>
+      </g>
+      <circle class="gr-jamring" r="${n(rr*0.98)}" fill="none" stroke="#E24A3B" stroke-width="4" opacity="0"/>
+    </svg>`;
+  },
+  ring(g){
+    if (g.ringT) return;
+    g.rings = (g.rings || 0) + 1;
+    g.el.classList.add('grb-ring');
+    Audio2.bell();
+    g.ringT = setTimeout(() => { g.el.classList.remove('grb-ring'); g.ringT = 0; }, 1200);
   },
   // pop the bird + real recorded "cuckoo"
   cuckoo(g){
@@ -293,14 +347,16 @@ const GearGame = {
 
   syncOne(g){
     const R = outerR(g.teeth);
-    if (g.clock){
-      // the chalet stays upright; the input gear and the geared hands spin
+    if (g.clock || g.bell){
+      // the housing stays upright; the input gear (and geared hands) spin
       g.el.style.transform = `translate(${(g.x - R).toFixed(1)}px, ${(g.y - R).toFixed(1)}px)`;
       const deg = g.angle * 180 / Math.PI;
       g.rotEl.setAttribute('transform', `rotate(${deg.toFixed(2)})`);
-      const fx = 0, fy = R*this.FACE_Y;
-      g.mHand.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${fx} ${fy.toFixed(1)})`);
-      g.hHand.setAttribute('transform', `rotate(${(-deg/12).toFixed(2)} ${fx} ${fy.toFixed(1)})`);
+      if (g.mHand){
+        const fx = 0, fy = R*this.FACE_Y;
+        g.mHand.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${fx} ${fy.toFixed(1)})`);
+        g.hHand.setAttribute('transform', `rotate(${(-deg/12).toFixed(2)} ${fx} ${fy.toFixed(1)})`);
+      }
     } else {
       g.el.style.transform = `translate(${(g.x - R).toFixed(1)}px, ${(g.y - R).toFixed(1)}px) rotate(${g.angle}rad)`;
     }
@@ -316,9 +372,9 @@ const GearGame = {
         const g = this.gears[i];
         if (w[i]){
           g.angle += w[i] * dt; this.syncOne(g);
-          if (g.clock){
+          if (g.clock || g.bell){
             g.acc = (g.acc || 0) + Math.abs(w[i]) * dt;
-            if (g.acc >= 2*Math.PI){ g.acc %= 2*Math.PI; this.cuckoo(g); }
+            if (g.acc >= 2*Math.PI){ g.acc %= 2*Math.PI; g.clock ? this.cuckoo(g) : this.ring(g); }
           }
         }
       }
@@ -332,7 +388,7 @@ const GearGame = {
     for (let i = this.gears.length - 1; i >= 0; i--){
       const g = this.gears[i], R = outerR(g.teeth);
       if (Math.hypot(px - g.x, py - g.y) <= R) return g;
-      if (g.clock && Math.abs(px - g.x) <= R*1.2 && py >= g.y - R*3.8 && py <= g.y) return g;
+      if ((g.clock || g.bell) && Math.abs(px - g.x) <= R*1.2 && py >= g.y - R*4 && py <= g.y) return g;
     }
     return null;
   },

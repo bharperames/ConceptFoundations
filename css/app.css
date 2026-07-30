@@ -439,6 +439,13 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .gr-pick{background:var(--card);box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #8FA4B4;padding:8px}
 .gr-pick-motor{box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #FFC02E}
 .gr-pick-clock{box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #A9713A}
+.gr-pick-bell{box-shadow:0 5px 14px rgba(30,60,90,.28), inset 0 0 0 3px #B9AFA2}
+/* the bell swings from its hanger, damped, once per driven revolution */
+.grb-bell{transform-box:fill-box;transform-origin:center top}
+.grb-ring .grb-bell{animation:grbSwing 1.2s ease}
+@keyframes grbSwing{0%{transform:rotate(0)}14%{transform:rotate(-24deg)}
+  34%{transform:rotate(19deg)}54%{transform:rotate(-12deg)}
+  72%{transform:rotate(7deg)}88%{transform:rotate(-3deg)}100%{transform:rotate(0)}}
 /* classic cuckoo: doors closed at rest (bird hidden beneath them); on the
    hour the doors swing aside, the bird springs out, calls, retreats, and
    the doors shut — one choreographed timeline */
