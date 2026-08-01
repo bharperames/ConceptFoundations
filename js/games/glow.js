@@ -380,6 +380,9 @@ const GlowGame = {
   over(won){
     $('#gs-over-title').textContent = won ? 'You made the whole rainbow! 🌈' : 'What a glow! ✨';
     $('#btn-gs-keep').classList.toggle('hidden', !won || !this.canMove());
+    // with the rainbow arch glowing behind the win dialog, thin the backdrop
+    // veil so the celebration stays vivid instead of going muddy
+    $('#gs-over').classList.toggle('gs-clear', won && !!this.rainbowFx);
     $('#gs-over').classList.remove('hidden');
   },
 

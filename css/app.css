@@ -687,6 +687,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 @keyframes gsstar{0%,100%{filter:brightness(1)}50%{filter:brightness(1.28)}}
 .gs-hint{color:var(--ink-soft);font-size:14px;font-weight:600;margin:0;text-align:center;opacity:.8}
 .gs-over{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(14,26,40,.32)}
+.gs-over.gs-clear{background:rgba(14,26,40,.1)}   /* rainbow behind: barely veil it */
 .gs-keep{margin-left:10px;background:var(--grass)}
 /* robot tutor: pops up bottom-right and narrates while a glowing fingertip
    performs the swipes on the board */

@@ -57,13 +57,22 @@ const FX = {
     const BANDS = [[2,82,58],[28,94,54],[47,100,52],[128,62,45],[214,88,55],[258,62,50],[288,68,56]]
       .map(([h,s,l]) => `hsl(${h},${s}%,${l}%)`);
     const cx = W/2, cy = H*0.96;
-    const R0 = Math.min(W*0.46, H*0.78);      // outer band centreline
-    const bw = R0*0.05;                       // band thickness at full growth
+    const R0 = Math.min(W*0.46, H*0.78);      // outer edge of the arch
+    const T = R0*0.36, Rmid = R0 - T/2;       // full spectrum thickness, centreline
     const DUR = 2600, HOLD = 1200, SEG = 72;
     const ease = u => u < .5 ? 2*u*u : 1 - 2*(1-u)*(1-u);
+    // ONE radial gradient carries the whole spectrum — colour stops at each
+    // band's centre, so neighbours blend into each other like a real rainbow
+    // instead of reading as independent arcs. Built per width so a thin
+    // (still-growing) stroke shows the full compressed spectrum.
+    const grad = halfW => {
+      const g = ctx.createRadialGradient(cx, cy, Math.max(0, Rmid - halfW), cx, cy, Rmid + halfW);
+      for (let i = 0; i < 7; i++) g.addColorStop((i + 0.5)/7, BANDS[6 - i]);
+      return g;
+    };
     // p ∈ 0..1 along the arch (0 = left foot) → point on band b's centreline
     const pt = (p, b) => {
-      const a = -Math.PI*(1 - p), r = R0 - b*bw*1.2;
+      const a = -Math.PI*(1 - p), r = R0 - (b + 0.5)/7*T;
       return [cx + Math.cos(a)*r, cy + Math.sin(a)*r];
     };
     const sparks = [], twinkles = [];
@@ -83,27 +92,25 @@ const FX = {
       if (done && !doneFired && el > DUR + HOLD){ doneFired = true; done(); }
       const sweep = ease(Math.min(1, el/DUR));
       ctx.clearRect(0, 0, W, H);
-      // bands composite normally (additive turned them into bead chains and
-      // muddied the colours where glows overlapped); halos first, bands over
+      // the arch composites normally; particles glow additively afterwards
       ctx.globalCompositeOperation = 'source-over';
-      ctx.lineCap = 'butt';
-      ctx.globalAlpha = 0.2;
-      for (let b = 0; b < 7; b++){
-        ctx.strokeStyle = BANDS[b];
-        ctx.lineWidth = bw*1.8;
-        ctx.beginPath(); ctx.arc(cx, cy, R0 - b*bw*1.2, -Math.PI, -Math.PI*(1-sweep)); ctx.stroke();
-      }
+      // soft halo under the whole swept arch
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = grad(T*0.75);
+      ctx.lineWidth = T*1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, Rmid, -Math.PI, -Math.PI*(1-sweep)); ctx.stroke();
       ctx.globalAlpha = 1;
-      // each band in short segments so its thickness can GROW along the arch
-      for (let b = 0; b < 7; b++){
-        const r = R0 - b*bw*1.2;
-        ctx.strokeStyle = BANDS[b];
-        for (let k = 0; k < SEG; k++){
-          const p0 = k/SEG; if (p0 >= sweep) break;
-          const p1 = Math.min((k+1)/SEG + 0.004, sweep);
-          ctx.lineWidth = bw*(0.4 + 0.6*p0);    // thin at the left foot → full
-          ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI*(1-p0), -Math.PI*(1-p1)); ctx.stroke();
-        }
+      // the spectrum itself, in short segments so it GROWS along the arch —
+      // each segment strokes the blended gradient at its own width
+      ctx.lineCap = 'butt';
+      for (let k = 0; k < SEG; k++){
+        const p0 = k/SEG; if (p0 >= sweep) break;
+        const p1 = Math.min((k+1)/SEG + 0.004, sweep);
+        const w = T*(0.4 + 0.6*p0);             // thin at the left foot → full
+        ctx.strokeStyle = grad(w/2);
+        ctx.lineWidth = w;
+        ctx.beginPath(); ctx.arc(cx, cy, Rmid, -Math.PI*(1-p0), -Math.PI*(1-p1)); ctx.stroke();
       }
       ctx.globalCompositeOperation = 'lighter';   // particles glow additively
       // sparkle fountain at the leading edge while building
