@@ -91,23 +91,20 @@ const FX = {
       // over the arch, which keeps twinkling beneath it
       if (done && !doneFired && el > DUR + HOLD){ doneFired = true; done(); }
       const sweep = ease(Math.min(1, el/DUR));
+      // once the arch completes it INFLATES to uniform full thickness —
+      // the growing-width profile is a build effect, not the resting shape
+      const settle = Math.min(1, Math.max(0, (el - DUR - 150)/600));
       ctx.clearRect(0, 0, W, H);
       // the arch composites normally; particles glow additively afterwards
       ctx.globalCompositeOperation = 'source-over';
-      // soft halo under the whole swept arch
-      ctx.lineCap = 'round';
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = grad(T*0.75);
-      ctx.lineWidth = T*1.5;
-      ctx.beginPath(); ctx.arc(cx, cy, Rmid, -Math.PI, -Math.PI*(1-sweep)); ctx.stroke();
-      ctx.globalAlpha = 1;
-      // the spectrum itself, in short segments so it GROWS along the arch —
-      // each segment strokes the blended gradient at its own width
+      // the spectrum in short segments so it grows along the arch while
+      // building — each segment strokes the blended gradient at its own width
       ctx.lineCap = 'butt';
       for (let k = 0; k < SEG; k++){
         const p0 = k/SEG; if (p0 >= sweep) break;
         const p1 = Math.min((k+1)/SEG + 0.004, sweep);
-        const w = T*(0.4 + 0.6*p0);             // thin at the left foot → full
+        const grow = 0.4 + 0.6*p0;              // thin at the left foot → full
+        const w = T*(grow + (1 - grow)*settle);
         ctx.strokeStyle = grad(w/2);
         ctx.lineWidth = w;
         ctx.beginPath(); ctx.arc(cx, cy, Rmid, -Math.PI*(1-p0), -Math.PI*(1-p1)); ctx.stroke();
