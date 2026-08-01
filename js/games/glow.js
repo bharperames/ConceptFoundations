@@ -160,12 +160,12 @@ const GlowGame = {
         <rect x="30" y="76" width="40" height="14" rx="7" fill="#A9BFD3"/>
       </svg></button>`;
     $('#gs-demo').addEventListener('click', () => { Audio2.unlock(); this.demo(); });
-    // the full win choreography on demand — fanfare, arch build, dialog —
-    // WITHOUT setting `won`, so game state is untouched and real wins still fire
+    // the full win choreography on demand — WITHOUT setting `won`, so game
+    // state is untouched and real wins still fire
     $('#gs-rainbow').addEventListener('click', () => {
       Audio2.unlock(); Audio2.fanfare();
       this.endRainbow();
-      this.rainbowFx = FX.rainbow(() => { if (this.active) this.over(true); }, $('#view-glow'));
+      this.rainbowFx = FX.rainbow($('#view-glow'));
     });
   },
   // the "how bright have you gotten" ladder IS a miniature rainbow: seven
@@ -373,9 +373,9 @@ const GlowGame = {
     this.won = true;
     Audio2.fanfare();
     // the finale IS a rainbow: the arch builds across the whole screen,
-    // left to right, growing and sparkling; the dialog rises over it and the
-    // arch stays until the dialog is answered (endRainbow)
-    this.rainbowFx = FX.rainbow(() => { if (this.won && this.active) this.over(true); }, $('#view-glow'));
+    // sparkles for ~10s and melts away — no modal, nothing blocked, the
+    // game (and the home button) stay live throughout
+    this.rainbowFx = FX.rainbow($('#view-glow'));
   },
   over(won){
     $('#gs-over-title').textContent = won ? 'You made the whole rainbow! 🌈' : 'What a glow! ✨';

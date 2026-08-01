@@ -33,17 +33,15 @@ const FX = {
     }
   },
   /* the whole-rainbow finale: a big arch BUILDS across the screen — left
-     foot up over the crown to the right foot — the bands growing thicker as
-     they go, a sparkle fountain riding the leading edge, twinkles settling
-     on the finished part. When the arch completes, confetti flies; `done`
-     fires after a beat (dialog time) and the arch STAYS, twinkling, until
-     the returned handle's end() is called (dialog dismissed / view left).
-     Pass the game VIEW as `host` so the canvas (z 35) and the view's dialog
-     (z 40) share one stacking context — hosting on body put the arch over
-     the dialog no matter the z values. */
-  rainbow(done, host = document.body){
+     foot up over the crown to the right foot — a sparkle fountain riding
+     the leading edge, twinkles settling on the finished part, confetti as
+     it completes. No modal, nothing blocked: it sparkles for ~10s total,
+     fades itself away, and play carries on. The returned handle's end()
+     clears it early (reset / leaving the view). Pass the game VIEW as
+     `host` so the canvas layers predictably inside that view. */
+  rainbow(host = document.body){
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce){ this.confetti(); if (done) setTimeout(done, 800); return { end(){} }; }
+    if (reduce){ this.confetti(); return { end(){} }; }
     const cv = document.createElement('canvas');
     // explicit CSS size: a canvas with only inset:0 renders at its BACKING
     // size (W×dpr) — 2× the viewport on retina, clipped to the left half
@@ -59,7 +57,7 @@ const FX = {
     const cx = W/2, cy = H*0.96;
     const R0 = Math.min(W*0.46, H*0.78);      // outer edge of the arch
     const T = R0*0.36, Rmid = R0 - T/2;       // full spectrum thickness, centreline
-    const DUR = 2600, HOLD = 1200, SEG = 72;
+    const DUR = 2600, LIFE = 10000, SEG = 72;   // build time, total time on screen
     const ease = u => u < .5 ? 2*u*u : 1 - 2*(1-u)*(1-u);
     // ONE radial gradient carries the whole spectrum — colour stops at each
     // band's centre, so neighbours blend into each other like a real rainbow
@@ -77,7 +75,7 @@ const FX = {
     };
     const sparks = [], twinkles = [];
     const t0 = performance.now();
-    let confettiFired = false, doneFired = false, ended = false;
+    let confettiFired = false, ended = false;
     const end = () => {
       if (ended) return;
       ended = true;
@@ -87,9 +85,7 @@ const FX = {
     const frame = now => {
       if (!cv.isConnected) return;
       const el = now - t0;
-      // hand off after the completed arch has held a beat — the dialog rises
-      // over the arch, which keeps twinkling beneath it
-      if (done && !doneFired && el > DUR + HOLD){ doneFired = true; done(); }
+      if (el > LIFE) end();   // sparkled long enough — melt away, play continues
       const sweep = ease(Math.min(1, el/DUR));
       // once the arch completes it INFLATES to uniform full thickness —
       // the growing-width profile is a build effect, not the resting shape
