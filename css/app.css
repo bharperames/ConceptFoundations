@@ -656,10 +656,10 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 }
 .gs-mode.on{color:var(--sea);box-shadow:0 4px 12px rgba(30,60,90,.24), 0 0 0 3px var(--sea)}
 /* the energy ladder: one orb per state, lit up to the best glow made so far */
-.gs-ladder{display:flex;gap:8px;align-items:center;padding-top:16px}
-.gs-ladder i{width:16px;height:16px;border-radius:50%;background:var(--stone);transition:background .3s}
-.gs-ladder i.lit{animation:gsladpop .4s cubic-bezier(.2,1.5,.4,1)}
-@keyframes gsladpop{0%{transform:scale(.4)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+.gs-ladder{display:flex;align-items:flex-end}
+/* a newly earned band draws itself in, left foot to right */
+.gs-ladder .gsl-new{animation:gslDraw .55s ease forwards}
+@keyframes gslDraw{to{stroke-dashoffset:0}}
 .gs-board{
   position:relative;width:min(88vw,58vh,520px);aspect-ratio:1;flex:none;
   background:var(--card);border-radius:22px;touch-action:none;

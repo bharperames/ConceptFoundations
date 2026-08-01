@@ -168,20 +168,33 @@ const GlowGame = {
       this.rainbowFx = FX.rainbow(() => { if (this.active) this.over(true); }, $('#view-glow'));
     });
   },
-  // the "how bright have you gotten" ladder: one orb per energy state, lit up
-  // to the best tile made this game — and the seven orbs stand in a little
-  // ARCH, so the progress row reads as the rainbow being built. margin-top
-  // (not transform) carries the arch: the lit pop animation owns transform.
+  // the "how bright have you gotten" ladder IS a miniature rainbow: seven
+  // nested arc bands, level 1 the lowest/innermost up to level 7 the full
+  // outer arc. Every band shows GHOSTED in its own colour until that level
+  // is passed; a newly earned band draws itself in left to right.
   renderLadder(){
     const lad = $('#gs-ladder');
-    let html = '';
+    const r1 = 15, step = 5.5;                        // innermost radius, band pitch
+    const rmax = r1 + (this.MAX - 1) * step;
+    const W = (rmax + 5) * 2, H = rmax + 9, cx = W / 2, cy = H - 3;
+    let arcs = '';
     for (let l = 1; l <= this.MAX; l++){
+      const { h, s, l: li } = this.RAINBOW[l - 1];
       const lit = l <= this.best;
-      const lk = this.look(l);
-      const y = (-Math.sin(Math.PI * (l - 1) / (this.MAX - 1)) * 16).toFixed(1);
-      html += `<i class="${lit ? 'lit' : ''}" style="margin-top:${y}px;${lit ? `background:${lk.bg};box-shadow:${lk.shadow}` : ''}"></i>`;
+      const r = r1 + (l - 1) * step;
+      const d = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+      if (!lit){
+        arcs += `<path d="${d}" fill="none" stroke-linecap="round" stroke-width="4.5"
+          stroke="hsla(${h},${Math.round(s * 0.55)}%,${Math.round(li * 0.8)}%,.2)"/>`;
+        continue;
+      }
+      const draw = l === this.best ? `style="stroke-dasharray:${(Math.PI * r).toFixed(1)};stroke-dashoffset:${(Math.PI * r).toFixed(1)}" class="gsl-new"` : '';
+      arcs += `<path d="${d}" fill="none" stroke-linecap="round" stroke-width="8"
+          stroke="hsla(${h},95%,65%,.35)"/>
+        <path d="${d}" fill="none" stroke-linecap="round" stroke-width="4.5"
+          stroke="hsl(${h},${s}%,${li}%)" ${draw}/>`;
     }
-    lad.innerHTML = html;
+    lad.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">${arcs}</svg>`;
   },
 
   makeTile(r, c, level){
