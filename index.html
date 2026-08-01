@@ -45,10 +45,27 @@
     </button>
     <button class="minicard" data-mini="puzzle">
       <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
-        <rect x="14" y="14" width="34" height="34" rx="5" fill="#FFC02E"/>
-        <rect x="52" y="14" width="34" height="34" rx="5" fill="#FF5D55"/>
-        <rect x="14" y="52" width="34" height="34" rx="5" fill="#3D8BFF"/>
-        <rect x="52" y="52" width="34" height="34" rx="5" fill="#5FBF6A"/>
+        <defs>
+          <clipPath id="ppz-tl"><rect x="14" y="14" width="34" height="34" rx="5"/></clipPath>
+          <clipPath id="ppz-tr"><rect x="52" y="14" width="34" height="34" rx="5"/></clipPath>
+          <clipPath id="ppz-bl"><rect x="14" y="52" width="34" height="34" rx="5"/></clipPath>
+          <clipPath id="ppz-br"><rect x="52" y="52" width="34" height="34" rx="5"/></clipPath>
+          <g id="ppz-house">
+            <rect x="14" y="14" width="72" height="72" fill="#BDE3F7"/>
+            <rect x="14" y="70" width="72" height="16" fill="#7CC96F"/>
+            <circle cx="25" cy="25" r="6.5" fill="#FFC02E"/>
+            <rect x="30" y="48" width="40" height="26" fill="#F6E7C8" stroke="#C99B5F" stroke-width="2.5"/>
+            <rect x="59" y="30" width="7" height="14" fill="#A9713A"/>
+            <path d="M26 50 L50 26 L74 50 Z" fill="#E2574C" stroke="#B03A2E" stroke-width="2.5" stroke-linejoin="round"/>
+            <rect x="44" y="58" width="12" height="16" rx="2" fill="#3D8BFF"/>
+            <rect x="34" y="55" width="9" height="9" fill="#9ED9F2" stroke="#C99B5F" stroke-width="2"/>
+            <rect x="59" y="55" width="9" height="9" fill="#9ED9F2" stroke="#C99B5F" stroke-width="2"/>
+          </g>
+        </defs>
+        <use href="#ppz-house" clip-path="url(#ppz-tl)"/>
+        <use href="#ppz-house" clip-path="url(#ppz-tr)"/>
+        <use href="#ppz-house" clip-path="url(#ppz-bl)"/>
+        <use href="#ppz-house" clip-path="url(#ppz-br)"/>
       </svg>
       <span class="cname">Picture Puzzle</span>
       <span class="clevel">Tap tiles to build a picture!</span>
