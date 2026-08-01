@@ -24,18 +24,85 @@ const MIRROR = { swl: 'swr', swr: 'swl' };
 const TrainGame = {
   S: 0, R: 0, TW: 0,               // straight length, curve radius, track width
   SQ: 0.62,                        // isometric squash: the table seen from ~45°
+  cam: { zoom: 1, x: 0, y: 0 },    // auto-fit camera: floor → screen is SQ·(zoom·p + pan)
   pieces: [], seq: 0, active: false, bound: false,
   drag: null, touch: null, raf: 0, last: 0,
-  eng: null, ten: null, running: true, pausedUntil: 0, boostUntil: 0,
-  coal: 0, coalTimer: 0, puffTimer: 0, prevMidD: null, prevMidPiece: 0,
+  trains: [], activeT: null,
   markers: [], W: 0, H: 0,
   area(){ return $('#train-area'); },
+  // single-train era accessors — proxy the first train
+  get eng(){ const t = this.trains[0]; return t ? t.cars[0] : null; },
+  get ten(){ const t = this.trains[0]; return t ? t.cars[1] : null; },
+  get cars(){ const t = this.trains[0]; return t ? t.cars : []; },
+  get running(){ const t = this.trains[0]; return !!t && t.running; },
+  set running(v){ const t = this.trains[0]; if (t) t.running = v; },
+  get stuck(){ const t = this.trains[0]; return !!t && t.stuck; },
+  set stuck(v){ const t = this.trains[0]; if (t) t.stuck = v; },
+  get coal(){ const t = this.trains[0]; return t ? t.coal : 0; },
+  set coal(v){ const t = this.trains[0]; if (t) t.coal = v; },
+  get boostUntil(){ const t = this.trains[0]; return t ? t.boostUntil : 0; },
+  set boostUntil(v){ const t = this.trains[0]; if (t) t.boostUntil = v; },
+  get pausedUntil(){ const t = this.trains[0]; return t ? t.pausedUntil : 0; },
+  set pausedUntil(v){ const t = this.trains[0]; if (t) t.pausedUntil = v; },
   // everything in the game lives on the FLOOR (flat 2D coords); this wrapper
   // is scaleY-squashed so the whole table tilts into isometric view at once
   world(){ return $('#trn-world') || this.area(); },
   toFloor(e){
+    const r = this.area().getBoundingClientRect(), c = this.cam;
+    return {
+      x: (e.clientX - r.left - c.x) / c.zoom,
+      y: ((e.clientY - r.top) / this.SQ - c.y) / c.zoom,
+    };
+  },
+  toScreen(x, y){
+    const r = this.area().getBoundingClientRect(), c = this.cam;
+    return { x: r.left + x * c.zoom + c.x, y: r.top + (y * c.zoom + c.y) * this.SQ };
+  },
+  applyCam(){
+    const w = this.world();
+    if (w && w.id === 'trn-world')
+      w.style.transform = `scaleY(${this.SQ}) translate(${this.cam.x.toFixed(1)}px, ${this.cam.y.toFixed(1)}px) scale(${this.cam.zoom.toFixed(4)})`;
+  },
+  // zoom the whole tabletop out (never in past 1:1) so the layout fits — big
+  // fixed loops shouldn't run off the screen
+  fitView(){
     const r = this.area().getBoundingClientRect();
-    return { x: e.clientX - r.left, y: (e.clientY - r.top) / this.SQ };
+    if (!this.pieces.length){ this.cam = { zoom: 1, x: 0, y: 0 }; this.applyCam(); return; }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of this.pieces){
+      x0 = Math.min(x0, p.x - this.S); x1 = Math.max(x1, p.x + this.S);
+      y0 = Math.min(y0, p.y - this.S); y1 = Math.max(y1, p.y + this.S);
+    }
+    const ops = $('#trn-ops').getBoundingClientRect();
+    const topPad = Math.max(0, (ops.bottom - r.top)) / this.SQ + this.S * 0.2;
+    const availW = r.width - 24, availH = r.height / this.SQ - topPad - this.S * 0.2;
+    const zoom = Math.max(0.3, Math.min(1, availW / (x1 - x0), availH / (y1 - y0)));
+    this.cam = {
+      zoom,
+      x: (r.width - (x0 + x1) * zoom) / 2,
+      y: topPad + (availH - (y1 - y0) * zoom) / 2 - y0 * zoom,
+    };
+    this.applyCam();
+  },
+  needFit(){
+    const r = this.area().getBoundingClientRect(), c = this.cam;
+    const vx0 = (0 - c.x) / c.zoom, vx1 = (r.width - c.x) / c.zoom;
+    const vy0 = (0 - c.y) / c.zoom, vy1 = (r.height / this.SQ - c.y) / c.zoom;
+    let out = false, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of this.pieces){
+      if (p.x < vx0 + this.S * 0.4 || p.x > vx1 - this.S * 0.4
+        || p.y < vy0 + this.S * 0.4 || p.y > vy1 - this.S * 0.4) out = true;
+      x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+      y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+    }
+    if (out) return true;
+    // zoomed out but the layout shrank: ease back in
+    if (c.zoom < 1 && (x1 - x0) < (vx1 - vx0) * 0.55 && (y1 - y0) < (vy1 - vy0) * 0.55) return true;
+    return false;
+  },
+  refit(){
+    if (this._sim || this.drag || this.trainDrag) return;
+    if (this.needFit()) this.fitView();
   },
 
   /* ── piece definitions ─────────────────────────────────────────────────── */
@@ -64,8 +131,8 @@ const TrainGame = {
       ends: [{ x: -S/2, y: 0, a: Math.PI - PHI }, { x: S/2, y: 0, a: PHI }],
       routes: [{ a: 0, b: 1, pts: arc(0, R * Math.cos(PHI), R, -PHI, PHI) }],
     };
-    // the tight curve: same 45°, small radius — for snug inner loops
-    const R2 = R * 0.62, c2 = R2 * Math.sin(PHI);
+    // E1 tight curve: same 45°, centreline radius (90 inner + 20) = 110mm
+    const R2 = S * (110 / 144), c2 = R2 * Math.sin(PHI);
     D.curveS = {
       key: 'curveS',
       ends: [{ x: -c2, y: 0, a: Math.PI - PHI }, { x: c2, y: 0, a: PHI }],
@@ -92,23 +159,25 @@ const TrainGame = {
         ],
       };
     }
-    // level crossing: two straights, no joining
+    // level crossing H: two A1-length (108mm) arms crossing — ¾ of a straight
+    const HX = S * (54 / 144);
     D.cross = {
       key: 'cross',
       ends: [
-        { x: -S/2, y: 0, a: Math.PI }, { x: S/2, y: 0, a: 0 },
-        { x: 0, y: -S/2, a: -Math.PI/2 }, { x: 0, y: S/2, a: Math.PI/2 },
+        { x: -HX, y: 0, a: Math.PI }, { x: HX, y: 0, a: 0 },
+        { x: 0, y: -HX, a: -Math.PI/2 }, { x: 0, y: HX, a: Math.PI/2 },
       ],
       routes: [
-        { a: 0, b: 1, pts: line(-S/2, 0, S/2, 0) },
-        { a: 2, b: 3, pts: line(0, -S/2, 0, S/2) },
+        { a: 0, b: 1, pts: line(-HX, 0, HX, 0) },
+        { a: 2, b: 3, pts: line(0, -HX, 0, HX) },
       ],
     };
-    // buffer: a half-straight ending in a stop block (b:-1 = bounce here)
+    // buffer stop R/S: a 40mm stub ending in the stop block (b:-1 = bounce)
+    const BL = S * (40 / 144);
     D.buffer = {
       key: 'buffer',
-      ends: [{ x: -S/4, y: 0, a: Math.PI }],
-      routes: [{ a: 0, b: -1, pts: line(-S/4, 0, S * 0.14, 0) }],
+      ends: [{ x: -BL / 2, y: 0, a: Math.PI }],
+      routes: [{ a: 0, b: -1, pts: line(-BL / 2, 0, BL / 2, 0) }],
     };
     // arc-length tables for the follower
     for (const key in D) for (const rt of D[key].routes){
@@ -236,106 +305,423 @@ const TrainGame = {
     }
     return seen;
   },
-  /* ── MAGIC FIX: connect the layout with minimum changes ──────────────────
-     Pair up nearby open ends. Different islands: rigidly swing the smaller
-     island so the ends mate exactly (nothing distorts). Same island (closing
-     a loop): bend one of the end pieces — flex track absorbs the misalignment.
-     Repeats until nothing else can be fixed. */
+  /* ── MAGIC FIX: close the layout with REAL pieces ────────────────────────
+     A lattice A* plans a chain of standard pieces (straight / curve / tight
+     curve) from one open end to another. Islands are first snap-rotated
+     (≤22.5°, about their own connector) onto the track lattice and finally
+     translated a hair so the joint lands exact — so gaps get filled with
+     honest wood and nothing bends. Repeats until nothing more can be fixed. */
+  latticeMoves(){
+    const out = [];
+    for (const [key, ks] of [['straight', [0]], ['curve', [0, 1]], ['curveS', [0, 1]]])
+      for (const k of ks){
+        const def = this.DEFS[key];
+        const t = this.mateTransform(def, k, { x: 0, y: 0, a: 0 });
+        const o = def.ends[1 - k];
+        const c = Math.cos(t.rot), s = Math.sin(t.rot);
+        const ex = t.x + o.x * c - o.y * s, ey = t.y + o.x * s + o.y * c;
+        out.push({ key, k, chord: Math.hypot(ex, ey), ca: Math.atan2(ey, ex), turn: wrap(o.a + t.rot) });
+      }
+    return out;
+  },
+  // spatial hash of existing track samples, so gap-filling can steer around
+  // wood that is already on the floor (joint zones excluded)
+  buildObstacleGrid(exclude){
+    const cell = this.S * 0.5, grid = new Map();
+    for (const o of this.pieces)
+      for (const rt of o.def.routes)
+        for (let i = 0; i < rt.pts.length; i += 2){
+          const w = this.toWorld(o, rt.pts[i][0], rt.pts[i][1]);
+          if (exclude.some(e => Math.hypot(w.x - e.x, w.y - e.y) < this.S * 0.42)) continue;
+          const k = Math.floor(w.x / cell) + ':' + Math.floor(w.y / cell);
+          let a = grid.get(k);
+          if (!a) grid.set(k, a = []);
+          a.push([w.x, w.y]);
+        }
+    grid.cell = cell;
+    return grid;
+  },
+  hitsObstacle(grid, x, y, lim){
+    const cell = grid.cell, cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++){
+      const a = grid.get((cx + dx) + ':' + (cy + dy));
+      if (a) for (const [px, py] of a) if (Math.hypot(x - px, y - py) < lim) return true;
+    }
+    return false;
+  },
+  // A*: chain pieces leaving A so the far connector arrives at B, opposing it.
+  // Only works when the heading mismatch sits on the 45° lattice (the caller
+  // rotates islands to guarantee that); positions may miss by up to posTol.
+  solveGap(A, B, posTol, maxPieces = 8, collect = false, avoid = false){
+    const S = this.S, PHI = Math.PI / 8;
+    const goalA = wrap(B.a + Math.PI);
+    // pieces needed scale with the gap: cap the search so hopeless pairs
+    // fail fast instead of grinding the whole node budget
+    const d00 = Math.hypot(B.x - A.x, B.y - A.y);
+    maxPieces = Math.max(5, Math.min(maxPieces, Math.ceil(d00 / (S * 0.58)) + 4));
+    if (Math.abs(wrap(Math.round(wrap(goalA - A.a) / (PHI * 2)) * PHI * 2 - wrap(goalA - A.a))) > 0.02) return null;
+    const moves = this.latticeMoves();
+    const q = Math.max(6, S * 0.07);
+    const hkey = (x, y, n) => (Math.round(x / q)) + ':' + (Math.round(y / q)) + ':' + (((n % 16) + 16) % 16);
+    const grid = avoid ? this.buildObstacleGrid([A, B]) : null;
+    const lim = this.TW * 0.7;
+    const queue = [{ x: A.x, y: A.y, a: A.a, n: 0, g: 0, steps: [] }];
+    const seen = new Map();
+    let best = null, nodes = 0;
+    const hits = [];
+    const cap = collect ? 8000 : 5000;
+    while (queue.length && ++nodes < cap){
+      let bi = 0, bf = Infinity;
+      for (let i = 0; i < queue.length; i++){
+        const s = queue[i];
+        const f = s.g + Math.hypot(B.x - s.x, B.y - s.y) / S * 1.05;
+        if (f < bf){ bf = f; bi = i; }
+      }
+      const s = queue.splice(bi, 1)[0];
+      const dg = Math.hypot(B.x - s.x, B.y - s.y);
+      if (s.steps.length && dg <= posTol && Math.abs(wrap(s.a - goalA)) < 0.02){
+        if (collect && hits.length < 110) hits.push({ steps: s.steps, d: dg });
+        if (!best || dg < best.d) best = { steps: s.steps, d: dg };
+        if (dg < 2 && (!collect || hits.length > 60)) break;
+      }
+      if (s.steps.length >= maxPieces) continue;
+      // reachability prune: not enough pieces left to span the distance
+      if (dg > (maxPieces - s.steps.length) * S * 1.1 + posTol) continue;
+      for (const m of moves){
+        const nx = s.x + m.chord * Math.cos(s.a + m.ca);
+        const ny = s.y + m.chord * Math.sin(s.a + m.ca);
+        const na = wrap(s.a + m.turn), nn = s.n + Math.round(m.turn / (PHI * 2));
+        const ng = s.g + 1;
+        const kk = hkey(nx, ny, nn);
+        if (seen.has(kk) && seen.get(kk) <= ng) continue;
+        if (grid && (this.hitsObstacle(grid, (s.x + nx) / 2, (s.y + ny) / 2, lim)
+          || this.hitsObstacle(grid, nx, ny, lim))) continue;
+        seen.set(kk, ng);
+        queue.push({ x: nx, y: ny, a: na, n: nn, g: ng, steps: s.steps.concat(m) });
+      }
+    }
+    return best ? { ...best, hits } : null;
+  },
+  pathEnd(A, steps){
+    let x = A.x, y = A.y, a = A.a;
+    for (const m of steps){
+      x += m.chord * Math.cos(a + m.ca);
+      y += m.chord * Math.sin(a + m.ca);
+      a = wrap(a + m.turn);
+    }
+    return { x, y, a };
+  },
+  realizePath(E, steps){
+    let cur = E;
+    for (const m of steps){
+      const def = this.DEFS[m.key];
+      const t = this.mateTransform(def, m.k, cur);
+      const p = this.addPiece(m.key, t.x, t.y, t.rot);
+      p.el.classList.add('trn-fly');
+      setTimeout(() => p.el.classList.remove('trn-fly'), 460);
+      this.connect(cur.p, cur.i, p, m.k);
+      cur = this.endWorld(p, 1 - m.k);
+    }
+    return cur;
+  },
+  rotateComponent(ids, cx, cy, by){
+    const cs = Math.cos(by), sn = Math.sin(by);
+    for (const pid of ids){
+      const p = this.byId(pid);
+      const rx = p.x - cx, ry = p.y - cy;
+      p.x = cx + rx * cs - ry * sn;
+      p.y = cy + rx * sn + ry * cs;
+      p.rot = wrap(p.rot + by);
+    }
+  },
+  translateComponent(ids, dx, dy){
+    for (const pid of ids){
+      const p = this.byId(pid);
+      p.x += dx; p.y += dy;
+    }
+  },
+  animateComponent(ids){
+    for (const pid of ids){
+      const p = this.byId(pid);
+      p.el.classList.add('trn-fly');
+      setTimeout(() => p.el.classList.remove('trn-fly'), 460);
+    }
+  },
+  // overlap audit: piece pairs whose interior samples sit on top of each
+  // other (joint zones excluded by sampling away from the ends)
+  quickOverlaps(){
+    let v = 0;
+    const lim = this.TW * 0.55;
+    for (let i = 0; i < this.pieces.length; i++) for (let j = i + 1; j < this.pieces.length; j++){
+      const a = this.pieces[i], b = this.pieces[j];
+      if (Math.hypot(a.x - b.x, a.y - b.y) > this.S * 2.4) continue;
+      let close = 0;
+      for (const rt of a.def.routes) for (let u = 2; u < rt.pts.length - 2; u += 3){
+        const w = this.toWorld(a, rt.pts[u][0], rt.pts[u][1]);
+        for (const rt2 of b.def.routes) for (let q = 2; q < rt2.pts.length - 2; q += 3){
+          const w2 = this.toWorld(b, rt2.pts[q][0], rt2.pts[q][1]);
+          if (Math.hypot(w.x - w2.x, w.y - w2.y) < lim) close++;
+        }
+      }
+      if (close > 2) v++;
+    }
+    return v;
+  },
+  snapshotFix(){
+    return {
+      list: [...this.pieces],
+      state: this.pieces.map(p => ({ p, x: p.x, y: p.y, rot: p.rot, def: p.def, conn: { ...p.conn } })),
+    };
+  },
+  restoreFix(s){
+    for (const p of this.pieces) if (!s.list.includes(p)){
+      p.el.remove();
+      if (p.over) p.over.remove();
+      if (p.slab) p.slab.remove();
+    }
+    this.pieces = s.list;
+    for (const st of s.state){
+      st.p.x = st.x; st.p.y = st.y; st.p.rot = st.rot; st.p.def = st.def;
+      st.p.conn = { ...st.conn };
+    }
+  },
   fixLayout(){
     let fixed = 0, guard = 0;
-    while (guard++ < 24){
+    const tried = new Set();
+    const deadline = performance.now() + (this._sim ? 2500 : 1800);
+    while (guard++ < 40 && performance.now() < deadline){
+      this.closureScan();
       const open = this.openEnds();
-      let best = null;
+      if (open.length < 2) break;
+      const pairs = [];
       for (let i = 0; i < open.length; i++) for (let j = i + 1; j < open.length; j++){
-        const A = open[i], B = open[j];
-        if (A.p === B.p) continue;
-        const dist = Math.hypot(A.x - B.x, A.y - B.y);
-        if (dist > this.S * 1.4) continue;
-        const aerr = Math.abs(wrap(A.a - B.a - Math.PI));
-        if (aerr > 1.25) continue;
-        const score = dist + aerr * this.S * 0.3;
-        if (!best || score < best.score) best = { A, B, score };
+        const d = Math.hypot(open[i].x - open[j].x, open[i].y - open[j].y);
+        if (d < this.S * 8) pairs.push({ A: open[i], B: open[j], d });
       }
-      if (!best || !this.joinPair(best.A, best.B)) break;
-      fixed++;
+      pairs.sort((a, b) => a.d - b.d);
+      let done = false;
+      for (const pr of pairs){
+        const id = [pr.A.p.id, pr.A.i, pr.B.p.id, pr.B.i].join('.');
+        if (tried.has(id)) continue;
+        // any fix that would lay track across track is rolled back wholesale
+        const snap = this.snapshotFix();
+        const ov0 = this.quickOverlaps();
+        if (this.fixPair(pr.A, pr.B)){
+          if (this.quickOverlaps() > ov0){
+            this.restoreFix(snap);
+            tried.add(id);
+            continue;
+          }
+          fixed++; done = true; break;
+        }
+        tried.add(id);
+      }
+      if (!done) break;
     }
     if (fixed){
       this.closureScan();
+      this.healJoints();
       this.repaintAll();
       this.ensureTrain();
       if (this.eng) this.placeTrain();
-      Audio2.fanfare();
-      const r = this.area().getBoundingClientRect();
-      FX.burst(r.left + this.W / 2, r.top + r.height / 2, ['#F0B429', '#EBDCBC', '#fff']);
+      if (!this._sim){
+        Audio2.fanfare();
+        const r = this.area().getBoundingClientRect();
+        FX.burst(r.left + this.W / 2, r.top + r.height / 2, ['#F0B429', '#EBDCBC', '#fff']);
+      }
     }
     return fixed;
   },
-  joinPair(A, B){
+  fixPair(A, B){
     const compA = this.componentSet(A.p);
     if (!compA.has(B.p.id)){
+      // separate islands: align the smaller one to the lattice, plan a fill
       const compB = this.componentSet(B.p);
       const [M, F, ids] = compB.size <= compA.size ? [B, A, compB] : [A, B, compA];
-      const dr = wrap(F.a + Math.PI - M.a);
-      const cs = Math.cos(dr), sn = Math.sin(dr);
-      for (const pid of ids){
-        const q = this.byId(pid);
-        const rx = q.x - M.x, ry = q.y - M.y;
-        q.x = F.x + rx * cs - ry * sn;
-        q.y = F.y + rx * sn + ry * cs;
-        q.rot = wrap(q.rot + dr);
-        q.el.classList.add('trn-fly');
-        setTimeout(() => q.el.classList.remove('trn-fly'), 460);
-      }
-      this.connect(M.p, M.i, F.p, F.i);
-      return true;
+      const dock = () => {
+        const M1 = this.endWorld(M.p, M.i), F1 = this.endWorld(F.p, F.i);
+        this.rotateComponent(ids, M1.x, M1.y, wrap(F1.a + Math.PI - M1.a));
+        const M2 = this.endWorld(M.p, M.i);
+        this.translateComponent(ids, F1.x - M2.x, F1.y - M2.y);
+        this.animateComponent(ids);
+        this.connect(M.p, M.i, F.p, F.i);
+      };
+      const d0 = Math.hypot(A.x - B.x, A.y - B.y);
+      if (d0 < this.S * 0.55){ dock(); return true; }
+      // snap the island's heading onto the fixed side's 45° lattice — try the
+      // nearest orientation first, then its other neighbour
+      const delta = wrap(M.a - (F.a + Math.PI));
+      const near = Math.round(delta / (Math.PI / 4)) * Math.PI / 4;
+      const alt = near + (delta > near ? Math.PI / 4 : -Math.PI / 4);
+      for (const jointOnly of [true, false])
+        for (const snap of [near, alt])
+          if (this.tryIslandFill(ids, M, F, wrap(snap - delta), jointOnly)) return true;
+      return this.dockFallback(ids, M, F, d0, dock);
     }
-    // closing a loop within one island: flex whichever end piece can bend
-    for (const [end, other] of [[A, B], [B, A]]){
-      const p = end.p;
-      if (!['straight', 'curve', 'curveS'].includes(p.key)) continue;
-      const kAnch = 1 - end.i;
-      if (!p.conn[kAnch] || p.conn[end.i]) continue;
-      const c = Math.cos(-p.rot), s = Math.sin(-p.rot);
-      const bent = this.bendRoute(p.def.bridged ? this.DEFS[p.key] : p.def, kAnch, {
-        x: (other.x - p.x) * c - (other.y - p.y) * s,
-        y: (other.x - p.x) * s + (other.y - p.y) * c,
-        a: wrap(other.a + Math.PI - p.rot),
-      });
-      if (!bent) continue;
-      p.def = bent;
-      this.connect(p, end.i, other.p, other.i);
+    // same rigid network: only an exact lattice fill can close it
+    const sol0 = this.solveGap(A, B, 6, 8, false, true);
+    if (sol0 && sol0.d <= 6){
+      const far = this.realizePath(A, sol0.steps);
+      this.connect(far.p, far.i, B.p, B.i);
       return true;
     }
     return false;
+  },
+  dockFallback(ids, M, F, d0, dock){
+    if (d0 < this.S * 2.4){ dock(); return true; }
+    return false;
+  },
+  tryIslandFill(ids, M, F0, rotBy, jointOnly){
+      const F = this.endWorld(F0.p, F0.i);
+      const M0 = this.endWorld(M.p, M.i);
+      if (Math.abs(rotBy) > 1e-4) this.rotateComponent(ids, M0.x, M0.y, rotBy);
+      const undo = () => { if (Math.abs(rotBy) > 1e-4){ const Mn = this.endWorld(M.p, M.i); this.rotateComponent(ids, Mn.x, Mn.y, -rotBy); } };
+      const M2 = this.endWorld(M.p, M.i);
+      // does this island have a SECOND open end that must also reach the
+      // fixed network? Solve both gaps jointly: pick one candidate chain per
+      // gap whose residual translations AGREE, so one rigid island move
+      // makes both joints exact.
+      const islandOpen = jointOnly
+        ? this.openEnds().filter(E => ids.has(E.p.id) && !(E.p === M.p && E.i === M.i))
+        : [];
+      const fixedOpen = this.openEnds().filter(E => !ids.has(E.p.id) && !(E.p === F0.p && E.i === F0.i));
+      if (islandOpen.length === 1 && fixedOpen.length){
+        const M2b = islandOpen[0];
+        let F2 = null, fd = Infinity;
+        for (const E of fixedOpen){
+          const dd = Math.hypot(E.x - M2b.x, E.y - M2b.y);
+          if (dd < fd){ fd = dd; F2 = E; }
+        }
+        if (F2 && fd < this.S * 8){
+          const s1 = this.solveGap(F, M2, this.S * 0.85, 9, true, true);
+          const s2 = this.solveGap(F2, M2b, this.S * 0.85, 9, true, true);
+          if (s1 && s2){
+            let match = null;
+            for (const h1 of s1.hits){
+              const e1 = this.pathEnd(F, h1.steps);
+              const d1x = e1.x - M2.x, d1y = e1.y - M2.y;
+              for (const h2 of s2.hits){
+                const e2 = this.pathEnd(F2, h2.steps);
+                const err = Math.hypot((e2.x - M2b.x) - d1x, (e2.y - M2b.y) - d1y);
+                if (err < 5 && (!match || h1.steps.length + h2.steps.length < match.n)){
+                  match = { h1, h2, dx: d1x, dy: d1y, n: h1.steps.length + h2.steps.length };
+                }
+              }
+            }
+            if (match){
+              this.translateComponent(ids, match.dx, match.dy);
+              this.animateComponent(ids);
+              const far1 = this.realizePath(F, match.h1.steps);
+              this.connect(far1.p, far1.i, M.p, M.i);
+              const far2 = this.realizePath(F2, match.h2.steps);
+              this.connect(far2.p, far2.i, M2b.p, M2b.i);
+              return true;
+            }
+          }
+        }
+      }
+      const sol = jointOnly ? null : this.solveGap(F, M2, this.S * 0.6, 8, false, true);
+      if (sol){
+        const endPose = this.pathEnd(F, sol.steps);
+        this.translateComponent(ids, endPose.x - M2.x, endPose.y - M2.y);
+        this.animateComponent(ids);
+        const far = this.realizePath(F, sol.steps);
+        this.connect(far.p, far.i, M.p, M.i);
+        return true;
+      }
+      undo();
+      return false;
   },
 
   /* ── persistence: the floor remembers the last layout ────────────────────
      Coordinates are stored with the piece size, so a layout saved on one
      window size rescales cleanly onto another. */
+  serializeLayout(){
+    const idx = new Map(this.pieces.map((q, i) => [q.id, i]));
+    const conns = [];
+    for (const q of this.pieces) for (const e in q.conn){
+      const c = q.conn[e], i = idx.get(q.id), j = idx.get(c.p);
+      if (j != null && (i < j || (i === j && +e < c.e))) conns.push([i, +e, j, c.e]);
+    }
+    return {
+      v: 3, s: this.S,
+      // full consists — every car in order (absorbed engines included), plus
+      // where the head sits, so a reload gives back EXACTLY what was built
+      trains: this.trains.map(T => {
+        const h = T.cars[0];
+        return {
+          livery: T.livery,
+          cars: T.cars.map(c => c.lv != null ? { t: c.type, lv: c.lv | 0 } : { t: c.type }),
+          head: { p: idx.get(h.p.id) ?? 0, r: h.r, s: Math.round(h.s * 10) / 10, fw: h.fw ? 1 : 0 },
+          run: T.running ? 1 : 0,
+        };
+      }),
+      pieces: this.pieces.map(q => ({
+        k: q.key, x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10,
+        r: Math.round(q.rot * 1000) / 1000, sw: q.sw || 0,
+      })),
+      conns,
+    };
+  },
   saveLayout(){
-    try {
-      if (this._loading) return;
-      const idx = new Map(this.pieces.map((q, i) => [q.id, i]));
-      const conns = [];
-      for (const q of this.pieces) for (const e in q.conn){
-        const c = q.conn[e], i = idx.get(q.id), j = idx.get(c.p);
-        if (j != null && (i < j || (i === j && +e < c.e))) conns.push([i, +e, j, c.e]);
-      }
-      localStorage.setItem('cf.trainLayout', JSON.stringify({
-        v: 1, s: this.S, livery: this.livery,
-        cars: this.cars.slice(2).map(c => c.type),
-        pieces: this.pieces.map(q => ({
-          k: q.key, x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10,
-          r: Math.round(q.rot * 1000) / 1000, sw: q.sw || 0,
-        })),
-        conns,
-      }));
-    } catch {}
+    if (this._loading) return;
+    const s = JSON.stringify(this.serializeLayout());
+    try { localStorage.setItem('cf.trainLayout', s); } catch {}
+    this.pushHistory(s);
+  },
+  /* ── undo / redo: a snapshot stack over the layout serialisation ───────── */
+  hist: [], histIdx: -1,
+  pushHistory(s){
+    if (this.hist[this.histIdx] === s) return;
+    this.hist = this.hist.slice(0, this.histIdx + 1);
+    this.hist.push(s);
+    if (this.hist.length > 60) this.hist.shift();
+    this.histIdx = this.hist.length - 1;
+    this.syncHistUI();
+  },
+  undo(){ if (this.histIdx > 0){ this.histIdx--; this.applySnapshot(this.hist[this.histIdx]); } },
+  redo(){ if (this.histIdx < this.hist.length - 1){ this.histIdx++; this.applySnapshot(this.hist[this.histIdx]); } },
+  applySnapshot(s){
+    const d = JSON.parse(s);
+    this._loading = true;
+    for (const p of [...this.pieces]){
+      p.el.remove();
+      if (p.over) p.over.remove();
+      if (p.slab) p.slab.remove();
+    }
+    this.pieces = [];
+    for (const T of [...this.trains]) this.removeTrain(T);
+    this.drag = null; this.touch = null; this.trainTouch = null; this.trainDrag = false;
+    this.carTouch = null; this.carDrag = false;
+    const f = this.S / (d.s || this.S);
+    for (const q of d.pieces || []){
+      const p = this.addPiece(this.DEFS[q.k] ? q.k : 'straight', q.x * f, q.y * f, q.r);
+      if (q.sw) p.sw = 1;
+    }
+    for (const [i, e, j, g] of d.conns || []){
+      const a = this.pieces[i], b = this.pieces[j];
+      if (a && b && !a.conn[e] && !b.conn[g]) this.connect(a, e, b, g);
+    }
+    for (const t of d.trains || []) if (t.head) t.head.s *= f;
+    this._pendingTrains = d.trains || [{ livery: d.livery | 0, cars: d.cars || [] }];
+    this.healJoints();
+    for (const q of this.pieces) this.renderPiece(q);
+    if (this.pieces.length) this.spawnSavedTrains();
+    this._loading = false;
+    try { localStorage.setItem('cf.trainLayout', s); } catch {}
+    this.refit();
+    this.syncHistUI();
+    Audio2.pop();
+  },
+  syncHistUI(){
+    const u = $('#trn-undo'), r = $('#trn-redo');
+    if (u) u.classList.toggle('trn-dim', this.histIdx <= 0);
+    if (r) r.classList.toggle('trn-dim', this.histIdx >= this.hist.length - 1);
   },
   loadLayout(){
     try {
       const d = JSON.parse(localStorage.getItem('cf.trainLayout') || 'null');
-      if (!d || d.v !== 1 || !Array.isArray(d.pieces) || !d.s) return false;
+      if (!d || (d.v !== 2 && d.v !== 3) || !Array.isArray(d.pieces) || !d.s) return false;
       if (!d.pieces.length) return 'empty';
       this._loading = true;
       const f = this.S / d.s;
@@ -347,8 +733,8 @@ const TrainGame = {
         const a = this.pieces[i], b = this.pieces[j];
         if (a && b && !a.conn[e] && !b.conn[g]) this.connect(a, e, b, g);
       }
-      this.livery = Math.min(this.LIVERIES.length - 1, d.livery | 0);
-      this._pendingCars = (d.cars || []).filter(t => ['tanker', 'boxcar', 'coach'].includes(t));
+      for (const t of d.trains || []) if (t.head) t.head.s *= f;
+      this._pendingTrains = d.trains || [{ livery: d.livery | 0, cars: d.cars || [] }];
       this.healJoints();
       this._loading = false;
       this.repaintAll();
@@ -382,7 +768,7 @@ const TrainGame = {
   },
   // clear the whole floor (the previous layout is kept as a backup key)
   clearField(){
-    try {
+    if (!this._sim) try {
       const cur = localStorage.getItem('cf.trainLayout');
       if (cur) localStorage.setItem('cf.trainLayout.prev', cur);
     } catch {}
@@ -392,15 +778,49 @@ const TrainGame = {
       if (p.slab) p.slab.remove();
     }
     this.pieces = [];
-    for (const c of this.cars) c.el.remove();
-    this.cars = []; this.eng = null; this.ten = null;
+    for (const T of [...this.trains]) this.removeTrain(T);
     this.drag = null; this.touch = null; this.trainTouch = null; this.trainDrag = false;
+    this.carTouch = null; this.carDrag = false;
     Audio2.pop();
     this.saveLayout();
   },
-  // the train reappears (engine + tender) as soon as there is track again
+  spawnSavedTrains(){
+    const list = this._pendingTrains && this._pendingTrains.length ? this._pendingTrains : [{ livery: 0, cars: [] }];
+    this._pendingTrains = null;
+    for (const t of list){
+      if (t.cars && t.cars.length && typeof t.cars[0] === 'object') this.rebuildTrain(t);
+      else this.spawnTrain(Math.min(this.LIVERIES.length - 1, t.livery | 0),
+        { carTypes: (t.cars || []).filter(x => ['tanker', 'boxcar', 'coach'].includes(x)) });
+    }
+    this.placeTrain();
+  },
+  // v3 restore: rebuild a consist car-for-car and seat it where it was saved
+  rebuildTrain(t){
+    if (!this.pieces.length) return null;
+    const T = this.newTrain(t.livery | 0);
+    for (const cd of t.cars || []){
+      if (cd.t === 'engine') T.cars.push(this.makeEngineCar(Math.min(this.LIVERIES.length - 1, cd.lv | 0)));
+      else if (['tender', 'tanker', 'boxcar', 'coach'].includes(cd.t)) T.cars.push(this.makeWagonCar(cd.t, cd.lv != null ? cd.lv | 0 : t.livery | 0));
+    }
+    if (!T.cars.length) return null;
+    this.trains.push(T);
+    this.activeT = T;
+    const h = T.cars[0];
+    const hp = this.pieces[(t.head && t.head.p) | 0] || this.pieces[0];
+    const hr = t.head && hp.def.routes[t.head.r] ? t.head.r : 0;
+    const rt = hp.def.routes[hr];
+    h.p = hp; h.r = hr; h.fw = t.head ? !!t.head.fw : true;
+    h.s = Math.max(0, Math.min(rt.len, t.head ? +t.head.s || 0 : rt.len * 0.7));
+    for (let i = 1; i < T.cars.length; i++) this.seatBehind(T.cars[i - 1], T.cars[i]);
+    T.running = !!t.run;
+    this.syncCoal(T);
+    return T;
+  },
+  // a train reappears as soon as there is track again
   ensureTrain(){
-    if (!this.eng && this.pieces.length) this.makeTrain();
+    if (this.trains.length || !this.pieces.length) return;
+    if (this._pendingTrains) this.spawnSavedTrains();
+    else this.spawnTrain(0);
   },
   // stitch any open end pairs that geometry has brought together (closes loops)
   closureScan(){
@@ -408,7 +828,7 @@ const TrainGame = {
     for (let i = 0; i < open.length; i++) for (let j = i + 1; j < open.length; j++){
       const A = open[i], B = open[j];
       if (A.p === B.p || A.p.conn[A.i] || B.p.conn[B.i]) continue;
-      if (Math.hypot(A.x - B.x, A.y - B.y) < 10 && Math.abs(wrap(A.a - B.a - Math.PI)) < 0.35)
+      if (Math.hypot(A.x - B.x, A.y - B.y) < 6 && Math.abs(wrap(A.a - B.a - Math.PI)) < 0.06)
         this.connect(A.p, A.i, B.p, B.i);
     }
   },
@@ -423,8 +843,26 @@ const TrainGame = {
       window.addEventListener('pointermove', e => this.onMove(e));
       window.addEventListener('pointerup', e => this.onUp(e));
       window.addEventListener('pointercancel', e => this.onUp(e));
-      $('#trn-reset').addEventListener('click', () => this.reset());
-      $('#trn-clear').addEventListener('click', () => this.clearField());
+      // destructive buttons need a deliberate 1-second hold
+      const bindHold = (btn, fn) => {
+        let t = 0;
+        const stop = () => { clearTimeout(t); btn.classList.remove('trn-holding'); };
+        btn.addEventListener('pointerdown', e => {
+          e.preventDefault(); Audio2.unlock();
+          btn.classList.add('trn-holding');
+          t = setTimeout(() => { btn.classList.remove('trn-holding'); fn(); }, 1000);
+        });
+        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, stop);
+      };
+      bindHold($('#trn-reset'), () => this.showTemplates());
+      $('#trn-templates').addEventListener('click', e => {
+        const card = e.target.closest('[data-template]');
+        $('#trn-templates').classList.add('hidden');
+        if (card) this.reset(undefined, card.dataset.template);
+      });
+      bindHold($('#trn-clear'), () => this.clearField());
+      $('#trn-undo').addEventListener('click', () => { Audio2.unlock(); this.undo(); });
+      $('#trn-redo').addEventListener('click', () => { Audio2.unlock(); this.redo(); });
       $('#trn-fix').addEventListener('click', e => {
         Audio2.unlock();
         if (!this.fixLayout()){
@@ -442,26 +880,42 @@ const TrainGame = {
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
     this.drag = null; this.touch = null;
   },
-  reset(mode){
+  reset(mode, template){
     const a = this.area(), r = a.getBoundingClientRect();
     this.W = r.width; this.H = r.height / this.SQ;   // floor is "taller" than the screen
     this.S = Math.min(this.W, r.height) * 0.2;
-    this.R = this.S * 1.30656;                   // chord of a 45° arc = S
-    this.TW = this.S * 0.33;
+    this.R = this.S * (202 / 144);               // E curve centreline (182 inner + half of 40 width)
+    this.TW = this.S * (40 / 144);
     this.buildDefs();
+    this.cam = { zoom: 1, x: 0, y: 0 };
     a.innerHTML = `<div id="trn-world" class="trn-world" style="height:${(100 / this.SQ).toFixed(2)}%;transform:scaleY(${this.SQ})"></div>`;
     this.pieces = []; this.seq = 0; this.drag = null; this.touch = null;
     this.trainTouch = null; this.trainDrag = false; this.dropMark = null;
-    this.coal = 0; this.boostUntil = 0; this.pausedUntil = 0; this.running = true;
+    this.carTouch = null; this.carDrag = false;
+    this.trains = []; this.activeT = null;
     this.renderOps();
     // 'load' restores the remembered layout (an intentionally cleared floor
     // stays cleared); anything else deals the starter oval
     let built = false;
     if (mode === 'load') built = this.loadLayout();
-    if (built === false) this.buildStarter();
-    if (this.pieces.length) this.makeTrain();
-    else { this.cars = []; this.eng = null; this.ten = null; }
+    if (built === false){
+      if (template && this.TEMPLATES[template]){
+        this[this.TEMPLATES[template]]();
+        this.closureScan();
+        this.fixLayout();   // stitch template gaps (ring links) with real wood
+        this.healJoints();
+        this.repaintAll();
+        this.fitView();
+      } else this.buildStarter();
+    }
+    if (!this.trains.length && this.pieces.length){
+      if (this._pendingTrains) this.spawnSavedTrains();
+      else this.spawnTrain(0);
+    }
     this.markers = [];
+    this.hist = [JSON.stringify(this.serializeLayout())];
+    this.histIdx = 0;
+    this.syncHistUI();
     if (mode !== 'load') this.saveLayout();
   },
 
@@ -495,6 +949,91 @@ const TrainGame = {
     this.closureScan();
     this.repaintAll();
   },
+  /* ── example layouts ─────────────────────────────────────────────────────
+     Sequences are chained with the same mate math the starter uses; '+'/'-'
+     suffixes pick the turn direction, switches record their branch ends for
+     sidings. Rings are recentred by centroid, then the magic fixer stitches
+     the inter-ring links with real pieces. */
+  chainSeq(prev, seq, branches){
+    for (const item of seq){
+      const turn = item.endsWith('+') ? Math.PI / 4 : item.endsWith('-') ? -Math.PI / 4 : 0;
+      const key = item.replace(/[+-]$/, '');
+      const def = this.DEFS[key];
+      const E = this.endWorld(prev.p, prev.e);
+      let best = null;
+      for (const k of [0, 1]){
+        if (k >= def.ends.length) break;
+        const other = k === 0 ? 1 : 0;
+        const t = this.mateTransform(def, k, E);
+        const err = def.ends[other]
+          ? Math.abs(wrap(wrap(def.ends[other].a + t.rot) - wrap(E.a + turn)))
+          : 0;   // single-ended piece (buffer): only one way to mate
+        if (!best || err < best.err) best = { k, other, t, err };
+      }
+      const p = this.addPiece(key, best.t.x, best.t.y, best.t.rot);
+      this.connect(E.p, E.i, p, best.k);
+      if ((key === 'swl' || key === 'swr') && branches) branches.push({ p, e: 2 });
+      if (!def.ends[best.other]) return { p, e: null };   // chain ends at a buffer
+      prev = { p, e: (key === 'swl' || key === 'swr') ? 1 : best.other };
+    }
+    return prev;
+  },
+  buildRingAt(cx, cy, seq, branches){
+    const n0 = this.pieces.length;
+    const first = this.addPiece(seq[0].replace(/[+-]$/, ''), 0, 0, 0);
+    this.chainSeq({ p: first, e: 1 }, seq.slice(1), branches);
+    const ring = this.pieces.slice(n0);
+    let mx = 0, my = 0;
+    for (const p of ring){ mx += p.x; my += p.y; }
+    mx /= ring.length; my /= ring.length;
+    for (const p of ring){ p.x += cx - mx; p.y += cy - my; }
+    return ring;
+  },
+  buildRings(){
+    const cx = this.W / 2, cy = this.H / 2 + this.S * 0.4;
+    const reps = (arr, n) => Array.from({ length: n }, () => arr).flat();
+    const branches = [];
+    this.buildRingAt(cx, cy, reps(['curveS+'], 8));
+    this.buildRingAt(cx, cy, ['swl', ...reps(['curveS+'], 3), 'straight', ...reps(['curveS+'], 5)], branches);
+    this.buildRingAt(cx, cy, ['swl', 'curve+', 'straight', 'curve+', 'swl', 'curve+', 'straight', 'curve+',
+      'straight', 'curve+', 'straight', 'curve+'], branches);
+    this.buildRingAt(cx, cy, reps(['curve+', 'straight', 'straight'], 4).concat(
+      ['swl', 'curve+', 'straight', 'straight', 'curve+', 'straight']), branches);
+    this.closureScan();
+    this._pendingTrains = [{ livery: 0, cars: [] }, { livery: 2, cars: ['coach'] }];
+  },
+  buildCoalYard(){
+    const cx = this.W / 2, cy = this.H * 0.42;
+    const branches = [];
+    const first = this.addPiece('straight', cx - this.S, cy - this.R, 0);
+    this.chainSeq({ p: first, e: 1 }, [
+      'station', 'straight', 'curve+', 'curve+', 'curve+', 'curve+',
+      'swl', 'straight', 'swr', 'curve+', 'curve+', 'curve+', 'curve+',
+    ], branches);
+    this.closureScan();
+    // outer siding: the coal yard; inner stub: the water stop
+    if (branches[0]) this.chainSeq({ p: branches[0].p, e: 2 }, ['curveS-', 'coal', 'straight', 'buffer']);
+    if (branches[1]) this.chainSeq({ p: branches[1].p, e: 2 }, ['curveS+', 'water', 'buffer']);
+    this._pendingTrains = [{ livery: 0, cars: ['tender'] }, { livery: 1, cars: ['boxcar'] }];
+  },
+  buildSwitchYard(){
+    const cx = this.W / 2 - this.S * 3.2, cy = this.H * 0.4;
+    const branches = [];
+    const first = this.addPiece('straight', cx, cy, 0);
+    const endE = this.chainSeq({ p: first, e: 1 },
+      ['swr', 'straight', 'swr', 'straight', 'swr', 'station', 'straight', 'buffer'], branches);
+    void endE;
+    this.chainSeq({ p: first, e: 0 }, ['buffer']);
+    const yards = [['curveS-', 'coal', 'straight', 'buffer'],
+      ['curveS-', 'straight', 'water', 'buffer'],
+      ['curveS-', 'straight', 'straight', 'buffer']];
+    branches.forEach((b, i) => this.chainSeq({ p: b.p, e: 2 }, yards[i % yards.length]));
+    this._pendingTrains = [{ livery: 3, cars: ['boxcar', 'tanker'] }];
+  },
+  TEMPLATES: { oval: 'buildStarter', rings: 'buildRings', coalyard: 'buildCoalYard', yard: 'buildSwitchYard' },
+  showTemplates(){
+    $('#trn-templates').classList.remove('hidden');
+  },
   addPiece(key, x, y, rot){
     const p = { id: ++this.seq, key, def: this.DEFS[key], x, y, rot, sw: 0, conn: {} };
     p.el = document.createElement('div');
@@ -511,6 +1050,7 @@ const TrainGame = {
       if (q.def.bridged && (!q.conn[0] || !q.conn[1])) q.def = this.DEFS[q.key];
     for (const q of this.pieces) this.renderPiece(q);
     this.saveLayout();
+    this.refit();
   },
   removePiece(p){
     this.disconnect(p);
@@ -594,19 +1134,25 @@ const TrainGame = {
           <path d="${this.pathD(g)}" stroke="${dim ? '#9d8760' : '#6E552F'}" stroke-width="${n(TW * 0.055)}" fill="none" stroke-linecap="butt" opacity="${dim ? .6 : .95}"/>`;
     for (const c of conns){
       const e = c.e, ca = Math.cos(e.a), sa = Math.sin(e.a);
-      const hx = e.x - ca * this.TW * 0.30, hy = e.y - sa * this.TW * 0.30;
+      const hx = e.x - ca * this.TW * 0.26, hy = e.y - sa * this.TW * 0.26;
       if (c.state === 'hole'){
-        deco += `<path d="M ${n(e.x + ca * 1.5)} ${n(e.y + sa * 1.5)} L ${n(hx)} ${n(hy)}" stroke="#6b543a" stroke-width="${n(TW * 0.15)}" stroke-linecap="round"/>
-          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.17)}" fill="#55422a"/>
-          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.115)}" fill="#3e3020"/>`;
+        // open keyhole: a thin C-shaped rim — the inner void continues out
+        // through the slot, so the ring is visibly OPEN even at icon size
+        deco += `<path d="M ${n(e.x + ca * 2.5)} ${n(e.y + sa * 2.5)} L ${n(hx)} ${n(hy)}" stroke="#55422a" stroke-width="${n(TW * 0.19)}" stroke-linecap="butt"/>
+          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.19)}" fill="#55422a"/>
+          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.125)}" fill="#3e3020"/>
+          <path d="M ${n(e.x + ca * 2.5)} ${n(e.y + sa * 2.5)} L ${n(hx)} ${n(hy)}" stroke="#3e3020" stroke-width="${n(TW * 0.115)}" stroke-linecap="butt"/>`;
       } else if (c.state === 'joint'){
-        // the seam: a light board-to-board line right across the joint
-        deco += `<path d="M ${n(e.x + sa * (TW / 2 + 1.5))} ${n(e.y - ca * (TW / 2 + 1.5))} L ${n(e.x - sa * (TW / 2 + 1.5))} ${n(e.y + ca * (TW / 2 + 1.5))}" stroke="#B0966B" stroke-width="1.4" opacity=".85"/>`;
-        deco += `<path d="M ${n(e.x + ca * TW * 0.06)} ${n(e.y + sa * TW * 0.06)} L ${n(hx)} ${n(hy)}" stroke="#6b543a" stroke-width="${n(TW * 0.16)}" stroke-linecap="round"/>
-          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.17)}" fill="#55422a"/>
-          <path d="M ${n(e.x + ca * TW * 0.06)} ${n(e.y + sa * TW * 0.06)} L ${n(hx)} ${n(hy)}" stroke="#EDE0C2" stroke-width="${n(TW * 0.09)}" stroke-linecap="round"/>
-          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.12)}" fill="#EDE0C2"/>
-          <circle cx="${n(hx - TW * 0.04)}" cy="${n(hy - TW * 0.04)}" r="${n(TW * 0.05)}" fill="#F8EFD9" opacity=".75"/>`;
+        // slim seam + the peg seated in a thin C-collar: two mating parts,
+        // not a painted ring
+        const lane = TW * 0.26;
+        deco += `<path d="M ${n(e.x + sa * (TW / 2 + 1.5))} ${n(e.y - ca * (TW / 2 + 1.5))} L ${n(e.x + sa * lane)} ${n(e.y - ca * lane)}" stroke="#8a6f4b" stroke-width="1.6" opacity=".85"/>
+          <path d="M ${n(e.x - sa * (TW / 2 + 1.5))} ${n(e.y + ca * (TW / 2 + 1.5))} L ${n(e.x - sa * lane)} ${n(e.y + ca * lane)}" stroke="#8a6f4b" stroke-width="1.6" opacity=".85"/>`;
+        deco += `<path d="M ${n(e.x + ca * 2)} ${n(e.y + sa * 2)} L ${n(hx)} ${n(hy)}" stroke="#55422a" stroke-width="${n(TW * 0.19)}" stroke-linecap="butt"/>
+          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.185)}" fill="#55422a"/>
+          <path d="M ${n(e.x + ca * 2)} ${n(e.y + sa * 2)} L ${n(hx)} ${n(hy)}" stroke="#EDE0C2" stroke-width="${n(TW * 0.105)}" stroke-linecap="butt"/>
+          <circle cx="${n(hx)}" cy="${n(hy)}" r="${n(TW * 0.135)}" fill="#EDE0C2"/>
+          <circle cx="${n(hx - TW * 0.04)}" cy="${n(hy - TW * 0.04)}" r="${n(TW * 0.05)}" fill="#F8EFD9" opacity=".7"/>`;
       }
     }
     return edge + wood + grain + groove + deco;
@@ -659,7 +1205,7 @@ const TrainGame = {
         `<ellipse cx="${n(-S*0.16)}" cy="${n(ly)}" rx="${n(S*0.12)}" ry="${n(S*0.09)}" fill="#000" opacity=".2"/>`);
     }
     if (def.key === 'buffer'){
-      const bx = S * 0.14;
+      const bx = S * (40 / 144) / 2 - 2;
       inner += lift(S * 0.06, `<rect x="${n(bx)}" y="${n(-TW * 0.72)}" width="${n(TW * 0.34)}" height="${n(TW * 1.44)}" rx="3" fill="#C2412F" stroke="#7e2418" stroke-width="2"/>
         <rect x="${n(bx + TW * 0.06)}" y="${n(-TW * 0.5)}" width="${n(TW * 0.2)}" height="${n(TW * 0.32)}" fill="#fff" opacity=".85"/>
         <rect x="${n(bx + TW * 0.06)}" y="${n(TW * 0.18)}" width="${n(TW * 0.2)}" height="${n(TW * 0.32)}" fill="#fff" opacity=".85"/>`,
@@ -743,12 +1289,13 @@ const TrainGame = {
     ];
     ops.innerHTML = BTNS.map(([key, label]) =>
       `<button class="fb-btn trn-pick" data-piece="${key}" aria-label="Add ${label}">${this.iconSVG(key)}</button>`).join('');
-    // rolling stock: cycle the engine's livery, or couple on cargo & coaches
-    ops.innerHTML += `
-      <button class="fb-btn trn-carbtn trn-gap" data-car="engine" aria-label="Change the engine colour">
-        <svg viewBox="0 0 100 60" width="42" height="26"><rect x="10" y="18" width="66" height="26" rx="8" fill="#2C6FD6" stroke="#1D3557" stroke-width="3"/><rect x="58" y="8" width="20" height="20" rx="4" fill="#1D3557"/><rect x="18" y="6" width="10" height="16" rx="3" fill="#363E47"/><circle cx="26" cy="48" r="8" fill="#20262D" stroke="#8A929C" stroke-width="2"/><circle cx="58" cy="48" r="8" fill="#20262D" stroke="#8A929C" stroke-width="2"/><rect x="76" y="20" width="6" height="24" rx="2" fill="#C2412F"/></svg>
-      </button>
-      <button class="fb-btn trn-carbtn" data-car="tanker" aria-label="Add an oil tanker">
+    // rolling-stock row below the track row: every engine livery + the cars
+    const stock = $('#trn-stock');
+    stock.innerHTML = this.LIVERIES.map((L, i) =>
+      `<button class="fb-btn trn-carbtn trn-engbtn" data-engine="${i}" aria-label="Add the ${['blue', 'green', 'red', 'yellow'][i]} engine">
+        <svg viewBox="0 0 100 60" width="42" height="26"><rect x="10" y="18" width="66" height="26" rx="8" fill="${L.body}" stroke="${L.dark}" stroke-width="3"/><rect x="58" y="8" width="20" height="20" rx="4" fill="${L.dark}"/><rect x="18" y="6" width="10" height="16" rx="3" fill="#363E47"/><circle cx="26" cy="48" r="8" fill="#20262D" stroke="#8A929C" stroke-width="2"/><circle cx="58" cy="48" r="8" fill="#20262D" stroke="#8A929C" stroke-width="2"/><rect x="76" y="20" width="6" height="24" rx="2" fill="#C2412F"/></svg>
+      </button>`).join('')
+      + `<button class="fb-btn trn-carbtn trn-gap" data-car="tanker" aria-label="Add an oil tanker">
         <svg viewBox="0 0 100 60" width="42" height="26"><rect x="10" y="14" width="80" height="30" rx="15" fill="#B9BEC5" stroke="#6E747E" stroke-width="3"/><rect x="42" y="6" width="16" height="10" rx="4" fill="#8A929C"/><circle cx="30" cy="50" r="7" fill="#20262D" stroke="#8A929C" stroke-width="2"/><circle cx="70" cy="50" r="7" fill="#20262D" stroke="#8A929C" stroke-width="2"/></svg>
       </button>
       <button class="fb-btn trn-carbtn" data-car="boxcar" aria-label="Add a box car">
@@ -757,21 +1304,31 @@ const TrainGame = {
       <button class="fb-btn trn-carbtn" data-car="coach" aria-label="Add a passenger coach">
         <svg viewBox="0 0 100 60" width="42" height="26"><rect x="10" y="12" width="80" height="32" rx="8" fill="#E8933C" stroke="#9c5a1a" stroke-width="3"/><rect x="20" y="18" width="13" height="16" rx="2" fill="#F6E7C8"/><rect x="43" y="18" width="13" height="16" rx="2" fill="#F6E7C8"/><rect x="66" y="18" width="13" height="16" rx="2" fill="#F6E7C8"/><circle cx="30" cy="50" r="7" fill="#20262D" stroke="#8A929C" stroke-width="2"/><circle cx="70" cy="50" r="7" fill="#20262D" stroke="#8A929C" stroke-width="2"/></svg>
       </button>`;
+    // the shelf must clear the (possibly wrapped) track row
+    const opsR = ops.getBoundingClientRect(), aR = this.area().getBoundingClientRect();
+    stock.style.top = (opsR.bottom - aR.top + 8) + 'px';
+    stock.querySelectorAll('.trn-engbtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        Audio2.unlock();
+        if (this.spawnTrain(+btn.dataset.engine)){
+          this.saveLayout();
+          Audio2.snapSnd();
+        } else {
+          btn.classList.remove('trn-deny'); void btn.offsetWidth;
+          btn.classList.add('trn-deny');
+        }
+      });
+    });
     ops.querySelectorAll('.trn-pick').forEach(btn => {
       btn.addEventListener('pointerdown', e => {
         e.preventDefault(); Audio2.unlock();
         this.beginDrag(this.spawnFloating(btn.dataset.piece, e.clientX, e.clientY), true, e);
       });
     });
-    ops.querySelectorAll('.trn-carbtn').forEach(btn => {
+    stock.querySelectorAll('.trn-carbtn[data-car]').forEach(btn => {
       btn.addEventListener('click', () => {
         Audio2.unlock();
-        if (btn.dataset.car === 'engine'){
-          this.livery = (this.livery + 1) % this.LIVERIES.length;
-          this.refreshEngineSkin();
-          this.saveLayout();
-          Audio2.snapSnd();
-        } else if (!this.addCar(btn.dataset.car)){
+        if (!this.addCar(btn.dataset.car)){
           btn.classList.remove('trn-deny'); void btn.offsetWidth;
           btn.classList.add('trn-deny');
         }
@@ -1034,7 +1591,9 @@ const TrainGame = {
   // a plain TAP on a picker button (no drag): the piece flies to the open end
   // nearest the middle of the layout, or onto clear floor if nothing is open
   autoPlace(p){
-    const cx = this.W / 2, cy = this.H / 2;
+    const r0 = this.area().getBoundingClientRect();
+    const mid = this.toFloor({ clientX: r0.left + r0.width / 2, clientY: r0.top + r0.height / 2 });
+    const cx = mid.x, cy = mid.y;
     const settle = () => {
       this.pieces.push(p);
       p.el.classList.add('trn-fly');
@@ -1070,10 +1629,13 @@ const TrainGame = {
     p.el.remove(); if (p.over) p.over.remove(); if (p.slab) p.slab.remove();
   },
   freeClear(p){
-    // never under the part list, never hanging off the floor
-    const ops = $('#trn-ops').getBoundingClientRect(), ar = this.area().getBoundingClientRect();
-    if (p.y < (ops.bottom - ar.top) / this.SQ + this.S * 0.45) return false;
-    if (p.x < this.S * 0.4 || p.x > this.W - this.S * 0.4 || p.y > this.H - this.S * 0.35) return false;
+    // never under the part list, never hanging off the visible floor
+    const ops = $('#trn-ops').getBoundingClientRect(), ar = this.area().getBoundingClientRect(), c = this.cam;
+    const opsFloorY = (((ops.bottom - ar.top) / this.SQ) - c.y) / c.zoom;
+    const vx0 = (0 - c.x) / c.zoom, vx1 = (ar.width - c.x) / c.zoom;
+    const vy1 = (ar.height / this.SQ - c.y) / c.zoom;
+    if (p.y < opsFloorY + this.S * 0.45) return false;
+    if (p.x < vx0 + this.S * 0.4 || p.x > vx1 - this.S * 0.4 || p.y > vy1 - this.S * 0.35) return false;
     const lim = this.TW * 0.9;
     for (const o of this.pieces){
       if (o === p) continue;
@@ -1090,19 +1652,36 @@ const TrainGame = {
 
   /* ── pointer routing: tap = toggle/trigger, drag = move piece ──────────── */
   hitPiece(px, py){
-    for (let i = this.pieces.length - 1; i >= 0; i--){
+    // the NEAREST rail wins — first-match order made taps near parallel
+    // tracks grab whichever piece happened to sit later in the list
+    let best = null;
+    for (let i = 0; i < this.pieces.length; i++){
       const p = this.pieces[i];
-      if (Math.hypot(px - p.x, py - p.y) > this.S * 1.3) continue;
-      // precise: near any route polyline (in local coords)
+      if (Math.hypot(px - p.x, py - p.y) > this.S * 1.4) continue;
       const c = Math.cos(-p.rot), s = Math.sin(-p.rot);
       const lx = (px - p.x) * c - (py - p.y) * s, ly = (px - p.x) * s + (py - p.y) * c;
+      let d = Infinity;
       for (const rt of p.def.routes)
-        for (const [qx, qy] of rt.pts)
-          if (Math.hypot(lx - qx, ly - qy) < this.TW * 0.95) return p;
-      // decorations count too (switch lever, tower, platform)
-      if (p.key !== 'straight' && p.key !== 'curve' && Math.hypot(lx, ly) < this.S * 0.75) return p;
+        for (let u = 1; u < rt.pts.length; u++){
+          // true distance to the segment, not just its sample points
+          const ax = rt.pts[u - 1][0], ay = rt.pts[u - 1][1];
+          const vx = rt.pts[u][0] - ax, vy = rt.pts[u][1] - ay;
+          const t = Math.max(0, Math.min(1, ((lx - ax) * vx + (ly - ay) * vy) / ((vx * vx + vy * vy) || 1)));
+          d = Math.min(d, Math.hypot(lx - (ax + vx * t), ly - (ay + vy * t)));
+        }
+      if (d > this.TW * 0.72) continue;
+      // near-ties go to the piece drawn on top (later in the array)
+      if (!best || d < best.d - 3 || (Math.abs(d - best.d) <= 3 && i > best.i)) best = { p, d, i };
     }
-    return null;
+    if (best) return best.p;
+    // decorations (tower, platform, lever…) as a fallback — nearest wins
+    let deco = null;
+    for (const p of this.pieces){
+      if (p.key === 'straight' || p.key === 'curve' || p.key === 'curveS') continue;
+      const d = Math.hypot(px - p.x, py - p.y);
+      if (d < this.S * 0.7 && (!deco || d < deco.d)) deco = { p, d };
+    }
+    return deco ? deco.p : null;
   },
   onDown(e){
     if (!this.active || this.drag) return;
@@ -1113,18 +1692,49 @@ const TrainGame = {
     this.touch = { p, x: e.clientX, y: e.clientY, e };
   },
   onMove(e){
+    // pulling a single car off the train?
+    if (this.carTouch && !this.carDrag
+        && Math.hypot(e.clientX - this.carTouch.x, e.clientY - this.carTouch.y) > 12){
+      this.carDrag = true;
+      const c = this.carTouch.car, T = this.carTouch.train, tc = T.cars;
+      const idx = tc.indexOf(c);
+      if (idx >= 0){
+        tc.splice(idx, 1);
+        for (let i = Math.max(1, idx); i < tc.length; i++) this.seatBehind(tc[i - 1], tc[i]);
+        if (!tc.length){
+          // that was the whole consist — the (car-less) train dissolves
+          this.trains = this.trains.filter(t => t !== T);
+          if (this.activeT === T) this.activeT = this.trains[0] || null;
+        } else if (!tc.some(c => c.type === 'engine')){
+          // pulling the engine away leaves the wagons standing, not rolling
+          T.running = false; T.stuck = false;
+        }
+      }
+      c.el.classList.add('trn-carry');
+    }
+    if (this.carDrag){
+      const f = this.toFloor(e);
+      this.carSprite(this.carTouch.car, { x: f.x, y: f.y, a: 0 });
+      $('#trn-toybox').classList.toggle('open', this.overToybox(e));
+      return;
+    }
     // carrying the train?
     if (this.trainTouch && !this.trainDrag
         && Math.hypot(e.clientX - this.trainTouch.x, e.clientY - this.trainTouch.y) > 12){
       this.trainDrag = true;
-      for (const c of this.cars) c.el.classList.add('trn-carry');
+      for (const c of this.trainTouch.train.cars) c.el.classList.add('trn-carry');
     }
     if (this.trainDrag){
       const f = this.toFloor(e), tt = this.trainTouch;
+      // a short trail of recent motion — read at the drop to get the swoop
+      const now2 = performance.now();
+      tt.trail = tt.trail || [];
+      tt.trail.push({ t: now2, x: f.x, y: f.y, cx: e.clientX, cy: e.clientY });
+      while (tt.trail.length > 1 && now2 - tt.trail[0].t > 320) tt.trail.shift();
       // engine under the finger, every car trailing exactly as it hung at pickup
-      this.cars.forEach((c, i) =>
+      tt.train.cars.forEach((c, i) =>
         this.carSprite(c, { x: f.x + tt.deltas[i].dx, y: f.y + tt.deltas[i].dy, a: tt.deltas[i].a }));
-      $('#trn-toybox').classList.toggle('open', this.overToybox(e) && this.cars.length > 2);
+      $('#trn-toybox').classList.toggle('open', this.overToybox(e) && (tt.train.cars.length > 2 || this.trains.length > 1));
       const near = this.nearestTrack(f.x, f.y);
       if (!this.dropMark){
         this.dropMark = document.createElement('div');
@@ -1145,7 +1755,7 @@ const TrainGame = {
     if (!t) return;
     if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 12){
       const p = t.p; this.touch = null;
-      if (this.cars.some(c => c.p === p)){
+      if (this.trains.some(T => T.cars.some(c => c.p === p))){
         p.el.classList.remove('trn-no'); void p.el.offsetWidth;
         p.el.classList.add('trn-no');            // the train is standing on it
         return;
@@ -1155,48 +1765,114 @@ const TrainGame = {
     }
   },
   onUp(e){
+    if (this.carTouch){
+      const ct = this.carTouch; this.carTouch = null;
+      if (!this.carDrag) return;
+      this.carDrag = false;
+      ct.car.el.classList.remove('trn-carry');
+      $('#trn-toybox').classList.remove('open');
+      void 0;
+      const r = this.area().getBoundingClientRect();
+      const edgeDist = Math.min(e.clientX - r.left, r.right - e.clientX, e.clientY - r.top, r.bottom - e.clientY);
+      if (this.overToybox(e) || edgeDist < 8){
+        // into the toybox (or off the edge): the car is put away
+        ct.car.el.remove();
+        FX.burst(e.clientX, e.clientY, ['#F0B429', '#8A929C', '#fff']);
+        Audio2.pop();
+      } else {
+        const f = this.toFloor(e);
+        const near = this.nearestTrack(f.x, f.y);
+        const alive = this.trains.includes(ct.train);
+        if (near){
+          // dropped on a rail: the car stands right there as its own little
+          // consist, waiting for a passing train to collect it
+          const T2 = this.newTrain(ct.car.lv ?? ct.train.livery);
+          T2.running = false;
+          T2.cars.push(ct.car);
+          const rt = near.p.def.routes[near.r];
+          ct.car.p = near.p; ct.car.r = near.r; ct.car.fw = true;
+          ct.car.s = Math.max(0, Math.min(rt.len, near.d));
+          this.trains.push(T2);
+          Audio2.clack(0.4);
+        } else if (alive){
+          // dropped on the floor: it hops back onto the end of its train
+          const last = ct.train.cars[ct.train.cars.length - 1];
+          ct.train.cars.push(ct.car);
+          this.seatBehind(last, ct.car);
+          Audio2.clack(0.35);
+        } else {
+          // its old train dissolved and there is no rail here: put it away
+          ct.car.el.remove();
+          Audio2.pop();
+        }
+      }
+      this.saveLayout();
+      this.placeTrain();
+      return;
+    }
     if (this.trainTouch){
       const tt = this.trainTouch; this.trainTouch = null;
+      const T = tt.train;
       if (!this.trainDrag){
-        // a plain tap: stop or go — and a train stopped at a dead end goes
-        // back the other way (engine running around to the front)
-        this.running = !this.running;
-        if (this.running && this.stuck){ this.reverse(); this.stuck = false; }
-        this.eng.el.classList.toggle('idle', !this.running);
-        if (this.running) Audio2.clack(0.3);
+        // a plain tap: stop or go — a train stuck at a dead end goes back the
+        // other way (engine running around to the front)
+        T.running = !T.running;
+        if (T.running && T.stuck){ this.reverse(T); T.stuck = false; }
+        if (T.running) Audio2.clack(0.3);
         return;
       }
       this.trainDrag = false;
-      for (const c of this.cars) c.el.classList.remove('trn-carry');
+      for (const c of T.cars) c.el.classList.remove('trn-carry');
       if (this.dropMark){ this.dropMark.remove(); this.dropMark = null; }
       $('#trn-toybox').classList.remove('open');
-      const restore = () => this.cars.forEach((c, i) => Object.assign(c, tt.prev[i]));
-      if (this.overToybox(e) && this.cars.length > 2){
-        // the toybox takes the LAST car off the train
-        const gone = this.cars.pop();
-        gone.el.remove();
-        this.saveLayout();
-        FX.burst(e.clientX, e.clientY, ['#F0B429', '#8A929C', '#fff']);
-        Audio2.pop();
-        restore();
-        this.placeTrain();
-        return;
+      const restore = () => T.cars.forEach((c, i) => Object.assign(c, tt.prev[i]));
+      if (this.overToybox(e)){
+        if (T.cars.length > 2){
+          // the toybox takes the LAST car off this train
+          const gone = T.cars.pop();
+          gone.el.remove();
+          this.saveLayout();
+          FX.burst(e.clientX, e.clientY, ['#F0B429', '#8A929C', '#fff']);
+          Audio2.pop();
+          restore();
+          this.placeTrain();
+          return;
+        }
+        if (this.trains.length > 1){
+          // a bare engine+tender goes away entirely (there are others)
+          this.removeTrain(T);
+          this.saveLayout();
+          FX.burst(e.clientX, e.clientY, ['#F0B429', '#8A929C', '#fff']);
+          Audio2.pop();
+          this.placeTrain();
+          return;
+        }
       }
       const f = this.toFloor(e);
       const near = this.nearestTrack(f.x, f.y);
       if (near){
-        this.placeTrainAt(near);
-        // face the way it was carried: flip travel direction if the new rail
-        // would point the engine backwards
-        if (Math.abs(wrap(this.statePos(this.eng).a - tt.ea)) > Math.PI / 2){
-          this.eng.fw = !this.eng.fw;
-          const len = this.eng.p.def.routes[this.eng.r].len;
-          this.eng.s = len - this.eng.s;
-          this.placeTrainAt({ p: this.eng.p, r: this.eng.r, d: this.eng.fw ? this.eng.s : len - this.eng.s });
+        this.placeTrainAt(near, T);
+        const eng = T.cars[0];
+        // face the SWOOP direction when the drop was in motion (this is how a
+        // train gets turned around); a still drop keeps the carried facing.
+        // Any deliberate motion in the last ~1/3 second counts — holding
+        // still before release ages the trail out and keeps the old facing.
+        const nowU = performance.now();
+        const recent = (tt.trail || []).filter(q => nowU - q.t < 320);
+        let face = tt.ea;
+        if (recent.length > 1){
+          const a = recent[0], b = recent[recent.length - 1];
+          if (Math.hypot(b.cx - a.cx, b.cy - a.cy) > 34)
+            face = Math.atan2(b.y - a.y, b.x - a.x);
+        }
+        if (Math.abs(wrap(this.statePos(eng).a - face)) > Math.PI / 2){
+          eng.fw = !eng.fw;
+          const len = eng.p.def.routes[eng.r].len;
+          eng.s = len - eng.s;
+          this.placeTrainAt({ p: eng.p, r: eng.r, d: eng.fw ? eng.s : len - eng.s }, T);
         }
         Audio2.clack(0.4);
       } else {
-        // nowhere to sit: the train hops back where it was
         restore();
       }
       this.placeTrain();
@@ -1225,7 +1901,6 @@ const TrainGame = {
     { body: '#C2412F', dark: '#7e2418', hi: '#DE7361', cab: '#F0B429' },   // red
     { body: '#E8B004', dark: '#8F6A14', hi: '#F4CE55', cab: '#2C6FD6' },   // yellow
   ],
-  livery: 0, cars: [], stuck: false,
   layKit(){
     return {
       n: x => (+x).toFixed(1),
@@ -1245,9 +1920,9 @@ const TrainGame = {
          <circle cx="${n(x)}" cy="${n(W*0.46)}" r="${n(W*0.17)}" fill="#16181c" stroke="#8A929C" stroke-width="1.3"/>`).join('')}
       <rect x="${n(-L/2)}" y="${n(-W*0.38)}" width="${n(L)}" height="${n(W*0.76)}" rx="3" fill="#20262D"/>`;
   },
-  engineEl(){
+  engineEl(livery){
     const S = this.S, EL = S * 0.56, EW = S * 0.27;
-    const { n, lay, box } = this.layKit(), LV = this.LIVERIES[this.livery];
+    const { n, lay, box } = this.layKit(), LV = this.LIVERIES[livery || 0];
     const el = document.createElement('div');
     el.className = 'trn-train trn-eng';
     el.innerHTML =
@@ -1274,17 +1949,21 @@ const TrainGame = {
         <path d="M ${n(-EW*0.12)} ${n(EW*0.11)} Q 0 ${n(EW*0.20)} ${n(EW*0.12)} ${n(EW*0.11)}" stroke="#2b2f34" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`);
     return el;
   },
-  carEl(type){
+  carEl(type, lv){
     const S = this.S, CL = S * 0.42, CW = S * 0.24;
     const { n, lay, box } = this.layKit();
     const el = document.createElement('div');
     el.className = 'trn-train trn-car';
     let body = '', top = '';
     if (type === 'tender'){
-      body = `<rect x="${n(-CL/2)}" y="${n(-CW/2)}" width="${n(CL)}" height="${n(CW)}" rx="4" fill="#33383F" stroke="#16181c" stroke-width="1.6"/>
-        <rect x="${n(-CL/2+2.5)}" y="${n(-CW/2+2.5)}" width="${n(CL-5)}" height="${n(CW-5)}" rx="3" fill="#20242A"/>
-        <g class="trn-lumps">${[[-CL*0.18,-CW*0.12],[CL*0.02,CW*0.1],[CL*0.2,-CW*0.06]].map(([x,y]) =>
-          `<circle cx="${n(x)}" cy="${n(y)}" r="${n(CW*0.17)}" fill="#0d0f12" stroke="#3a3f45" stroke-width="1"/>`).join('')}</g>`;
+      // the engine's coal car, painted to match its engine so the pair reads
+      // as a unit — an open tray with a visible pile of coal
+      const L = this.LIVERIES[lv | 0] || this.LIVERIES[0];
+      body = `<rect x="${n(-CL/2)}" y="${n(-CW/2)}" width="${n(CL)}" height="${n(CW)}" rx="4" fill="${L.body}" stroke="${L.dark}" stroke-width="2"/>
+        <rect x="${n(-CL/2+5)}" y="${n(-CW/2+5)}" width="${n(CL-10)}" height="${n(CW-10)}" rx="3" fill="#23262B" stroke="#111318" stroke-width="1"/>
+        <g class="trn-lumps">${[[-CL*0.18,-CW*0.1],[CL*0.02,CW*0.09],[CL*0.2,-CW*0.05]].map(([x,y]) =>
+          `<circle cx="${n(x)}" cy="${n(y)}" r="${n(CW*0.19)}" fill="#1a1d21" stroke="#4a5058" stroke-width="1.2"/>
+           <circle cx="${n(x-CW*0.05)}" cy="${n(y-CW*0.06)}" r="${n(CW*0.05)}" fill="#5c636c"/>`).join('')}</g>`;
     } else if (type === 'tanker'){
       body = `<rect x="${n(-CL/2)}" y="${n(-CW/2)}" width="${n(CL)}" height="${n(CW)}" rx="${n(CW*0.5)}" fill="#B9BEC5" stroke="#6E747E" stroke-width="2"/>
         <rect x="${n(-CL/2)}" y="${n(-CW*0.14)}" width="${n(CL)}" height="${n(CW*0.28)}" rx="${n(CW*0.14)}" fill="#D5D9DE" opacity=".7"/>
@@ -1308,44 +1987,95 @@ const TrainGame = {
       + (top ? lay(box(CL, CW) + top + '</svg>') : '');
     return el;
   },
-  makeTrain(){
-    this.cars = []; this.stuck = false;
+  // spawn an INDEPENDENT train — every engine button adds one more
+  newTrain(livery){
+    return { id: ++this.seq, livery: livery || 0, cars: [], running: true, stuck: false,
+      pausedUntil: 0, boostUntil: 0, coal: 0, coalTimer: 0, puffTimer: 0,
+      prevMidD: null, prevMidPiece: 0 };
+  },
+  makeEngineCar(lv){
     const S = this.S, EL = S * 0.56, H1 = S * 0.055, H2 = S * 0.115;
-    const el = this.engineEl();
+    const el = this.engineEl(lv);
+    const eng = { p: null, r: 0, s: 0, fw: true, el, type: 'engine', lv,
+      layers: [[el.children[1], H1 / this.SQ], [el.children[2], H2 / this.SQ]],
+      face: { el: el.children[3], fx: EL * 0.5, k: (S * 0.09) / this.SQ } };
     el.addEventListener('pointerdown', e => {
       e.stopPropagation(); e.preventDefault();
       Audio2.unlock();
-      // tap = stop/go · drag = pick the whole train up. Capture the pose at
-      // pickup: the consist is carried exactly as it stood.
-      const ep = this.statePos(this.eng);
-      this.trainTouch = { x: e.clientX, y: e.clientY, ea: ep.a,
-        deltas: this.cars.map(c => { const cp = this.statePos(c); return { dx: cp.x - ep.x, dy: cp.y - ep.y, a: cp.a }; }),
-        prev: this.cars.map(c => this.snapState(c)) };
+      // ownership can change after a coupling: find who holds this engine NOW
+      const owner = this.trains.find(t => t.cars.includes(eng));
+      if (!owner) return;
+      this.activeT = owner;
+      if (owner.cars[0] !== eng){
+        // absorbed mid-train engine: behaves like a car (pull it off)
+        this.carTouch = { train: owner, car: eng, x: e.clientX, y: e.clientY };
+        return;
+      }
+      const ep = this.statePos(owner.cars[0]);
+      this.trainTouch = { train: owner, x: e.clientX, y: e.clientY, ea: ep.a,
+        deltas: owner.cars.map(c => { const cp = this.statePos(c); return { dx: cp.x - ep.x, dy: cp.y - ep.y, a: cp.a }; }),
+        prev: owner.cars.map(c => this.snapState(c)) };
     });
     this.world().appendChild(el);
-    const home = this.pieces[0];
-    const eng = { p: home, r: 0, s: home.def.routes[0].len * 0.7, fw: true, el, type: 'engine',
-      layers: [[el.children[1], H1 / this.SQ], [el.children[2], H2 / this.SQ]],
-      face: { el: el.children[3], fx: EL * 0.5, k: (S * 0.09) / this.SQ } };
-    this.cars.push(eng);
-    this.eng = eng;
-    this.addCar('tender', true);
-    this.ten = this.cars[1];
-    for (const t of (this._pendingCars || [])) this.addCar(t, true);
-    this._pendingCars = null;
-    this.syncCoal();
+    return eng;
+  },
+  spawnTrain(livery, opts = {}){
+    if (!this.pieces.length) return null;
+    const T = this.newTrain(livery);
+    const eng = this.makeEngineCar(T.livery);
+    // seat away from other engines
+    let home = opts.homePiece || this.pieces[0], best = -1;
+    if (!opts.homePiece && this.trains.length){
+      for (const p of this.pieces){
+        let d = Infinity;
+        for (const o of this.trains) d = Math.min(d, Math.hypot(p.x - o.cars[0].p.x, p.y - o.cars[0].p.y));
+        if (d > best){ best = d; home = p; }
+      }
+    }
+    eng.p = home; eng.s = home.def.routes[0].len * 0.7;
+    T.cars.push(eng);
+    this.trains.push(T);
+    this.activeT = T;
+    this.addCarTo(T, 'tender', true);
+    for (const t of (opts.carTypes || [])) this.addCarTo(T, t, true);
+    this.syncCoal(T);
     this.placeTrain();
+    return T;
+  },
+  removeTrain(T){
+    for (const c of T.cars) c.el.remove();
+    this.trains = this.trains.filter(x => x !== T);
+    if (this.activeT === T) this.activeT = this.trains[0] || null;
   },
   addCar(type, silent){
-    if (this.cars.length >= 6) return false;   // a proud but manageable train
-    const last = this.cars[this.cars.length - 1];
-    const el = this.carEl(type);
+    const T = this.activeT || this.trains[0];
+    return T ? this.addCarTo(T, type, silent) : false;
+  },
+  makeWagonCar(type, lv){
+    const el = this.carEl(type, lv);
     this.world().appendChild(el);
     const S = this.S, H1 = S * 0.055, H2 = S * 0.115;
     const layers = [[el.children[1], H1 / this.SQ]];
     if (el.children[2]) layers.push([el.children[2], H2 / this.SQ]);
-    const st = { p: last.p, r: last.r, s: last.s, fw: last.fw, el, type, layers };
-    this.cars.push(st);
+    const st = { p: null, r: 0, s: 0, fw: true, el, type, layers };
+    if (type === 'tender') st.lv = lv | 0;
+    el.addEventListener('pointerdown', e => {
+      e.stopPropagation(); e.preventDefault();
+      Audio2.unlock();
+      // ownership can change after couplings and drop-offs: resolve NOW
+      const owner = this.trains.find(t => t.cars.includes(st));
+      if (!owner) return;
+      this.activeT = owner;
+      this.carTouch = { train: owner, car: st, x: e.clientX, y: e.clientY };
+    });
+    return st;
+  },
+  addCarTo(T, type, silent){
+    if (T.cars.length >= 8) return false;
+    const last = T.cars[T.cars.length - 1];
+    const st = this.makeWagonCar(type, T.livery);
+    st.p = last.p; st.r = last.r; st.s = last.s; st.fw = last.fw;
+    T.cars.push(st);
     this.seatBehind(last, st);
     if (!silent){ Audio2.clack(0.4); this.placeTrain(); this.saveLayout(); }
     return true;
@@ -1357,18 +2087,13 @@ const TrainGame = {
     const bl = back.p.def.routes[back.r].len;
     st.p = back.p; st.r = back.r; st.fw = !back.fw; st.s = bl - back.s;
   },
-  refreshEngineSkin(){
-    const el = this.eng.el, fresh = this.engineEl();
-    el.innerHTML = fresh.innerHTML;
-    const S = this.S, H1 = S * 0.055, H2 = S * 0.115, EL = S * 0.56;
-    this.eng.layers = [[el.children[1], H1 / this.SQ], [el.children[2], H2 / this.SQ]];
-    this.eng.face = { el: el.children[3], fx: EL * 0.5, k: (S * 0.09) / this.SQ };
-    this.placeTrain();
-  },
-  syncCoal(){
-    if (!this.ten) return;
-    const g = this.ten.el.querySelector('.trn-lumps');
-    if (g) [...g.children].forEach((c, i) => c.style.opacity = i < this.coal ? 1 : 0.12);
+
+  syncCoal(T){
+    if (!T) return;
+    const ten = T.cars.find(c => c.type === 'tender');
+    const g = ten && ten.el.querySelector('.trn-lumps');
+    // each lump is a coal circle + its glint — dim the pair together
+    if (g) [...g.children].forEach((c, i) => c.style.opacity = (i >> 1) < T.coal ? 1 : 0.25);
   },
   routePoint(p, rt, d){
     const pts = rt.pts, cum = rt.cum;
@@ -1414,17 +2139,17 @@ const TrainGame = {
   },
   // direction change (kid taps a stuck train): every car flips, and the
   // engine RUNS AROUND to lead the new direction — toy engines pull, not push
-  reverse(){
-    for (const st of this.cars){
+  reverse(T){
+    for (const st of T.cars){
       const rt = st.p.def.routes[st.r];
       st.fw = !st.fw; st.s = rt.len - st.s;
     }
-    const last = this.cars[this.cars.length - 1];
-    if (last !== this.eng){
-      this.eng.p = last.p; this.eng.r = last.r; this.eng.fw = last.fw; this.eng.s = last.s;
-      for (let i = 1; i < this.cars.length; i++) this.seatBehind(this.cars[i - 1], this.cars[i]);
+    const last = T.cars[T.cars.length - 1], eng = T.cars[0];
+    if (last !== eng){
+      eng.p = last.p; eng.r = last.r; eng.fw = last.fw; eng.s = last.s;
+      for (let i = 1; i < T.cars.length; i++) this.seatBehind(T.cars[i - 1], T.cars[i]);
     }
-    this.prevMidD = null;
+    T.prevMidD = null;
     Audio2.clack(0.25);
   },
   carSprite(c, pos){
@@ -1440,13 +2165,8 @@ const TrainGame = {
       + ` rotate(${(-pos.a).toFixed(3)}rad) scale(1, ${(1 / this.SQ).toFixed(3)})`;
   },
   placeTrain(){
-    let epos = null;
-    for (const c of this.cars){
-      const pos = this.statePos(c);
-      if (c === this.eng) epos = pos;
-      this.carSprite(c, pos);
-    }
-    return epos;
+    for (const T of this.trains)
+      for (const c of T.cars) this.carSprite(c, this.statePos(c));
   },
   snapState(st){ return { p: st.p, r: st.r, s: st.s, fw: st.fw }; },
   // nearest point on any rail — for re-railing a carried train
@@ -1462,13 +2182,14 @@ const TrainGame = {
     }
     return best && best.dist < this.S * 0.7 ? best : null;
   },
-  placeTrainAt(near){
-    const len = near.p.def.routes[near.r].len;
-    this.eng.p = near.p; this.eng.r = near.r;
-    this.eng.s = this.eng.fw ? near.d : len - near.d;
-    // seat every car behind by walking the track backwards, one coupling at a time
-    for (let i = 1; i < this.cars.length; i++) this.seatBehind(this.cars[i - 1], this.cars[i]);
-    this.prevMidD = null; this.stuck = false;
+  placeTrainAt(near, T){
+    T = T || this.trains[0];
+    if (!T) return;
+    const len = near.p.def.routes[near.r].len, eng = T.cars[0];
+    eng.p = near.p; eng.r = near.r;
+    eng.s = eng.fw ? near.d : len - near.d;
+    for (let i = 1; i < T.cars.length; i++) this.seatBehind(T.cars[i - 1], T.cars[i]);
+    T.prevMidD = null; T.stuck = false;
   },
 
   /* ── interactive pieces ────────────────────────────────────────────────── */
@@ -1486,8 +2207,16 @@ const TrainGame = {
       setTimeout(() => lump.remove(), 900 + i * 110);
     }
     Audio2.clack(0.5);
-    this.coal = 3; this.coalTimer = performance.now();
-    this.syncCoal();
+    const T = arguments[1] || this.nearestTrainTo(p) || this.trains[0];
+    if (T){ T.coal = 3; T.coalTimer = performance.now(); this.syncCoal(T); }
+  },
+  nearestTrainTo(p){
+    let best = null, bd = Infinity;
+    for (const T of this.trains){
+      const d = Math.hypot(T.cars[0].p.x - p.x, T.cars[0].p.y - p.y);
+      if (d < bd){ bd = d; best = T; }
+    }
+    return best;
   },
   pourWater(p){
     if (p._cool > performance.now()) return;
@@ -1510,29 +2239,129 @@ const TrainGame = {
       setTimeout(() => drop.remove(), 1600 + i * 160);
     }
     Audio2.pop();
-    this.boostUntil = performance.now() + 8000;
+    const T = arguments[1] || this.nearestTrainTo(p) || this.trains[0];
+    if (T) T.boostUntil = performance.now() + 8000;
   },
-  checkTriggers(){
-    if (!this.eng) return;
-    const st = this.eng, key = st.p.key;
+  checkTriggers(T){
+    const st = T.cars[0], key = st.p.key;
     if (key !== 'station' && key !== 'coal' && key !== 'water') return;
     const rt = st.p.def.routes[st.r], mid = rt.len / 2;
     const d = st.fw ? st.s : rt.len - st.s;
-    if (this.prevMidD !== null && this.prevMidPiece === st.p.id
-        && Math.sign(this.prevMidD - mid) !== Math.sign(d - mid)
+    if (T.prevMidD !== null && T.prevMidPiece === st.p.id
+        && Math.sign(T.prevMidD - mid) !== Math.sign(d - mid)
         && !(st.p._cool > performance.now())){
       if (key === 'station'){
         st.p._cool = performance.now() + 2500;
-        this.pausedUntil = performance.now() + 1600;
+        T.pausedUntil = performance.now() + 1600;
         Audio2.bell();
       }
-      else if (key === 'coal') this.dropCoal(st.p);
-      else if (key === 'water') this.pourWater(st.p);
+      else if (key === 'coal') this.dropCoal(st.p, T);
+      else if (key === 'water') this.pourWater(st.p, T);
     }
-    this.prevMidD = d; this.prevMidPiece = st.p.id;
+    T.prevMidD = d; T.prevMidPiece = st.p.id;
   },
-  puff(big){
-    const e = this.statePos(this.eng);
+  /* ── train-to-train: magnets couple nose-to-tail; anything else is a
+        cartoon bump that stops both ─────────────────────────────────────── */
+  frontPoint(T){
+    const e = this.statePos(T.cars[0]);
+    return { x: e.x + Math.cos(e.a) * this.S * 0.30, y: e.y + Math.sin(e.a) * this.S * 0.30, a: e.a };
+  },
+  rearPoint(T){
+    const last = T.cars[T.cars.length - 1], p = this.statePos(last);
+    return { x: p.x - Math.cos(p.a) * this.S * 0.24, y: p.y - Math.sin(p.a) * this.S * 0.24, a: p.a };
+  },
+  checkTrainCollisions(now){
+    this._collCool = this._collCool || {};
+    for (let i = 0; i < this.trains.length; i++) for (let j = 0; j < this.trains.length; j++){
+      if (i === j) continue;
+      const A = this.trains[i], B = this.trains[j];
+      if (this.trainTouch && (this.trainTouch.train === A || this.trainTouch.train === B) && this.trainDrag) continue;
+      if (!A.running) continue;   // only a moving train initiates contact
+      const fa = this.frontPoint(A);
+      // 1) magnet coupling: A's nose reaches B's tail, both pointing the same way
+      const rb = this.rearPoint(B);
+      if (Math.hypot(fa.x - rb.x, fa.y - rb.y) < this.S * 0.15
+          && Math.cos(fa.a - rb.a) > 0.4){
+        this.mergeTrains(B, A);
+        return;   // train list changed — pick the rest up next frame
+      }
+      // 1b) a standing engine-less consist has magnets at BOTH ends: arriving
+      // at its face just flips it around and couples the same way
+      if (!B.running && !B.cars.some(c => c.type === 'engine')){
+        const fb = this.frontPoint(B);
+        if (Math.hypot(fa.x - fb.x, fa.y - fb.y) < this.S * 0.15
+            && Math.cos(fa.a - fb.a) < -0.4){
+          this.flipConsist(B);
+          this.mergeTrains(B, A);
+          return;
+        }
+      }
+      // 2) any other meeting: a bump — both stop under a little cloud
+      const key = Math.min(A.id, B.id) + ':' + Math.max(A.id, B.id);
+      if (now < (this._collCool[key] || 0)) continue;
+      for (const c of B.cars){
+        const p = this.statePos(c);
+        if (Math.hypot(fa.x - p.x, fa.y - p.y) < this.S * 0.17){
+          this._collCool[key] = now + 2000;
+          A.running = false; A.stuck = true;
+          B.running = false; B.stuck = true;
+          this.boom((fa.x + p.x) / 2, (fa.y + p.y) / 2);
+          Audio2.clack(1);
+          setTimeout(() => Audio2.clack(0.5), 90);
+          break;
+        }
+      }
+    }
+  },
+  flipConsist(T){
+    T.cars.reverse();
+    for (const c of T.cars){
+      const rt = c.p.def.routes[c.r];
+      c.fw = !c.fw; c.s = rt.len - c.s;
+    }
+    T.prevMidD = null;
+  },
+  mergeTrains(B, A){
+    const start = B.cars.length;
+    for (const c of A.cars) B.cars.push(c);
+    for (let i = Math.max(1, start); i < B.cars.length; i++) this.seatBehind(B.cars[i - 1], B.cars[i]);
+    this.trains = this.trains.filter(t => t !== A);
+    if (this.activeT === A) this.activeT = B;
+    // the mover keeps its momentum — the "head" simply passes to the train in
+    // front, which rolls on as one long consist
+    B.running = B.running || A.running;
+    B.stuck = false;
+    B.pausedUntil = 0;
+    B.boostUntil = Math.max(B.boostUntil, A.boostUntil);
+    if (A.coal > B.coal){ B.coal = A.coal; B.coalTimer = A.coalTimer; }
+    this.syncCoal(B);
+    const rp = this.rearPoint(B);
+    FX.burst(this.toScreen(rp.x, rp.y).x, this.toScreen(rp.x, rp.y).y, ['#B9BEC5', '#F0B429', '#fff']);
+    Audio2.snapSnd();
+    Audio2.clack(0.5);
+    this.saveLayout();
+    this.placeTrain();
+  },
+  boom(x, y){
+    const el = document.createElement('div');
+    el.className = 'trn-boom';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    // sized against the camera so the cloud reads BIG on screen at any zoom
+    const sz = Math.round(170 / Math.max(0.45, this.cam ? this.cam.zoom : 1));
+    el.innerHTML = `<svg viewBox="-40 -40 80 80" width="${sz}" height="${sz}" style="position:absolute;left:${-sz / 2}px;top:${-sz / 2}px;overflow:visible">
+      ${[[-14,-6,17],[12,-10,15],[0,8,18],[-20,8,12],[20,6,11]].map(([cx,cy,r]) =>
+        `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#EDEFF2" stroke="#B9BEC5" stroke-width="2"/>`).join('')}
+      ${[[-26,-20],[26,-16],[6,-30]].map(([cx,cy]) =>
+        `<path d="M ${cx} ${cy} l 3 6 6 1 -4.5 4 1.5 6 -6 -3.5 -6 3.5 1.5 -6 -4.5 -4 6 -1 Z" fill="#F0B429"/>`).join('')}
+    </svg>`;
+    this.world().appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  },
+  puff(big, T){
+    // smoke rises from the ENGINE'S funnel, even when it is pushing wagons
+    const loco = T.cars.find(c => c.type === 'engine') || T.cars[0];
+    const e = this.statePos(loco);
     // from the funnel: forward along the boiler, then straight up in screen space
     const fx = e.x + Math.cos(e.a) * this.S * 0.16;
     const fy = e.y + Math.sin(e.a) * this.S * 0.16 - (this.S * 0.14) / this.SQ;
@@ -1551,27 +2380,32 @@ const TrainGame = {
       if (!this.active){ this.raf = 0; return; }
       const dt = Math.min(t - this.last, 50) / 1000; this.last = t;
       const now = performance.now();
-      if (this.coal && now - this.coalTimer > 7000){ this.coal--; this.coalTimer = now; this.syncCoal(); }
-      if (this.running && now > this.pausedUntil && this.eng && !this.trainDrag){
-        const boost = now < this.boostUntil;
-        const ds = this.S * 0.62 * dt * (boost ? 1.5 : 1) * (this.coal ? 1.18 : 1);
-        const okE = this.advanceState(this.cars[0], ds, true);
-        for (let i = 1; i < this.cars.length; i++) this.advanceState(this.cars[i], ds, false);
-        if (!okE){
-          // end of an unfinished line: stop and wait (no surprise auto-bounce);
-          // the next tap sends the train back the other way
-          this.running = false; this.stuck = true;
-          this.eng.el.classList.add('idle');
-          Audio2.clack(0.3);
+      for (const T of this.trains){
+        // wagons never roll on their own — whatever state got them "running"
+        if (T.running && !T.cars.some(c => c.type === 'engine')) T.running = false;
+        if (T.coal && now - T.coalTimer > 7000){ T.coal--; T.coalTimer = now; this.syncCoal(T); }
+        const carried = this.trainDrag && this.trainTouch && this.trainTouch.train === T;
+        if (T.running && now > T.pausedUntil && !carried){
+          const boost = now < T.boostUntil;
+          const ds = this.S * 0.62 * dt * (boost ? 1.5 : 1) * (T.coal ? 1.18 : 1);
+          const okE = this.advanceState(T.cars[0], ds, true);
+          for (let i = 1; i < T.cars.length; i++) this.advanceState(T.cars[i], ds, false);
+          if (!okE){
+            // end of an unfinished line: stop and wait; the next tap sends the
+            // train back the other way
+            T.running = false; T.stuck = true;
+            Audio2.clack(0.3);
+          }
+          this.checkTriggers(T);
+          T.puffTimer -= dt;
+          if (T.puffTimer <= 0){
+            this.puff(boost, T);
+            T.puffTimer = boost ? 0.16 : 0.34;
+          }
         }
-        this.checkTriggers();
-        this.puffTimer -= dt;
-        if (this.puffTimer <= 0){
-          this.puff(boost);
-          this.puffTimer = boost ? 0.16 : 0.34;
-        }
+        if (!carried) for (const c of T.cars) this.carSprite(c, this.statePos(c));
       }
-      if (this.eng && !this.trainDrag) this.placeTrain();
+      if (this.trains.length > 1) this.checkTrainCollisions(now);
       this.raf = requestAnimationFrame(frame);
     };
     this.raf = requestAnimationFrame(frame);
