@@ -165,13 +165,26 @@ const TrainGame = {
     const c = Math.cos(-t.rot), s = Math.sin(-t.rot);
     const lx = (B.x - t.x) * c - (B.y - t.y) * s, ly = (B.x - t.x) * s + (B.y - t.y) * c;
     const la = wrap(B.a + Math.PI - t.rot);        // far end's bent outward angle
-    const p0 = def.ends[k], a0 = p0.a + Math.PI;   // heading into the piece
-    const h = Math.hypot(lx - p0.x, ly - p0.y) * 0.38;
+    const bent = this.bendRoute(def, k, { x: lx, y: ly, a: la });
+    return bent ? { def: bent, B, farEnd: j } : null;
+  },
+  // build a bent (flex) variant of a two-ended piece: anchored at end kFrom,
+  // its far end relocated to `to` (piece-local pos + outward angle). Returns
+  // null rather than ever producing a folded curve — a cusp in the polyline
+  // makes the train judder and the wood render with spikes.
+  bendRoute(def, kFrom, to){
+    const j = 1 - kFrom, p0 = def.ends[kFrom], a0 = p0.a + Math.PI;
+    const chord = Math.hypot(to.x - p0.x, to.y - p0.y);
+    if (chord < this.S * 0.25 || chord > this.S * 1.8) return null;
+    const h = chord * 0.3;
+    // control points sit INSIDE the curve: ahead of the anchored end along its
+    // travel direction, and BEHIND the target along its outward tangent (the
+    // old + sign here overshot the joint — the source of the cusp spikes)
     const P = [
       [p0.x, p0.y],
       [p0.x + Math.cos(a0) * h, p0.y + Math.sin(a0) * h],
-      [lx + Math.cos(la) * h, ly + Math.sin(la) * h],
-      [lx, ly],
+      [to.x - Math.cos(to.a) * h, to.y - Math.sin(to.a) * h],
+      [to.x, to.y],
     ];
     const pts = Array.from({ length: 25 }, (_, i) => {
       const u = i / 24, v = 1 - u;
@@ -180,13 +193,25 @@ const TrainGame = {
         v*v*v*P[0][1] + 3*v*v*u*P[1][1] + 3*v*u*u*P[2][1] + u*u*u*P[3][1],
       ];
     });
-    if (k === 1) pts.reverse();                    // routes always run end0 → end1
+    // reject folds: every step must keep heading roughly forward, and the
+    // curve must not wander far beyond its chord
+    let len = 0;
+    for (let i = 2; i < pts.length; i++){
+      const ax = pts[i-1][0] - pts[i-2][0], ay = pts[i-1][1] - pts[i-2][1];
+      const bx = pts[i][0] - pts[i-1][0], by = pts[i][1] - pts[i-1][1];
+      const dot = (ax * bx + ay * by) / ((Math.hypot(ax, ay) * Math.hypot(bx, by)) || 1);
+      if (dot < 0.35) return null;
+    }
+    for (let i = 1; i < pts.length; i++)
+      len += Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
+    if (len > chord * 1.45) return null;
+    if (kFrom === 1) pts.reverse();                // routes always run end0 → end1
     const rt = { a: 0, b: 1, pts, cum: [0] };
     for (let i = 1; i < pts.length; i++)
       rt.cum.push(rt.cum[i-1] + Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]));
     rt.len = rt.cum[rt.cum.length - 1];
-    const ends = def.ends.map((e, i) => i === j ? { x: lx, y: ly, a: la } : { ...e });
-    return { def: { key: def.key, ends, routes: [rt], bridged: true }, B, farEnd: j };
+    const ends = def.ends.map((e, i) => i === j ? { x: to.x, y: to.y, a: to.a } : { ...e });
+    return { key: def.key, ends, routes: [rt], bridged: true };
   },
   connect(p1, e1, p2, e2){
     p1.conn[e1] = { p: p2.id, e: e2 };
@@ -200,6 +225,183 @@ const TrainGame = {
     p.conn = {};
   },
   byId(id){ return this.pieces.find(p => p.id === id); },
+  componentSet(p){
+    const seen = new Set([p.id]), stack = [p];
+    while (stack.length){
+      const q = stack.pop();
+      for (const i in q.conn){
+        const o = this.byId(q.conn[i].p);
+        if (o && !seen.has(o.id)){ seen.add(o.id); stack.push(o); }
+      }
+    }
+    return seen;
+  },
+  /* ── MAGIC FIX: connect the layout with minimum changes ──────────────────
+     Pair up nearby open ends. Different islands: rigidly swing the smaller
+     island so the ends mate exactly (nothing distorts). Same island (closing
+     a loop): bend one of the end pieces — flex track absorbs the misalignment.
+     Repeats until nothing else can be fixed. */
+  fixLayout(){
+    let fixed = 0, guard = 0;
+    while (guard++ < 24){
+      const open = this.openEnds();
+      let best = null;
+      for (let i = 0; i < open.length; i++) for (let j = i + 1; j < open.length; j++){
+        const A = open[i], B = open[j];
+        if (A.p === B.p) continue;
+        const dist = Math.hypot(A.x - B.x, A.y - B.y);
+        if (dist > this.S * 1.4) continue;
+        const aerr = Math.abs(wrap(A.a - B.a - Math.PI));
+        if (aerr > 1.25) continue;
+        const score = dist + aerr * this.S * 0.3;
+        if (!best || score < best.score) best = { A, B, score };
+      }
+      if (!best || !this.joinPair(best.A, best.B)) break;
+      fixed++;
+    }
+    if (fixed){
+      this.closureScan();
+      this.repaintAll();
+      this.ensureTrain();
+      if (this.eng) this.placeTrain();
+      Audio2.fanfare();
+      const r = this.area().getBoundingClientRect();
+      FX.burst(r.left + this.W / 2, r.top + r.height / 2, ['#F0B429', '#EBDCBC', '#fff']);
+    }
+    return fixed;
+  },
+  joinPair(A, B){
+    const compA = this.componentSet(A.p);
+    if (!compA.has(B.p.id)){
+      const compB = this.componentSet(B.p);
+      const [M, F, ids] = compB.size <= compA.size ? [B, A, compB] : [A, B, compA];
+      const dr = wrap(F.a + Math.PI - M.a);
+      const cs = Math.cos(dr), sn = Math.sin(dr);
+      for (const pid of ids){
+        const q = this.byId(pid);
+        const rx = q.x - M.x, ry = q.y - M.y;
+        q.x = F.x + rx * cs - ry * sn;
+        q.y = F.y + rx * sn + ry * cs;
+        q.rot = wrap(q.rot + dr);
+        q.el.classList.add('trn-fly');
+        setTimeout(() => q.el.classList.remove('trn-fly'), 460);
+      }
+      this.connect(M.p, M.i, F.p, F.i);
+      return true;
+    }
+    // closing a loop within one island: flex whichever end piece can bend
+    for (const [end, other] of [[A, B], [B, A]]){
+      const p = end.p;
+      if (!['straight', 'curve', 'curveS'].includes(p.key)) continue;
+      const kAnch = 1 - end.i;
+      if (!p.conn[kAnch] || p.conn[end.i]) continue;
+      const c = Math.cos(-p.rot), s = Math.sin(-p.rot);
+      const bent = this.bendRoute(p.def.bridged ? this.DEFS[p.key] : p.def, kAnch, {
+        x: (other.x - p.x) * c - (other.y - p.y) * s,
+        y: (other.x - p.x) * s + (other.y - p.y) * c,
+        a: wrap(other.a + Math.PI - p.rot),
+      });
+      if (!bent) continue;
+      p.def = bent;
+      this.connect(p, end.i, other.p, other.i);
+      return true;
+    }
+    return false;
+  },
+
+  /* ── persistence: the floor remembers the last layout ────────────────────
+     Coordinates are stored with the piece size, so a layout saved on one
+     window size rescales cleanly onto another. */
+  saveLayout(){
+    try {
+      if (this._loading) return;
+      const idx = new Map(this.pieces.map((q, i) => [q.id, i]));
+      const conns = [];
+      for (const q of this.pieces) for (const e in q.conn){
+        const c = q.conn[e], i = idx.get(q.id), j = idx.get(c.p);
+        if (j != null && (i < j || (i === j && +e < c.e))) conns.push([i, +e, j, c.e]);
+      }
+      localStorage.setItem('cf.trainLayout', JSON.stringify({
+        v: 1, s: this.S, livery: this.livery,
+        cars: this.cars.slice(2).map(c => c.type),
+        pieces: this.pieces.map(q => ({
+          k: q.key, x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10,
+          r: Math.round(q.rot * 1000) / 1000, sw: q.sw || 0,
+        })),
+        conns,
+      }));
+    } catch {}
+  },
+  loadLayout(){
+    try {
+      const d = JSON.parse(localStorage.getItem('cf.trainLayout') || 'null');
+      if (!d || d.v !== 1 || !Array.isArray(d.pieces) || !d.s) return false;
+      if (!d.pieces.length) return 'empty';
+      this._loading = true;
+      const f = this.S / d.s;
+      for (const q of d.pieces){
+        const p = this.addPiece(this.DEFS[q.k] ? q.k : 'straight', q.x * f, q.y * f, q.r);
+        if (q.sw){ p.sw = 1; }
+      }
+      for (const [i, e, j, g] of d.conns || []){
+        const a = this.pieces[i], b = this.pieces[j];
+        if (a && b && !a.conn[e] && !b.conn[g]) this.connect(a, e, b, g);
+      }
+      this.livery = Math.min(this.LIVERIES.length - 1, d.livery | 0);
+      this._pendingCars = (d.cars || []).filter(t => ['tanker', 'boxcar', 'coach'].includes(t));
+      this.healJoints();
+      this._loading = false;
+      this.repaintAll();
+      return true;
+    } catch { this._loading = false; return false; }
+  },
+  // recorded joints whose geometry no longer meets exactly (e.g. a flex piece
+  // reloaded, or a rescale wobble) get re-bent to land flush
+  healJoints(){
+    for (const p of this.pieces){
+      if (!['straight', 'curve', 'curveS'].includes(p.key)) continue;
+      for (const ei of [0, 1]){
+        const cn = p.conn[ei];
+        if (!cn) continue;
+        const o = this.byId(cn.p);
+        if (!o) continue;
+        const A = this.endWorld(p, ei), B = this.endWorld(o, cn.e);
+        const gap = Math.hypot(A.x - B.x, A.y - B.y);
+        if (gap < 5 && Math.abs(wrap(A.a - B.a - Math.PI)) < 0.12) continue;
+        const kAnch = 1 - ei;
+        if (!p.conn[kAnch]) continue;
+        const c = Math.cos(-p.rot), s = Math.sin(-p.rot);
+        const bent = this.bendRoute(this.DEFS[p.key], kAnch, {
+          x: (B.x - p.x) * c - (B.y - p.y) * s,
+          y: (B.x - p.x) * s + (B.y - p.y) * c,
+          a: wrap(B.a + Math.PI - p.rot),
+        });
+        if (bent) p.def = bent;
+      }
+    }
+  },
+  // clear the whole floor (the previous layout is kept as a backup key)
+  clearField(){
+    try {
+      const cur = localStorage.getItem('cf.trainLayout');
+      if (cur) localStorage.setItem('cf.trainLayout.prev', cur);
+    } catch {}
+    for (const p of [...this.pieces]){
+      p.el.remove();
+      if (p.over) p.over.remove();
+      if (p.slab) p.slab.remove();
+    }
+    this.pieces = [];
+    for (const c of this.cars) c.el.remove();
+    this.cars = []; this.eng = null; this.ten = null;
+    this.drag = null; this.touch = null; this.trainTouch = null; this.trainDrag = false;
+    Audio2.pop();
+    this.saveLayout();
+  },
+  // the train reappears (engine + tender) as soon as there is track again
+  ensureTrain(){
+    if (!this.eng && this.pieces.length) this.makeTrain();
+  },
   // stitch any open end pairs that geometry has brought together (closes loops)
   closureScan(){
     const open = this.openEnds();
@@ -214,7 +416,7 @@ const TrainGame = {
   /* ── lifecycle ─────────────────────────────────────────────────────────── */
   start(){
     Audio2.unlock(); showView('train');
-    this.reset();
+    this.reset('load');
     if (!this.bound){
       const a = this.area();
       a.addEventListener('pointerdown', e => this.onDown(e));
@@ -222,6 +424,14 @@ const TrainGame = {
       window.addEventListener('pointerup', e => this.onUp(e));
       window.addEventListener('pointercancel', e => this.onUp(e));
       $('#trn-reset').addEventListener('click', () => this.reset());
+      $('#trn-clear').addEventListener('click', () => this.clearField());
+      $('#trn-fix').addEventListener('click', e => {
+        Audio2.unlock();
+        if (!this.fixLayout()){
+          e.currentTarget.classList.remove('trn-deny'); void e.currentTarget.offsetWidth;
+          e.currentTarget.classList.add('trn-deny');
+        }
+      });
       this.bound = true;
     }
     this.active = true;
@@ -232,7 +442,7 @@ const TrainGame = {
     if (this.raf){ cancelAnimationFrame(this.raf); this.raf = 0; }
     this.drag = null; this.touch = null;
   },
-  reset(){
+  reset(mode){
     const a = this.area(), r = a.getBoundingClientRect();
     this.W = r.width; this.H = r.height / this.SQ;   // floor is "taller" than the screen
     this.S = Math.min(this.W, r.height) * 0.2;
@@ -244,9 +454,15 @@ const TrainGame = {
     this.trainTouch = null; this.trainDrag = false; this.dropMark = null;
     this.coal = 0; this.boostUntil = 0; this.pausedUntil = 0; this.running = true;
     this.renderOps();
-    this.buildStarter();
-    this.makeTrain();
+    // 'load' restores the remembered layout (an intentionally cleared floor
+    // stays cleared); anything else deals the starter oval
+    let built = false;
+    if (mode === 'load') built = this.loadLayout();
+    if (built === false) this.buildStarter();
+    if (this.pieces.length) this.makeTrain();
+    else { this.cars = []; this.eng = null; this.ten = null; }
     this.markers = [];
+    if (mode !== 'load') this.saveLayout();
   },
 
   /* ── the starter oval: a closed loop with a station and one switch whose
@@ -288,15 +504,21 @@ const TrainGame = {
     this.pieces.push(p);
     return p;
   },
-  // connector art is connection-aware: repaint every piece when the graph changes
-  repaintAll(){ for (const q of this.pieces) this.renderPiece(q); },
+  // connector art is connection-aware: repaint every piece when the graph
+  // changes; a flex piece that lost a connection springs straight again
+  repaintAll(){
+    for (const q of this.pieces)
+      if (q.def.bridged && (!q.conn[0] || !q.conn[1])) q.def = this.DEFS[q.key];
+    for (const q of this.pieces) this.renderPiece(q);
+    this.saveLayout();
+  },
   removePiece(p){
     this.disconnect(p);
-    this.repaintAll();
     p.el.remove();
     if (p.over) p.over.remove();
     if (p.slab) p.slab.remove();
     this.pieces = this.pieces.filter(x => x !== p);
+    this.repaintAll();   // after the splice, so the persisted layout is current
   },
   placeEl(p){
     p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.rot}rad)`;
@@ -547,6 +769,7 @@ const TrainGame = {
         if (btn.dataset.car === 'engine'){
           this.livery = (this.livery + 1) % this.LIVERIES.length;
           this.refreshEngineSkin();
+          this.saveLayout();
           Audio2.snapSnd();
         } else if (!this.addCar(btn.dataset.car)){
           btn.classList.remove('trn-deny'); void btn.offsetWidth;
@@ -780,6 +1003,7 @@ const TrainGame = {
       if (bd) this.connect(bd.B.p, bd.B.i, p, bd.farEnd);          // both joints close
       this.closureScan();
       this.repaintAll();
+      this.ensureTrain();
       Audio2.clack(0.45);
       return;
     }
@@ -789,6 +1013,7 @@ const TrainGame = {
       if (d.fromPicker) this.pieces.push(p);
       this.closureScan();
       this.repaintAll();
+      this.ensureTrain();
       Audio2.clack(0.3);
       return;
     }
@@ -831,6 +1056,7 @@ const TrainGame = {
       if (bd) this.connect(bd.B.p, bd.B.i, p, bd.farEnd);
       this.closureScan();
       this.repaintAll();
+      this.ensureTrain();
       Audio2.clack(0.45);
       return;
     }
@@ -839,7 +1065,7 @@ const TrainGame = {
       p.x = cx + Math.cos(a) * ring * this.S * 0.7;
       p.y = cy + Math.sin(a) * ring * this.S * 0.7;
       p.rot = 0;
-      if (this.freeClear(p)){ settle(); Audio2.clack(0.3); return; }
+      if (this.freeClear(p)){ settle(); this.saveLayout(); this.ensureTrain(); Audio2.clack(0.3); return; }
     }
     p.el.remove(); if (p.over) p.over.remove(); if (p.slab) p.slab.remove();
   },
@@ -949,6 +1175,7 @@ const TrainGame = {
         // the toybox takes the LAST car off the train
         const gone = this.cars.pop();
         gone.el.remove();
+        this.saveLayout();
         FX.burst(e.clientX, e.clientY, ['#F0B429', '#8A929C', '#fff']);
         Audio2.pop();
         restore();
@@ -982,6 +1209,7 @@ const TrainGame = {
     if (p.key === 'swl' || p.key === 'swr'){
       p.sw ^= 1;
       this.renderPiece(p);
+      this.saveLayout();
       Audio2.snapSnd();
     }
     else if (p.key === 'water') this.pourWater(p);
@@ -1103,6 +1331,8 @@ const TrainGame = {
     this.eng = eng;
     this.addCar('tender', true);
     this.ten = this.cars[1];
+    for (const t of (this._pendingCars || [])) this.addCar(t, true);
+    this._pendingCars = null;
     this.syncCoal();
     this.placeTrain();
   },
@@ -1117,7 +1347,7 @@ const TrainGame = {
     const st = { p: last.p, r: last.r, s: last.s, fw: last.fw, el, type, layers };
     this.cars.push(st);
     this.seatBehind(last, st);
-    if (!silent){ Audio2.clack(0.4); this.placeTrain(); }
+    if (!silent){ Audio2.clack(0.4); this.placeTrain(); this.saveLayout(); }
     return true;
   },
   seatBehind(prev, st){
@@ -1136,6 +1366,7 @@ const TrainGame = {
     this.placeTrain();
   },
   syncCoal(){
+    if (!this.ten) return;
     const g = this.ten.el.querySelector('.trn-lumps');
     if (g) [...g.children].forEach((c, i) => c.style.opacity = i < this.coal ? 1 : 0.12);
   },
@@ -1282,6 +1513,7 @@ const TrainGame = {
     this.boostUntil = performance.now() + 8000;
   },
   checkTriggers(){
+    if (!this.eng) return;
     const st = this.eng, key = st.p.key;
     if (key !== 'station' && key !== 'coal' && key !== 'water') return;
     const rt = st.p.def.routes[st.r], mid = rt.len / 2;

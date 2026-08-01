@@ -484,6 +484,11 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .trn-toybox.open .trn-toys{animation:trntoys .5s ease infinite}
 @keyframes trntoys{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(2deg) translateY(-2.5px)}}
 .trn-toylabel{font-size:11px;font-weight:800;color:var(--ink-soft);letter-spacing:.4px}
+/* side rail under the reset button: magic fix + clear floor */
+.trn-side{position:absolute;right:max(12px,env(safe-area-inset-right));z-index:30;width:56px;height:56px}
+.trn-fixbtn{top:calc(max(12px,env(safe-area-inset-top)) + 78px);background:#9B6DF2;font-size:26px}
+.trn-clearbtn{top:calc(max(12px,env(safe-area-inset-top)) + 148px);background:#8AA0B4;color:#fff}
+.trn-fixbtn.trn-deny{animation:trnno .3s ease}
 /* cream button faces so wooden AND dark-coloured piece icons always read */
 .trn-pick,.trn-carbtn{width:56px;height:56px;background:#F5EBD5;box-shadow:0 4px 12px rgba(30,60,90,.24), inset 0 0 0 3px #C9A97C;border-radius:16px}
 .trn-carbtn{box-shadow:0 4px 12px rgba(30,60,90,.24), inset 0 0 0 3px #8FA4B4}
