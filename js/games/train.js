@@ -1011,12 +1011,7 @@ const TrainGame = {
         'straight', 'straight', 'station', 'straight', 'straight', 'curve+', 'curve+',
         'straight', 'straight', 'curve+', 'curve+', 'straight', 'straight']);
     this.closureScan();
-    // centre the whole assembly on the floor
-    const built = this.pieces.slice(n0);
-    let mx = 0, my = 0;
-    for (const p of built){ mx += p.x; my += p.y; }
-    mx /= built.length; my /= built.length;
-    for (const p of built){ p.x += this.W / 2 - mx; p.y += this.H / 2 - my; }
+    this.centerBuilt(n0);
     this._pendingTrains = [{ livery: 0, cars: [] }, { livery: 2, cars: ['coach'] },
       { livery: 1, cars: ['boxcar'] }];
   },
@@ -1034,19 +1029,35 @@ const TrainGame = {
     if (branches[1]) this.chainSeq({ p: branches[1].p, e: 2 }, ['curveS+', 'water', 'buffer']);
     this._pendingTrains = [{ livery: 0, cars: ['tender'] }, { livery: 1, cars: ['boxcar'] }];
   },
+  /* Switch Yard: a tall dumbbell — station loop on top, coal loop below,
+     joined by a nose-to-nose Y like Ring Land; a buffered lay-by flares off
+     the top loop and the water-tower siding off the bottom one */
   buildSwitchYard(){
-    const cx = this.W / 2 - this.S * 3.2, cy = this.H * 0.4;
-    const branches = [];
-    const first = this.addPiece('straight', cx, cy, 0);
-    const endE = this.chainSeq({ p: first, e: 1 },
-      ['swr', 'straight', 'swr', 'straight', 'swr', 'station', 'straight', 'buffer'], branches);
-    void endE;
-    this.chainSeq({ p: first, e: 0 }, ['buffer']);
-    const yards = [['curveS-', 'coal', 'straight', 'buffer'],
-      ['curveS-', 'straight', 'water', 'buffer'],
-      ['curveS-', 'straight', 'straight', 'buffer']];
-    branches.forEach((b, i) => this.chainSeq({ p: b.p, e: 2 }, yards[i % yards.length]));
-    this._pendingTrains = [{ livery: 3, cars: ['boxcar', 'tanker'] }];
+    const reps = (arr, n) => Array.from({ length: n }, () => arr).flat();
+    const n0 = this.pieces.length;
+    const br = [], br2 = [];
+    // top loop: station up top next to the siding Y; transition Y at the bottom
+    const first = this.addPiece('station', 0, 0, 0);
+    this.chainSeq({ p: first, e: 1 },
+      ['swl', ...reps(['curve+'], 4), 'swl', 'straight', ...reps(['curve+'], 4)], br);
+    // bottom loop grows branch-to-branch off the transition Y
+    const SB = this.matePiece('swl', 2, this.endWorld(br[1].p, 2));
+    this.connect(br[1].p, 2, SB, 2);
+    this.chainSeq({ p: SB, e: 1 },
+      ['straight', ...reps(['curve+'], 4), 'swl', 'coal', ...reps(['curve+'], 4)], br2);
+    // the yard stubs: a low lay-by up top, the water tower down in the open
+    this.chainSeq({ p: br[0].p, e: 2 }, ['curveS+', 'straight', 'buffer']);
+    this.chainSeq({ p: br2[0].p, e: 2 }, ['curveS+', 'water', 'buffer']);
+    this.closureScan();
+    this.centerBuilt(n0);
+    this._pendingTrains = [{ livery: 3, cars: ['boxcar', 'tanker'] }, { livery: 1, cars: [] }];
+  },
+  centerBuilt(n0){
+    const built = this.pieces.slice(n0);
+    let mx = 0, my = 0;
+    for (const p of built){ mx += p.x; my += p.y; }
+    mx /= built.length; my /= built.length;
+    for (const p of built){ p.x += this.W / 2 - mx; p.y += this.H / 2 - my; }
   },
   TEMPLATES: { oval: 'buildStarter', rings: 'buildRings', coalyard: 'buildCoalYard', yard: 'buildSwitchYard' },
   addPiece(key, x, y, rot){
