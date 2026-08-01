@@ -54,11 +54,14 @@ export function solve(gears, skip){
     const members = [s]; comp[s] = nc;
     for (let q = 0; q < members.length; q++)
       for (const t of adj[members[q]]) if (comp[t] === -1){ comp[t] = nc; members.push(t); }
-    // seed from the first switched-on motor in the component
+    // seed from the first switched-on motor in the component. A motor may
+    // carry a throttle multiplier (the steam engine's speed control); two
+    // motors demanding different speeds on one train jam it, as they should.
+    const demand = i => gears[i].sw * MOTOR_W * (gears[i].throttle || 1);
     const motors = members.filter(i => gears[i].motor && gears[i].sw);
     if (!motors.length){ for (const i of members) w[i] = 0; nc++; continue; }
     const seed = motors[0];
-    w[seed] = gears[seed].sw * MOTOR_W;
+    w[seed] = demand(seed);
     const queue = [seed];
     let jammed = false;
     for (let q = 0; q < queue.length && !jammed; q++){
@@ -71,7 +74,7 @@ export function solve(gears, skip){
     }
     // every other switched-on motor must agree with what the train demands
     for (const mIdx of motors)
-      if (w[mIdx] !== null && Math.abs(w[mIdx] - gears[mIdx].sw * MOTOR_W) > 1e-9) jammed = true;
+      if (w[mIdx] !== null && Math.abs(w[mIdx] - demand(mIdx)) > 1e-9) jammed = true;
     if (jammed) for (const i of members){ w[i] = 0; jam.add(i); }
     else for (const i of members) if (w[i] === null) w[i] = 0;
     nc++;

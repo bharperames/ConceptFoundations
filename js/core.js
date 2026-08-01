@@ -33,8 +33,46 @@ const median = xs => {
   return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
 };
 
+/* Attention cues — the shared pattern for "understand intent, direct action".
+   Two temporal flavors, one idea: a CSS class on a stable ancestor drives an
+   animation on the element we want the user to notice.
+   1. CONDITION-HELD: while a state holds ("no engine on the board"), toggle
+      the class from wherever that state is recomputed; CSS animates
+      `infinite`. See GearGame.opsCue().
+   2. FUTILE-TAPS (this factory): the user keeps interacting somewhere that
+      does nothing — count those signals in a sliding window and, past the
+      threshold, flash the cue class for one animation run, then cool down so
+      the hint never nags. Put the class on a PERSISTENT ancestor (not a
+      node that re-renders) and scope the CSS to the animated child, so
+      re-renders mid-cue don't kill it. */
+function attentionNudge({ count = 3, within = 6000, cooldown = 9000 } = {}){
+  let taps = [], coolUntil = 0, timer = 0;
+  // flash the cue class for one animation run (also exposed directly, for
+  // FIRST-ENCOUNTER hints — e.g. a just-spawned control introducing itself)
+  const cue = (el, cls, dur = 3400) => {
+    clearTimeout(timer);
+    el.classList.add(cls);
+    timer = setTimeout(() => el.classList.remove(cls), dur);
+  };
+  return {
+    cue,
+    // one futile interaction; fires the cue on el when the pattern is clear
+    note(el, cls, dur){
+      const now = performance.now();
+      taps = taps.filter(t => now - t < within);
+      taps.push(now);
+      if (taps.length < count || now < coolUntil) return false;
+      taps = []; coolUntil = now + cooldown;
+      cue(el, cls, dur);
+      return true;
+    },
+    // the user found the intended control — stop counting toward a cue
+    reset(){ taps = []; },
+  };
+}
+
 /* ════════════════════════════════ 2 · Audio ═══════════════════════════════ */
 /* Closed captions: every spoken utterance is mirrored as on-screen text when
    enabled (dashboard toggle, or ?cc=1) — lets testers work with volume off. */
 
-export { $, uuid, clamp, hashStr, mulberry32, pick, pick2, shuffle, median };
+export { $, uuid, clamp, hashStr, mulberry32, pick, pick2, shuffle, median, attentionNudge };
