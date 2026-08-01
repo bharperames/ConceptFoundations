@@ -125,10 +125,14 @@ const TrainGame = {
         routes: [{ a: 0, b: 1, pts: line(-S/2, 0, S/2, 0) }],
       };
     }
-    // 45° curve: ends exactly S apart (chord = straight), tangents ±22.5°
+    // 45° curve at the true A1 radius: the ends sit exactly where the arc
+    // lands (chord = 2R·sin 22.5° ≈ 1.074S), tangents ±22.5°. Declaring the
+    // chord as S while drawing the R arc made every curve RENDER ~5px past
+    // its logical joint — the little steps at curve joints.
+    const c1 = R * Math.sin(PHI);
     D.curve = {
       key: 'curve',
-      ends: [{ x: -S/2, y: 0, a: Math.PI - PHI }, { x: S/2, y: 0, a: PHI }],
+      ends: [{ x: -c1, y: 0, a: Math.PI - PHI }, { x: c1, y: 0, a: PHI }],
       routes: [{ a: 0, b: 1, pts: arc(0, R * Math.cos(PHI), R, -PHI, PHI) }],
     };
     // E1 tight curve: same 45°, centreline radius (90 inner + 20) = 110mm
@@ -854,12 +858,11 @@ const TrainGame = {
         });
         for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, stop);
       };
-      bindHold($('#trn-reset'), () => this.showTemplates());
-      $('#trn-templates').addEventListener('click', e => {
-        const card = e.target.closest('[data-template]');
-        $('#trn-templates').classList.add('hidden');
-        if (card) this.reset(undefined, card.dataset.template);
-      });
+      bindHold($('#trn-reset'), () => this.reset());
+      // pre-built layouts along the bottom: each replaces the floor, so each
+      // takes the same deliberate hold as the other destructive buttons
+      for (const btn of document.querySelectorAll('#trn-tpls [data-template]'))
+        bindHold(btn, () => this.reset(undefined, btn.dataset.template));
       bindHold($('#trn-clear'), () => this.clearField());
       $('#trn-undo').addEventListener('click', () => { Audio2.unlock(); this.undo(); });
       $('#trn-redo').addEventListener('click', () => { Audio2.unlock(); this.redo(); });
@@ -952,8 +955,7 @@ const TrainGame = {
   /* ── example layouts ─────────────────────────────────────────────────────
      Sequences are chained with the same mate math the starter uses; '+'/'-'
      suffixes pick the turn direction, switches record their branch ends for
-     sidings. Rings are recentred by centroid, then the magic fixer stitches
-     the inter-ring links with real pieces. */
+     sidings and ring-to-ring links. */
   chainSeq(prev, seq, branches){
     for (const item of seq){
       const turn = item.endsWith('+') ? Math.PI / 4 : item.endsWith('-') ? -Math.PI / 4 : 0;
@@ -978,29 +980,45 @@ const TrainGame = {
     }
     return prev;
   },
-  buildRingAt(cx, cy, seq, branches){
-    const n0 = this.pieces.length;
-    const first = this.addPiece(seq[0].replace(/[+-]$/, ''), 0, 0, 0);
-    this.chainSeq({ p: first, e: 1 }, seq.slice(1), branches);
-    const ring = this.pieces.slice(n0);
-    let mx = 0, my = 0;
-    for (const p of ring){ mx += p.x; my += p.y; }
-    mx /= ring.length; my /= ring.length;
-    for (const p of ring){ p.x += cx - mx; p.y += cy - my; }
-    return ring;
+  // place a piece by mating its end k onto the open world end E
+  matePiece(key, k, E){
+    const t = this.mateTransform(this.DEFS[key], k, E);
+    return this.addPiece(key, t.x, t.y, t.rot);
   },
+  /* Ring Land: three concentric ovals joined by Y-tracks. Each outer ring is
+     GROWN from the inner ring's switch: the two switch branches (45°, big-
+     curve radius) mate nose-to-nose, so every transition is exact and a train
+     can switch rings at either Y. */
   buildRings(){
-    const cx = this.W / 2, cy = this.H / 2 + this.S * 0.4;
     const reps = (arr, n) => Array.from({ length: n }, () => arr).flat();
-    const branches = [];
-    this.buildRingAt(cx, cy, reps(['curveS+'], 8));
-    this.buildRingAt(cx, cy, ['swl', ...reps(['curveS+'], 3), 'straight', ...reps(['curveS+'], 5)], branches);
-    this.buildRingAt(cx, cy, ['swl', 'curve+', 'straight', 'curve+', 'swl', 'curve+', 'straight', 'curve+',
-      'straight', 'curve+', 'straight', 'curve+'], branches);
-    this.buildRingAt(cx, cy, reps(['curve+', 'straight', 'straight'], 4).concat(
-      ['swl', 'curve+', 'straight', 'straight', 'curve+', 'straight']), branches);
+    const n0 = this.pieces.length;
+    // inner ring: a tight-curve stadium; its bottom straight IS the Y-switch
+    const brA = [], brB = [];
+    const first = this.addPiece('straight', 0, 0, 0);
+    this.chainSeq({ p: first, e: 1 },
+      [...reps(['curveS+'], 4), 'swl', ...reps(['curveS+'], 4)], brA);
+    // middle ring, branch-to-branch off the inner Y; its own Y sits up top
+    const SB = this.matePiece('swl', 2, this.endWorld(brA[0].p, 2));
+    this.connect(brA[0].p, 2, SB, 2);
+    this.chainSeq({ p: SB, e: 1 },
+      ['straight', 'straight', ...reps(['curve-'], 4),
+        'swr', 'straight', 'straight', ...reps(['curve-'], 4)], brB);
+    // outer ring, branch-to-branch off the middle Y — a station on the far side
+    const SC = this.matePiece('swr', 2, this.endWorld(brB[0].p, 2));
+    this.connect(brB[0].p, 2, SC, 2);
+    this.chainSeq({ p: SC, e: 1 },
+      ['straight', 'straight', 'curve+', 'curve+', 'straight', 'straight', 'curve+', 'curve+',
+        'straight', 'straight', 'station', 'straight', 'straight', 'curve+', 'curve+',
+        'straight', 'straight', 'curve+', 'curve+', 'straight', 'straight']);
     this.closureScan();
-    this._pendingTrains = [{ livery: 0, cars: [] }, { livery: 2, cars: ['coach'] }];
+    // centre the whole assembly on the floor
+    const built = this.pieces.slice(n0);
+    let mx = 0, my = 0;
+    for (const p of built){ mx += p.x; my += p.y; }
+    mx /= built.length; my /= built.length;
+    for (const p of built){ p.x += this.W / 2 - mx; p.y += this.H / 2 - my; }
+    this._pendingTrains = [{ livery: 0, cars: [] }, { livery: 2, cars: ['coach'] },
+      { livery: 1, cars: ['boxcar'] }];
   },
   buildCoalYard(){
     const cx = this.W / 2, cy = this.H * 0.42;
@@ -1031,9 +1049,6 @@ const TrainGame = {
     this._pendingTrains = [{ livery: 3, cars: ['boxcar', 'tanker'] }];
   },
   TEMPLATES: { oval: 'buildStarter', rings: 'buildRings', coalyard: 'buildCoalYard', yard: 'buildSwitchYard' },
-  showTemplates(){
-    $('#trn-templates').classList.remove('hidden');
-  },
   addPiece(key, x, y, rot){
     const p = { id: ++this.seq, key, def: this.DEFS[key], x, y, rot, sw: 0, conn: {} };
     p.el = document.createElement('div');
@@ -2019,14 +2034,41 @@ const TrainGame = {
     this.world().appendChild(el);
     return eng;
   },
+  // can a train that starts here just keep going? Walks the conn graph the
+  // same way the follower does — false means the seat leads to a dead end
+  seatsALoop(home){
+    let st = { p: home, r: 0, fw: true };
+    for (let i = 0; i < 120; i++){
+      const rt = st.p.def.routes[st.r];
+      const exit = st.fw ? rt.b : rt.a;
+      if (exit === -1) return false;
+      const cn = st.p.conn[exit];
+      if (!cn) return false;
+      const np = this.byId(cn.p);
+      if (!np) return false;
+      const ne = cn.e;
+      let nr = (np.key === 'swl' || np.key === 'swr') && ne === 0
+        ? np.sw
+        : np.def.routes.findIndex(r => r.a === ne || r.b === ne);
+      if (nr < 0) nr = 0;
+      st = { p: np, r: nr, fw: np.def.routes[nr].a === ne };
+      if (st.p === home) return true;
+    }
+    return false;
+  },
   spawnTrain(livery, opts = {}){
     if (!this.pieces.length) return null;
     const T = this.newTrain(livery);
     const eng = this.makeEngineCar(T.livery);
-    // seat away from other engines
-    let home = opts.homePiece || this.pieces[0], best = -1;
+    // seat away from other engines — but ONLY where the train can actually
+    // run: never on a buffer, and never down a dead-end spur when the
+    // layout has a loop to ride
+    let cand = this.pieces.filter(p => p.key !== 'buffer' && this.seatsALoop(p));
+    if (!cand.length) cand = this.pieces.filter(p => p.key !== 'buffer');
+    if (!cand.length) cand = this.pieces;
+    let home = opts.homePiece || cand[0], best = -1;
     if (!opts.homePiece && this.trains.length){
-      for (const p of this.pieces){
+      for (const p of cand){
         let d = Infinity;
         for (const o of this.trains) d = Math.min(d, Math.hypot(p.x - o.cars[0].p.x, p.y - o.cars[0].p.y));
         if (d > best){ best = d; home = p; }
