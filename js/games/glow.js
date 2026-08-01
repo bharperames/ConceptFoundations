@@ -93,7 +93,7 @@ const GlowGame = {
       window.addEventListener('resize', () => { if (this.active) this.layout(); });
       $('#gs-reset').addEventListener('click', () => this.reset());
       $('#btn-gs-again').addEventListener('click', () => this.reset());
-      $('#btn-gs-keep').addEventListener('click', () => $('#gs-over').classList.add('hidden'));
+      $('#btn-gs-keep').addEventListener('click', () => { $('#gs-over').classList.add('hidden'); this.endRainbow(); });
       $('#gs-mode-push').addEventListener('click', () => this.setMode('push'));
       $('#gs-mode-classic').addEventListener('click', () => this.setMode('classic'));
       this.bound = true;
@@ -115,15 +115,17 @@ const GlowGame = {
   },
   stop(){
     this.active = false; this.swipe = null;
-    this.demoSeq++; this.endDemo();
+    this.demoSeq++; this.endDemo(); this.endRainbow();
     this.clearTiles();
   },
+  endRainbow(){ this.rainbowFx?.end(); this.rainbowFx = null; },
   clearTiles(){
     for (const t of this.tiles) t.el.remove();
     this.tiles = []; this.grid = Array.from({ length: this.N }, () => Array(this.N).fill(null));
   },
   reset(){
     this.demoSeq++; this.endDemo();   // a mid-demo reset cancels the robot cleanly
+    this.endRainbow();
     this.clearTiles();
     this.active = true; this.animating = false; this.won = false; this.best = 1;
     $('#gs-over').classList.add('hidden');
@@ -146,7 +148,8 @@ const GlowGame = {
 
   renderOps(){
     const ops = $('#gs-ops');
-    ops.innerHTML = `<button id="gs-demo" class="fb-btn gs-demo-btn" aria-label="Watch the robot show how to play">
+    ops.innerHTML = `<button id="gs-rainbow" class="fb-btn gs-demo-btn gs-rainbow-btn" aria-label="Preview the rainbow celebration">🌈</button>
+      <button id="gs-demo" class="fb-btn gs-demo-btn" aria-label="Watch the robot show how to play">
       <svg viewBox="0 0 100 100" width="34" height="34" aria-hidden="true">
         <line x1="50" y1="22" x2="50" y2="10" stroke="#8AA0B4" stroke-width="6" stroke-linecap="round"/>
         <circle cx="50" cy="9" r="7" fill="#FFC02E"/>
@@ -157,16 +160,26 @@ const GlowGame = {
         <rect x="30" y="76" width="40" height="14" rx="7" fill="#A9BFD3"/>
       </svg></button>`;
     $('#gs-demo').addEventListener('click', () => { Audio2.unlock(); this.demo(); });
+    // the full win choreography on demand — fanfare, arch build, dialog —
+    // WITHOUT setting `won`, so game state is untouched and real wins still fire
+    $('#gs-rainbow').addEventListener('click', () => {
+      Audio2.unlock(); Audio2.fanfare();
+      this.endRainbow();
+      this.rainbowFx = FX.rainbow(() => { if (this.active) this.over(true); }, $('#view-glow'));
+    });
   },
   // the "how bright have you gotten" ladder: one orb per energy state, lit up
-  // to the best tile made this game — progress a pre-reader can read
+  // to the best tile made this game — and the seven orbs stand in a little
+  // ARCH, so the progress row reads as the rainbow being built. margin-top
+  // (not transform) carries the arch: the lit pop animation owns transform.
   renderLadder(){
     const lad = $('#gs-ladder');
     let html = '';
     for (let l = 1; l <= this.MAX; l++){
       const lit = l <= this.best;
       const lk = this.look(l);
-      html += `<i class="${lit ? 'lit' : ''}" style="${lit ? `background:${lk.bg};box-shadow:${lk.shadow}` : ''}"></i>`;
+      const y = (-Math.sin(Math.PI * (l - 1) / (this.MAX - 1)) * 16).toFixed(1);
+      html += `<i class="${lit ? 'lit' : ''}" style="margin-top:${y}px;${lit ? `background:${lk.bg};box-shadow:${lk.shadow}` : ''}"></i>`;
     }
     lad.innerHTML = html;
   },
@@ -345,8 +358,11 @@ const GlowGame = {
   },
   win(){
     this.won = true;
-    Audio2.fanfare(); FX.confetti();
-    setTimeout(() => this.over(true), 900);
+    Audio2.fanfare();
+    // the finale IS a rainbow: the arch builds across the whole screen,
+    // left to right, growing and sparkling; the dialog rises over it and the
+    // arch stays until the dialog is answered (endRainbow)
+    this.rainbowFx = FX.rainbow(() => { if (this.won && this.active) this.over(true); }, $('#view-glow'));
   },
   over(won){
     $('#gs-over-title').textContent = won ? 'You made the whole rainbow! 🌈' : 'What a glow! ✨';

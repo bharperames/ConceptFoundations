@@ -656,7 +656,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 }
 .gs-mode.on{color:var(--sea);box-shadow:0 4px 12px rgba(30,60,90,.24), 0 0 0 3px var(--sea)}
 /* the energy ladder: one orb per state, lit up to the best glow made so far */
-.gs-ladder{display:flex;gap:8px;align-items:center}
+.gs-ladder{display:flex;gap:8px;align-items:center;padding-top:16px}
 .gs-ladder i{width:16px;height:16px;border-radius:50%;background:var(--stone);transition:background .3s}
 .gs-ladder i.lit{animation:gsladpop .4s cubic-bezier(.2,1.5,.4,1)}
 @keyframes gsladpop{0%{transform:scale(.4)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
@@ -691,6 +691,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 /* robot tutor: pops up bottom-right and narrates while a glowing fingertip
    performs the swipes on the board */
 .gs-demo-btn{width:46px;height:46px;background:var(--card);box-shadow:0 4px 12px rgba(30,60,90,.24), inset 0 0 0 3px #8FA4B4}
+.gs-rainbow-btn{font-size:24px;line-height:1}
 .gs-robot{
   position:absolute;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:45;
   display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;

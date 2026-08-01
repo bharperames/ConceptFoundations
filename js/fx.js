@@ -32,6 +32,120 @@ const FX = {
       setTimeout(()=>c.remove(), 3400);
     }
   },
+  /* the whole-rainbow finale: a big arch BUILDS across the screen — left
+     foot up over the crown to the right foot — the bands growing thicker as
+     they go, a sparkle fountain riding the leading edge, twinkles settling
+     on the finished part. When the arch completes, confetti flies; `done`
+     fires after a beat (dialog time) and the arch STAYS, twinkling, until
+     the returned handle's end() is called (dialog dismissed / view left).
+     Pass the game VIEW as `host` so the canvas (z 35) and the view's dialog
+     (z 40) share one stacking context — hosting on body put the arch over
+     the dialog no matter the z values. */
+  rainbow(done, host = document.body){
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce){ this.confetti(); if (done) setTimeout(done, 800); return { end(){} }; }
+    const cv = document.createElement('canvas');
+    // explicit CSS size: a canvas with only inset:0 renders at its BACKING
+    // size (W×dpr) — 2× the viewport on retina, clipped to the left half
+    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:35;pointer-events:none;transition:opacity .6s ease';
+    host.appendChild(cv);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = window.innerWidth, H = window.innerHeight;
+    cv.width = W*dpr; cv.height = H*dpr;
+    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+    // the same ROYGBIV the Glow game climbs (see GlowGame.RAINBOW)
+    const BANDS = [[2,82,58],[28,94,54],[47,100,52],[128,62,45],[214,88,55],[258,62,50],[288,68,56]]
+      .map(([h,s,l]) => `hsl(${h},${s}%,${l}%)`);
+    const cx = W/2, cy = H*0.96;
+    const R0 = Math.min(W*0.46, H*0.78);      // outer band centreline
+    const bw = R0*0.05;                       // band thickness at full growth
+    const DUR = 2600, HOLD = 1200, SEG = 72;
+    const ease = u => u < .5 ? 2*u*u : 1 - 2*(1-u)*(1-u);
+    // p ∈ 0..1 along the arch (0 = left foot) → point on band b's centreline
+    const pt = (p, b) => {
+      const a = -Math.PI*(1 - p), r = R0 - b*bw*1.2;
+      return [cx + Math.cos(a)*r, cy + Math.sin(a)*r];
+    };
+    const sparks = [], twinkles = [];
+    const t0 = performance.now();
+    let confettiFired = false, doneFired = false, ended = false;
+    const end = () => {
+      if (ended) return;
+      ended = true;
+      cv.style.opacity = '0';
+      setTimeout(() => cv.remove(), 650);
+    };
+    const frame = now => {
+      if (!cv.isConnected) return;
+      const el = now - t0;
+      // hand off after the completed arch has held a beat — the dialog rises
+      // over the arch, which keeps twinkling beneath it
+      if (done && !doneFired && el > DUR + HOLD){ doneFired = true; done(); }
+      const sweep = ease(Math.min(1, el/DUR));
+      ctx.clearRect(0, 0, W, H);
+      // bands composite normally (additive turned them into bead chains and
+      // muddied the colours where glows overlapped); halos first, bands over
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineCap = 'butt';
+      ctx.globalAlpha = 0.2;
+      for (let b = 0; b < 7; b++){
+        ctx.strokeStyle = BANDS[b];
+        ctx.lineWidth = bw*1.8;
+        ctx.beginPath(); ctx.arc(cx, cy, R0 - b*bw*1.2, -Math.PI, -Math.PI*(1-sweep)); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // each band in short segments so its thickness can GROW along the arch
+      for (let b = 0; b < 7; b++){
+        const r = R0 - b*bw*1.2;
+        ctx.strokeStyle = BANDS[b];
+        for (let k = 0; k < SEG; k++){
+          const p0 = k/SEG; if (p0 >= sweep) break;
+          const p1 = Math.min((k+1)/SEG + 0.004, sweep);
+          ctx.lineWidth = bw*(0.4 + 0.6*p0);    // thin at the left foot → full
+          ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI*(1-p0), -Math.PI*(1-p1)); ctx.stroke();
+        }
+      }
+      ctx.globalCompositeOperation = 'lighter';   // particles glow additively
+      // sparkle fountain at the leading edge while building
+      if (sweep < 1){
+        for (let i = 0; i < 4; i++){
+          const b = Math.random()*7 | 0, [x, y] = pt(sweep, b);
+          const a = Math.random()*Math.PI*2, sp = 30 + Math.random()*150;
+          sparks.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 40,
+            life: .5 + Math.random()*.5, max: 1, color: Math.random() < .3 ? '#fff' : BANDS[b], r: 1.5 + Math.random()*2.5 });
+        }
+      } else if (!confettiFired){ confettiFired = true; FX.confetti(); }
+      // twinkles settle on the part already built
+      if (Math.random() < .5 && sweep > .05){
+        const b = Math.random()*7 | 0, [x, y] = pt(Math.random()*sweep, b);
+        twinkles.push({ x, y, life: .55, max: .55, r: 2.5 + Math.random()*4 });
+      }
+      for (let i = sparks.length - 1; i >= 0; i--){
+        const q = sparks[i];
+        q.vy += 260*(1/60); q.x += q.vx*(1/60); q.y += q.vy*(1/60); q.life -= 1/60;
+        if (q.life <= 0){ sparks.splice(i, 1); continue; }
+        ctx.globalAlpha = Math.max(0, q.life/q.max);
+        ctx.fillStyle = q.color;
+        ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill();
+      }
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6;
+      for (let i = twinkles.length - 1; i >= 0; i--){
+        const q = twinkles[i];
+        q.life -= 1/60;
+        if (q.life <= 0){ twinkles.splice(i, 1); continue; }
+        const s = q.r * Math.sin(Math.PI * q.life/q.max);   // grow then shrink
+        ctx.globalAlpha = .9 * Math.sin(Math.PI * q.life/q.max);
+        ctx.beginPath();
+        ctx.moveTo(q.x - s, q.y); ctx.lineTo(q.x + s, q.y);
+        ctx.moveTo(q.x, q.y - s); ctx.lineTo(q.x, q.y + s);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    return { end };
+  },
   cheer(msg){
     const d = document.createElement('div');
     d.className = 'cheer';
