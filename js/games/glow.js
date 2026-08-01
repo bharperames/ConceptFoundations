@@ -118,7 +118,7 @@ const GlowGame = {
     this.demoSeq++; this.endDemo(); this.endRainbow();
     this.clearTiles();
   },
-  endRainbow(){ this.rainbowFx?.end(); this.rainbowFx = null; },
+  endRainbow(){ this.rainbowFx?.end(); this.rainbowFx = null; clearTimeout(this.cheerT); },
   clearTiles(){
     for (const t of this.tiles) t.el.remove();
     this.tiles = []; this.grid = Array.from({ length: this.N }, () => Array(this.N).fill(null));
@@ -166,6 +166,7 @@ const GlowGame = {
       Audio2.unlock(); Audio2.fanfare();
       this.endRainbow();
       this.rainbowFx = FX.rainbow($('#view-glow'));
+      this.cheerT = setTimeout(() => { if (this.active) Audio2.speak('You did it!'); }, 2600);
     });
   },
   // the "how bright have you gotten" ladder IS a miniature rainbow: seven
@@ -374,8 +375,10 @@ const GlowGame = {
     Audio2.fanfare();
     // the finale IS a rainbow: the arch builds across the whole screen,
     // sparkles for ~10s and melts away — no modal, nothing blocked, the
-    // game (and the home button) stay live throughout
+    // game (and the home button) stay live throughout. As the arch completes
+    // (confetti moment), the recorded "You did it!" catalog clip cheers.
     this.rainbowFx = FX.rainbow($('#view-glow'));
+    this.cheerT = setTimeout(() => { if (this.won && this.active) Audio2.speak('You did it!'); }, 2600);
   },
   over(won){
     $('#gs-over-title').textContent = won ? 'You made the whole rainbow! 🌈' : 'What a glow! ✨';
