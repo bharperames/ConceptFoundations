@@ -140,6 +140,11 @@ def main():
                 normalize(src, tmp); shutil.move(tmp, dest)
         else:
             shutil.copy2(src, dest)
+        # copy2 carries the SOURCE's mtime, which can be older than the file it
+        # just replaced. A browser holding the previous bytes then revalidates,
+        # gets a 304, and keeps playing the stale clip — the change looks like
+        # it did nothing. Stamp it now so Last-Modified always moves forward.
+        os.utime(dest, None)
         for k in ('uid', 'sha256', 'source_file', 'clip', 'replaced_from'):
             e.pop(k, None)                          # migrate away old silver keys
         e['asset'] = meta                           # gold provenance

@@ -121,25 +121,122 @@ const Audio2 = (() => {
     speechSynthesis.speak(u);
   }
 
-  function speak(text, onend){
-    if (document.hidden){ if (onend) setTimeout(onend, 250); return; }
-    Captions.show(text);
+  /* Play a clip without an AudioContext. Nothing may have been tapped yet (a
+     deep link, an autoplaying prompt), and a letter MUST come from its clip —
+     falling through to the voice is what produces "capital N". */
+  /* Only one recording plays at a time. speechSynthesis.cancel() ends a
+     synthesized line, but a WebAudio source keeps going until it is told to
+     stop — so a prompt repeating, or a new trial starting, layered a second
+     copy of the clip over the first. Two offset copies of a 0.8s "uh-oh" sound
+     like one clip cut apart. */
+  let playing = null;
+  function stopSound(){
+    if (!playing) return;
+    try { playing.stop(); } catch (e){}
+    playing = null;
+  }
+
+  function playClipEl(url, onend){
+    stopSound();
+    let done = false;
+    const fin = () => { if (!done){ done = true; if (onend) onend(); } };
+    const a = new Audio(url);
+    playing = { stop: () => { a.pause(); a.currentTime = 0; } };
+    a.volume = vol;
+    a.onended = fin; a.onerror = fin;
+    a.onloadedmetadata = () => talkFor(a.duration * 1000 + 150);
+    setTimeout(fin, 3000);                       // safety net
+    a.play().catch(fin);
+  }
+
+  function speakOne(text, onend){
     if (muted){ if (onend) setTimeout(onend, 250); return; }
-    const clip = !clipsOff && ctx && CLIP_MAP[normPhrase(text)];
+    const clip = !clipsOff && CLIP_MAP[normPhrase(text)];
+    note(text, clip);
+    if (clip && !ctx){ playClipEl('./clips/' + clip, onend); return; }
     if (clip){
       loadClip('./clips/' + clip).then(buf => {
         let done = false;
         const fin = () => { if (!done){ done = true; if (onend) onend(); } };
+        stopSound();
         const src = ctx.createBufferSource();
         src.buffer = buf; src.connect(master);
         src.onended = fin;
+        playing = { stop: () => src.stop() };
         setTimeout(fin, buf.duration * 1000 + 250);   // onended safety net
         talkFor(buf.duration * 1000 + 150);
         src.start();
-      }).catch(() => ttsSpeak(text, onend));   // missing/undecodable → speak it
+      }).catch(() => playClipEl('./clips/' + clip, () => ttsSpeak(text, onend)));
       return;
     }
     ttsSpeak(text, onend);
+  }
+
+  /* A "|" in a phrase is a BEAT: the phrase is spoken in segments with a real
+     gap between them. Letter names are one syllable and run straight into the
+     next word — "and this one is are a different letter" — and no engine
+     honours a period reliably enough to separate them. A beat is a hard stop
+     the voice cannot smooth over. Captions still read as one line, and each
+     segment is looked up in CLIP_MAP on its own, so a curated letter clip
+     drops straight in. */
+  /* `|` is a short beat, `||` a long one (letters read as a list want room).
+     220ms read as a stumble between "letter" and the name; 120 flows. */
+  const BEAT_MS = 120, LONG_BEAT_MS = 300;
+  function beatParts(t){
+    const out = [];
+    let gap = 0;
+    for (const tok of String(t).split(/(\|+)/)){
+      if (/^\|+$/.test(tok)){ gap = tok.length > 1 ? LONG_BEAT_MS : BEAT_MS; continue; }
+      const seg = tok.trim();
+      if (seg) out.push({ seg, gap: out.length ? gap : 0 });
+    }
+    return out;
+  }
+  const beats = t => beatParts(t).map(p => p.seg);
+
+  /* Debug surface (see js/voices.js). `resolve` answers "what will this line
+     actually sound like" — which beats play a recording and which are
+     synthesized — without speaking it. `history` is what really got said, so a
+     wrong line can be found after the fact instead of reproduced. */
+  function resolve(text){
+    return beats(text).map(seg => {
+      const clip = !clipsOff && CLIP_MAP[normPhrase(seg)];
+      return { seg, norm: normPhrase(seg), clip: clip || null,
+               url: clip ? './clips/' + clip : null };
+    });
+  }
+  const history = [];
+  function note(seg, clip){
+    history.push({ seg, clip: clip || null, at: Date.now() });
+    if (history.length > 800) history.shift();
+  }
+  /* Every line gets a generation number. A beat chain checks it before each
+     segment, so starting a new line abandons the old one instead of letting it
+     wake up mid-word and speak a leftover fragment over the top — which is
+     what made spelled-out names trail off into garbled audio. */
+  let gen = 0;
+  const stop = () => { gen++; stopSound(); if (window.speechSynthesis) speechSynthesis.cancel(); };
+  /* `onBeat(index, seg)` fires as each beat begins, which is what lets the
+     stage move in time with the words — a letter hops as its name is said. */
+  function speak(text, onend, onBeat){
+    if (document.hidden){ if (onend) setTimeout(onend, 250); return; }
+    const parts = beatParts(text);
+    stopSound();                       // this line replaces whatever is sounding
+    const mine = ++gen;
+    Captions.show(parts.map(p => p.seg).join(' '));
+    let i = 0;
+    const next = () => {
+      if (mine !== gen) return;                 // a newer line took over
+      if (i >= parts.length){ if (onend) onend(); return; }
+      const at = i, part = parts[i++];
+      if (onBeat) onBeat(at, part.seg);
+      speakOne(part.seg, () => {
+        if (mine !== gen) return;
+        if (i >= parts.length){ if (onend) onend(); }
+        else setTimeout(next, parts[i].gap);
+      });
+    };
+    if (parts.length && parts[0].gap) setTimeout(next, parts[0].gap); else next();
   }
 
   function tone(freq, t0, dur, type='sine', gain=0.16){
@@ -220,7 +317,8 @@ const Audio2 = (() => {
       src.connect(master); src.start();
     }).catch(() => {});
   }
-  return { unlock, speak, correct, wrong, snapSnd, fanfare, clack, pop, bell, sfx, setVolume, getVolume };
+  return { unlock, speak, stop, correct, wrong, snapSnd, fanfare, clack, pop, bell, sfx, setVolume, getVolume,
+           resolve, history, CLIP_MAP };
 })();
 
 /* ════════════════════════════════ 3 · Art (flat SVG, no raster) ═══════════ */

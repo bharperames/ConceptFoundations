@@ -2,6 +2,7 @@ import { Audio2 } from './audio.js';
 import { $, clamp, hashStr, mulberry32, uuid } from './core.js';
 import { applyRunOutcome, makeFrustrationDetector } from './dda.js';
 import { Celebrate, FX } from './fx.js';
+import { sayGlyph } from './letters.js';
 import { NODES } from './nodes.js';
 import { showView } from './router.js';
 import { Store, nodeProgress, saveNodeProgress } from './store.js';
@@ -15,6 +16,16 @@ const Engine = {
   drag:null, // active drag state
 
   stage(){ return $('#stage'); },
+
+  /* Pick a cheer, never repeating the last one. Uniform random repeats about a
+     quarter of the time, and back-to-back "Hooray! … Hooray!" reads as the app
+     stuttering rather than as praise. */
+  lastPraise: '',
+  praise(pool){
+    const opts = pool.filter(p => p !== this.lastPraise);
+    this.lastPraise = opts[Math.floor(Math.random() * opts.length)];
+    return this.lastPraise;
+  },
 
   startLevel(node, level, forcedSeed){
     this.active = true;
@@ -80,7 +91,6 @@ const Engine = {
     if (this.cur.kind === 'hideseek' && this.cur.hideInto) this.hideThenPrompt();
     else if (this.cur.demo === 'spoutClimb'){ this.locked = true; this.spoutDemoClimb(() => { this.locked = false; this.completeTrial(true, {silent:true}); }); }
     else if (this.cur.demo === 'spoutWash'){ this.locked = true; this.spoutDemoWash(() => { this.locked = false; this.completeTrial(true, {silent:true}); }); }
-    else if (this.cur.demo === 'buttonPress'){ this.locked = true; this.buttonDemo(() => { this.locked = false; this.completeTrial(true, {silent:true}); }); }
     else this.speakPrompt();
   },
 
@@ -163,7 +173,17 @@ const Engine = {
     const spout = stage.querySelector('[data-el="spout"]');
     if (!spout) return null;
     const pr = spout.getBoundingClientRect();
-    const t = (pr.top - sr.top) / sr.height * 100, b = (pr.bottom - sr.top) / sr.height * 100;
+    // Height comes from the DECLARED --s size, never from the rect: the demo
+    // starts 350ms in, while `appear` still has the element scaled toward 0.
+    // A shrunken rect put base ABOVE top once the +8/-6 insets crossed over,
+    // and the spider "climbed" down the spout. The CENTRE is safe — a centred
+    // scale() leaves it where it is — so measure out from there.
+    const spec = (this.cur.elements || []).find(e => e.id === 'spout');
+    const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
+    const hPx = spec ? spec.s * vmin : pr.height;
+    const cy = (pr.top + pr.height / 2 - sr.top) / sr.height * 100;
+    const h = hPx / sr.height * 100;
+    const t = cy - h / 2, b = cy + h / 2;
     return { stage, sr,
       cx: (pr.left + pr.width/2 - sr.left) / sr.width * 100,
       top: t + 8, base: b - 6, out: b + 12 };
@@ -275,7 +295,8 @@ const Engine = {
     let delay = 1400;
     if (kind === 'button'){
       if (el){ el.classList.add('btn-down'); setTimeout(() => el && el.classList.remove('btn-down'), 260); }
-      this.fireBurst(); Audio2.speak('Hooray!');
+      this.fireBurst();   // the fireworks and fanfare ARE the effect — the
+      // trial's praise line follows on its own; a spoken cheer here made two
       delay = 1500;
     } else if (kind === 'bubble'){
       if (el){ el.classList.add('bub-pop'); }
@@ -290,6 +311,12 @@ const Engine = {
       if (el){ el.classList.remove('cuckoo-out'); void el.offsetWidth; el.classList.add('cuckoo-out'); }
       Audio2.speak('Cuckoo!');   // curated cuckoo clip
       delay = 1300;
+    } else if (kind === 'letter'){
+      // the magnet hops off the board and names itself
+      if (el){ el.classList.remove('mag-pop'); void el.offsetWidth; el.classList.add('mag-pop'); }
+      Audio2.snapSnd();
+      Audio2.speak(el && el.dataset.letter ? sayGlyph(el.dataset.letter) : 'Yes!');
+      delay = 1250;
     } else if (kind === 'box'){
       if (el){ el.classList.remove('box-open'); void el.offsetWidth; el.classList.add('box-open'); }
       Audio2.speak('Open them, shut them!');   // curated "Open, shut them" clip
@@ -298,18 +325,6 @@ const Engine = {
       FX.burst(x, y);
     }
     setTimeout(() => { this.locked = false; this.completeTrial(true, { at:[x, y] }); }, delay);
-  },
-  // EXPOSE/CONTRAST demo: auto-press the button and set off the fireworks
-  buttonDemo(cb){
-    const stage = this.stage();
-    const btn = stage.querySelector('[data-el="btn"]');
-    const rec = this.curRecord, live = () => this.active && this.curRecord === rec;
-    setTimeout(() => {
-      if (!live()) return;
-      if (btn){ btn.classList.add('btn-down'); setTimeout(() => btn.classList.remove('btn-down'), 260); }
-      this.fireBurst();
-    }, 500);
-    Audio2.speak(this.cur.say, () => { if (live()) cb(); });
   },
   // one shower burst: drops fall from the cloud's base to the spout's base,
   // measured in stage pixels so the fall lands correctly at any size
@@ -353,13 +368,18 @@ const Engine = {
       return;
     }
     this.promptSpeaks++;
+    // a trial can tie beats to elements (`beatEls`); each one hops as it is named
+    const onBeat = i => {
+      const id = (this.cur.beatEls || [])[i];
+      if (id) this.bounceEl(id);
+    };
     if (this.promptEndAt){
-      Audio2.speak(this.cur.say);
+      Audio2.speak(this.cur.say, null, onBeat);
     } else {
       Audio2.speak(this.cur.say, () => {
         if (!this.promptEndAt) this.promptEndAt = Date.now();
         this.armTimers();
-      });
+      }, onBeat);
     }
   },
 
@@ -392,8 +412,14 @@ const Engine = {
       el.dataset.el = spec.id;
       if (spec.target) el.dataset.target = '1';
       if (spec.piece) el.dataset.piece = '1';
+      if (spec.letter) el.dataset.letter = spec.letter;
       el.style.left = spec.x+'%'; el.style.top = spec.y+'%';
       el.style.setProperty('--s', spec.s);
+      // a surface (the magnet board) is sized in % of the STAGE, not vmin, so
+      // it fills the play area on any screen instead of staying square
+      if (spec.board) el.classList.add('magnet-board');
+      if (spec.wPct) el.style.width = spec.wPct + '%';
+      if (spec.hPct) el.style.height = spec.hPct + '%';
       if (spec.ring) el.style.filter = 'drop-shadow(0 0 8px rgba(61,139,255,.55))';
       if (spec.sampleCard) el.classList.add('sample-card');
       if (spec.groundBar) el.classList.add('ground-bar');
@@ -446,9 +472,20 @@ const Engine = {
     }
   },
 
-  /* ---------- pointer input ---------- */
+  /* ---------- pointer input ----------
+     Single-pointer by design. On a tablet a toddler's spare fingers and the
+     heel of their hand land on the glass constantly; before this, a second
+     pointerdown could hijack the drag onto another piece and ANY pointerup —
+     including that second finger lifting — ended the drag wherever the first
+     finger happened to be. Everything below the primary pointer is ignored. */
   onPointerDown(e){
     if ($('#view-play').classList.contains('hidden')) return;
+    if (this.drag) return;   // a drag owns the gesture until it ends
+    // extra fingers / palm contacts. Scoped to touch on purpose: a mouse has no
+    // secondary pointers, and a synthesized PointerEvent defaults isPrimary to
+    // false — a blanket check would silently make the app untappable wherever
+    // input is injected rather than physical.
+    if (e.pointerType === 'touch' && e.isPrimary === false) return;
     Audio2.unlock();
     const stage = this.stage();
     const now = Date.now();
@@ -555,11 +592,14 @@ const Engine = {
     pieceEl.style.transform = '';
     const pr = pieceEl.getBoundingClientRect();
     this.drag = {
-      el: pieceEl, id: pieceEl.dataset.el,
+      el: pieceEl, id: pieceEl.dataset.el, pointerId: e.pointerId,
       dx: (pr.left + pr.width/2) - e.clientX,
       dy: (pr.top + pr.height/2) - e.clientY,
       vx: 0, vy: 0, hist: { x: e.clientX, y: e.clientY, t: performance.now() },
     };
+    // capture keeps the move/up stream bound to this finger even if it strays
+    // over another element or leaves the stage
+    try { this.stage().setPointerCapture(e.pointerId); } catch(err){}
     pieceEl.classList.add('dragging');
     pieceEl.classList.remove('returning','snapping');
     // stacking: lifting a block carries everything stacked on top of it
@@ -593,7 +633,7 @@ const Engine = {
   },
 
   onPointerMove(e){
-    if (!this.drag) return;
+    if (!this.drag || e.pointerId !== this.drag.pointerId) return;
     const d = this.drag;
     const now = performance.now();
     const dt = (now - d.hist.t) / 1000;
@@ -613,12 +653,68 @@ const Engine = {
       g.el.style.left = ((cx + g.dx - sr.left)/sr.width*100)+'%';
       g.el.style.top  = ((cy + g.dy - sr.top)/sr.height*100)+'%';
     }
+    this.updateWarmth(d);
+  },
+
+  /* "warmer… warmer… hot" — the spot a piece belongs in grows as the piece
+     nears it. A toddler cannot judge an invisible snap radius; this makes the
+     radius something they can SEE while their finger is still down, so a near
+     miss becomes a small correction instead of a failed drop.
+
+     It wakes up about ONE PIECE-HEIGHT out from the snap edge — near enough to
+     read as a response to this drop rather than ambient movement — and grows
+     smoothly to full inside the snap radius. Smoothstep, so it eases in rather
+     than jumping the moment it comes into range, and no pulsing: a target that
+     bounces is harder to aim at, not easier. */
+  updateWarmth(d){
+    if (!this.cur || this.cur.kind !== 'drag' || !this.cur.pieces) return;
+    const spec = this.cur.pieces.find(p => p.el === d.id);
+    if (!spec) return;
+    const stage = this.stage(), sr = stage.getBoundingClientRect();
+    const slot = stage.querySelector(`[data-el="${spec.slot}"]`);
+    if (!slot) return;
+    const pr = d.el.getBoundingClientRect(), slr = slot.getBoundingClientRect();
+    const scx = slr.left + slr.width/2 + (spec.slotDx||0)*sr.width/100;
+    const scy = slr.top + slr.height/2 + (spec.slotDy||0)*sr.height/100;
+    const dist = Math.hypot(pr.left + pr.width/2 - scx, pr.top + pr.height/2 - scy);
+    const vmin = Math.min(window.innerWidth, window.innerHeight) / 100;
+    const snapPx = (spec.snapBoost || spec.snap) * vmin;
+    // the piece's DECLARED size, not its rect — mid-animation rects lie
+    const el = this.cur.elements.find(e2 => e2.id === d.id);
+    const sizePx = ((el && el.s) || 16) * vmin;
+    const onset = snapPx + sizePx;
+    let t = clamp((onset - dist) / (onset - snapPx), 0, 1);
+    t = t * t * (3 - 2 * t);
+    slot.style.setProperty('--warm', t.toFixed(3));
+    slot.classList.toggle('warm', t > 0.004);
+  },
+  clearWarmth(){
+    for (const n of this.stage().querySelectorAll('.warm')){
+      n.classList.remove('warm');
+      n.style.removeProperty('--warm');
+    }
+  },
+
+  /* The browser took the gesture away (a second finger starting a system
+     gesture, an edge swipe, the app backgrounding). Set the piece down where
+     the hand left it and score nothing — the child made no mistake. */
+  onPointerCancel(e){
+    if (!this.drag || e.pointerId !== this.drag.pointerId) return;
+    const d = this.drag; this.drag = null;
+    d.el.classList.remove('dragging');
+    this.clearWarmth();
+    try { this.stage().releasePointerCapture(e.pointerId); } catch(err){}
+    if (this.cur && this.cur.kind === 'stack'){ this.startStackPhysics(d); return; }
+    d.el.style.left = clamp(parseFloat(d.el.style.left), 4, 96)+'%';
+    d.el.style.top = clamp(parseFloat(d.el.style.top), 6, 94)+'%';
   },
 
   onPointerUp(e){
-    if (!this.drag) return;
+    if (!this.drag || e.pointerId !== this.drag.pointerId) return;
     const d = this.drag; this.drag = null;
     d.el.classList.remove('dragging');
+    this.clearWarmth();
+    try { this.stage().releasePointerCapture(e.pointerId); } catch(err){}
     if (this.cur.kind === 'stack'){ this.startStackPhysics(d); return; }
     const sr = this.stage().getBoundingClientRect();
     const now = Date.now();
@@ -676,6 +772,15 @@ const Engine = {
         Audio2.snapSnd();
         const allPlaced = this.cur.pieces.every(p =>
           this.stage().querySelector(`[data-el="${p.el}"]`).classList.contains('placed'));
+        // a magnet doesn't just arrive — it jumps the last millimetre and
+        // thunks flat against the steel
+        if (spec.magnet){
+          d.el.classList.add('mag-snap');
+          Audio2.clack(0.3);
+          // name it as it lands (not on the last one — the praise clip follows
+          // immediately there and would cut the letter off)
+          if (!allPlaced && d.el.dataset.letter) Audio2.speak(sayGlyph(d.el.dataset.letter));
+        }
         if (allPlaced) this.completeTrial(true, {at:[scx, scy]});
       };
       if (fellIn) setTimeout(finish, 330); else finish();
@@ -938,6 +1043,16 @@ const Engine = {
     if (!this.usedFallback) this.applyFallback();
   },
 
+  /* A quick hop, retriggerable: the class is removed and reflowed first, so a
+     letter named twice in a line bounces twice instead of once. */
+  bounceEl(id){
+    const el = this.stage().querySelector(`[data-el="${id}"]`);
+    if (!el) return;
+    el.classList.remove('say-bounce');
+    void el.offsetWidth;
+    el.classList.add('say-bounce');
+  },
+
   hintPulse(){
     // pulse the sample together with the target so the hint reads as
     // "THIS one ... is the same as THIS one", not just "tap here"
@@ -1048,8 +1163,7 @@ const Engine = {
     if (isTest){
       Audio2.correct();
       if (opts.at) FX.burst(opts.at[0], opts.at[1]);
-      const PRAISE = ['Yay!','We did it!','Hooray!','Great job!'];
-      const praise = PRAISE[Math.floor(Math.random()*PRAISE.length)];
+      const praise = this.praise(['Yay!','We did it!','Hooray!','Great job!']);
       // advance only after the praise finishes (clips run 0.5–2.4s), with a
       // floor so short praise still lands and a cap so we never hang on audio
       const started = Date.now();
@@ -1068,7 +1182,8 @@ const Engine = {
     Telemetry.end(true, outcome);
 
     Audio2.fanfare();
-    Audio2.speak('Hooray!');
+    // the last trial just cheered — say something else
+    Audio2.speak(this.praise(['Hooray!','Yay!','We did it!','Great job!']));
     Celebrate.run(outcome === 'complete' ? 'trophy' : 'ribbon',
                   outcome === 'complete' ? 'You won!' : 'You did it!');
     // keep the child in flow: roll straight into the next level. On node
@@ -1107,8 +1222,20 @@ const Engine = {
     this.cur = null;
     clearTimeout(this.timeoutTimer); clearTimeout(this.autoTimer);
     this.stopPhysics();
-    if (window.speechSynthesis) speechSynthesis.cancel();
+    this.stopRain();
+    Audio2.stop();
     Telemetry.end(false, 'abandoned');
+  },
+
+  /* "Show me again" — replay this level from the top, intro and all, on the
+     SAME seed so it is the same challenge rather than a fresh one. A child who
+     missed the explanation gets it back without a grown-up navigating. */
+  restartLevel(){
+    if (!this.node || !this.level) return;
+    const seed = parseInt(new URLSearchParams(location.search).get('seed'), 36) || undefined;
+    const { node, level } = this;
+    this.abort();
+    this.startLevel(node, level, seed);
   },
 };
 

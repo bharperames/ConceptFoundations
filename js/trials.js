@@ -7,14 +7,14 @@ function rowXs(n){
 }
 const elShape = (id, html, x, y, s, extra={}) => ({ id, html, x, y, s, ...extra });
 
-function tapTrial({prompt, say, elements, state}){
-  return { kind:'tap', state, prompt, say: say||prompt, elements, timeoutMs: 9000 };
+function tapTrial({prompt, say, beatEls, elements, state}){
+  return { kind:'tap', state, prompt, say: say||prompt, beatEls, elements, timeoutMs: 9000 };
 }
-function watchTrial({prompt, say, elements, state, autoMs}){
-  return { kind:'watch', state, prompt, say: say||prompt, elements, autoMs: autoMs||800, timeoutMs: 0 };
+function watchTrial({prompt, say, beatEls, elements, state, autoMs}){
+  return { kind:'watch', state, prompt, say: say||prompt, beatEls, elements, autoMs: autoMs||800, timeoutMs: 0 };
 }
-function dragTrial({prompt, say, elements, pieces, state, decoys}){
-  return { kind:'drag', state, prompt, say: say||prompt, elements, pieces, decoys: decoys||[], timeoutMs: 14000 };
+function dragTrial({prompt, say, beatEls, elements, pieces, state, decoys}){
+  return { kind:'drag', state, prompt, say: say||prompt, beatEls, elements, pieces, decoys: decoys||[], timeoutMs: 14000 };
 }
 
 /* Cluster offsets (in % of zone box) for quantity groups, counts 1–6 */

@@ -12,6 +12,10 @@
   --coral:#FF5D55; --sun:#FFC02E; --grass:#33C06A;
   --sea:#3D8BFF; --grape:#9B6DF2; --tang:#FF8A3C;
   --stone:#CBDDEC; --stone-done:#3D8BFF;
+  /* magnet board (Letters): the steel surface + the empty letter spots on it */
+  --board-1:#F4F8FB; --board-2:#E4ECF4; --board-3:#D7E2EC;
+  --board-hi:#FBFDFF; --board-frame:#C6D5E2; --board-sheen:rgba(255,255,255,.9);
+  --ghost-fill:rgba(96,126,152,.16); --ghost-line:rgba(70,104,134,.55); --ghost-shade:rgba(52,80,106,.24);
   /* grown-up dashboard: dataviz chrome */
   --d-page:#F1F5F9; --d-card:#fcfcfb; --d-ink:#0b0b0b; --d-ink2:#52514e;
   --d-muted:#898781; --d-grid:#e1e0d9; --d-axis:#c3c2b7;
@@ -38,6 +42,9 @@
     --zone-bg:rgba(27,44,63,.72);
     --cheer-bg:rgba(14,26,40,.9);
     --stone:#2E455C; --stone-done:#5FA1FF;
+    --board-1:#2A3E52; --board-2:#223446; --board-3:#1B2B3B;
+    --board-hi:#43607C; --board-frame:#2A3E52; --board-sheen:rgba(255,255,255,.16);
+    --ghost-fill:rgba(255,255,255,.07); --ghost-line:rgba(175,205,230,.5); --ghost-shade:rgba(0,0,0,.4);
     --d-page:#0d0d0d; --d-card:#1a1a19; --d-ink:#ffffff; --d-ink2:#c3c2b7;
     --d-muted:#898781; --d-grid:#2c2c2a; --d-axis:#383835;
     --d-border:rgba(255,255,255,.10);
@@ -58,6 +65,9 @@
   --zone-bg:rgba(27,44,63,.72);
   --cheer-bg:rgba(14,26,40,.9);
   --stone:#2E455C; --stone-done:#5FA1FF;
+  --board-1:#2A3E52; --board-2:#223446; --board-3:#1B2B3B;
+  --board-hi:#43607C; --board-frame:#2A3E52; --board-sheen:rgba(255,255,255,.16);
+  --ghost-fill:rgba(255,255,255,.07); --ghost-line:rgba(175,205,230,.5); --ghost-shade:rgba(0,0,0,.4);
   --d-page:#0d0d0d; --d-card:#1a1a19; --d-ink:#ffffff; --d-ink2:#c3c2b7;
   --d-muted:#898781; --d-grid:#2c2c2a; --d-axis:#383835;
   --d-border:rgba(255,255,255,.10);
@@ -309,6 +319,10 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   aspect-ratio:1.15;background:var(--zone-bg);border-radius:16%;
   box-shadow:inset 0 0 0 1.5px var(--line);
 }
+.lp-el.lp-board{
+  border-radius:7px;background:linear-gradient(180deg,var(--board-1),var(--board-3));
+  box-shadow:inset 0 0 0 2px var(--board-frame);
+}
 .lp-el .mini{position:absolute;transform:translate(-50%,-50%)}
 .lp-el img{width:100%;height:100%;object-fit:contain;display:block}
 .lp-el .mini svg{width:100%;height:100%;display:block}
@@ -336,6 +350,18 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   box-shadow:0 3px 10px rgba(61,107,153,.16);
 }
 .btn-exit{top:max(14px,env(safe-area-inset-top));left:16px}
+/* "show me again": replays the level from its intro, same challenge. Sits
+   opposite the home button so a child can find it without hitting exit — and
+   it is the one control a child is meant to reach for unprompted, so it reads
+   as a fat cartoon question mark rather than a grey utility glyph. */
+.btn-again{
+  top:max(14px,env(safe-area-inset-top));right:16px;
+  width:60px;height:60px;
+  background:#7BD88F;color:#12482A;
+  box-shadow:0 4px 0 #4CAE68, 0 6px 14px rgba(30,90,55,.35);
+}
+.btn-again svg{filter:drop-shadow(0 1.5px 0 rgba(255,255,255,.45))}
+.btn-again:active{transform:translateY(3px);box-shadow:0 1px 0 #4CAE68, 0 3px 8px rgba(30,90,55,.3)}
 .stones{
   position:absolute;top:max(24px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);
   display:flex;gap:10px;z-index:20;
@@ -756,6 +782,72 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   border-radius:calc(var(--s)*0.06*1vmin);
   background:#C9DAE9;
 }
+/* Deep-link start gate: ?level=… waits for one tap, because that tap is what
+   unlocks speech and WebAudio for the rest of the session. */
+.deeplink-veil{
+  position:fixed;inset:0;z-index:200;border:none;padding:0;
+  background:rgba(14,26,40,.62);backdrop-filter:blur(4px);
+  color:#fff;font:inherit;display:flex;align-items:center;justify-content:center;
+}
+.deeplink-veil span{display:flex;flex-direction:column;align-items:center;gap:6px}
+.deeplink-veil b{font-size:15px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.deeplink-veil i{font-style:normal;font-size:14px;font-weight:600;opacity:.6}
+.deeplink-veil span{font-size:clamp(26px,5vw,40px);font-weight:800}
+
+/* ═══ Magnet board (Node 7 · Letters) ═══
+   A brushed-steel board in a light frame: the single surface the whole node
+   plays on. Sized in % of the STAGE by the trial spec, not by --s, so it fills
+   the play area on any screen. Tones come from the theme vars, so the same
+   rules serve the day board and the night board. */
+.el.magnet-board{
+  pointer-events:none;
+  border-radius:2.6vmin;
+  background:
+    linear-gradient(146deg, var(--board-sheen) 0%, rgba(255,255,255,0) 42%),
+    linear-gradient(180deg, var(--board-1) 0%, var(--board-2) 54%, var(--board-3) 100%);
+  box-shadow:
+    inset 0 0 0 .55vmin var(--board-hi),
+    inset 0 0 0 1.5vmin var(--board-frame),
+    inset 0 .3vmin 1.4vmin rgba(20,40,60,.14),
+    0 .7vmin 2.2vmin rgba(30,60,90,.22);
+}
+/* a magnet lands the last millimetre in a jump, then thunks flat */
+.el.mag-snap{animation:magsnap .36s cubic-bezier(.2,1.5,.4,1)}
+@keyframes magsnap{
+  0%{transform:translate(-50%,-50%) scale(1.12)}
+  45%{transform:translate(-50%,-50%) scale(.95) rotate(-2.5deg)}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0)}
+}
+/* "warmer… hotter": the destination grows and glows as a dragged piece nears
+   it, turning the invisible snap radius into something a child can see while
+   their finger is still down. --warm runs 0 → 1 over the last piece-height of
+   approach (see Engine.updateWarmth) — a steady swell, never a pulse. */
+/* The scale goes on the inner <svg>, NOT on .el: .el.appear animates transform
+   with fill-mode:both, so its final keyframe keeps winning against any
+   transform declared here — the glow (a filter) showed, the growth never did. */
+.el.warm svg{
+  transform:scale(calc(1 + var(--warm,0) * .25));
+  transform-origin:50% 50%;
+  transition:transform .07s linear;
+  filter:drop-shadow(0 0 calc(var(--warm,0) * 2vmin) rgba(110,225,155,calc(var(--warm,0) * .95)));
+}
+/* named: the letter hops as the voice says it, so hearing and seeing line up */
+.el.say-bounce{animation:saybounce .5s cubic-bezier(.2,1.5,.4,1)}
+@keyframes saybounce{
+  0%{transform:translate(-50%,-50%) scale(1)}
+  32%{transform:translate(-50%,-64%) scale(1.13)}
+  64%{transform:translate(-50%,-50%) scale(1.02)}
+  100%{transform:translate(-50%,-50%) scale(1)}
+}
+/* tapped: the letter hops off the board and says its name */
+.el.mag-pop{animation:magpop .62s cubic-bezier(.2,1.4,.4,1)}
+@keyframes magpop{
+  0%{transform:translate(-50%,-50%) scale(1)}
+  28%{transform:translate(-50%,-60%) scale(1.18) rotate(-6deg)}
+  62%{transform:translate(-50%,-50%) scale(1.04) rotate(4deg)}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0)}
+}
+
 /* painted-only hit-testing for drag trials (transparent svg regions pass through) */
 .painted-hit{pointer-events:none}
 .painted-hit svg{pointer-events:none}

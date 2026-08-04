@@ -14,7 +14,13 @@ import sys
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
-        self.send_header('Cache-Control', 'no-cache')
+        # Audio gets no-store, not no-cache: a re-cut clip can come back with an
+        # OLDER Last-Modified than the copy a browser already holds (a copy
+        # preserves the source's mtime), so revalidation answers 304 and the
+        # stale audio keeps playing. no-store removes the stored copy that
+        # conditional request would be about.
+        cache = 'no-store' if self.path.startswith('/clips/') else 'no-cache'
+        self.send_header('Cache-Control', cache)
         super().end_headers()
 
 

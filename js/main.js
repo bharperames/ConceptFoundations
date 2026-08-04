@@ -11,6 +11,7 @@ import { GlowGame } from './games/glow.js';
 import { TrainGame } from './games/train.js';
 import { NODES } from './nodes.js';
 import { showView } from './router.js';
+import { openDebugHud, openVoices } from './voices.js';
 import { Store } from './store.js';
 import { Telemetry } from './telemetry.js';
 import { applyTheme } from './theme.js';
@@ -26,7 +27,14 @@ function init(){
   stage.addEventListener('pointerdown', e => Engine.onPointerDown(e));
   window.addEventListener('pointermove', e => Engine.onPointerMove(e));
   window.addEventListener('pointerup', e => Engine.onPointerUp(e));
-  window.addEventListener('pointercancel', e => Engine.onPointerUp(e));
+  window.addEventListener('pointercancel', e => Engine.onPointerCancel(e));
+  // iPad hardening: kill the page-level multi-touch gestures that used to
+  // interrupt a drag mid-flight. Safari's pinch/double-tap zoom arrives as
+  // `gesture*` events (not pointer events, so touch-action can't stop them),
+  // and a second finger landing during play would otherwise start one.
+  ['gesturestart','gesturechange','gestureend'].forEach(ev =>
+    document.addEventListener(ev, e => e.preventDefault(), { passive:false }));
+  stage.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive:false });
 
   $('#btn-replay').addEventListener('click', () => { Audio2.unlock(); Engine.speakPrompt(true); });
   const ccBtn = $('#btn-cc');
@@ -40,6 +48,7 @@ function init(){
   $('#lp-close').addEventListener('click', closePicker);
   $('#lp-scrim').addEventListener('click', closePicker);
   $('#btn-home').addEventListener('click', () => { Engine.abort(); showView('home'); renderHome(); });
+  $('#btn-again').addEventListener('click', () => { Audio2.unlock(); Engine.restartLevel(); });
   $('#btn-dash-back').addEventListener('click', () => { showView('home'); renderHome(); });
   // volume control (main screen) — slider adjusts, speaker icon toggles mute
   const volSlider = $('#vol-slider'), volIcon = $('#vol-icon');
@@ -131,18 +140,41 @@ function init(){
   // audio unlock on any first interaction
   window.addEventListener('pointerdown', () => Audio2.unlock(), { once:true });
 
-  // deep link: ?level=4.2[&seed=N] opens that exact challenge (testing aid)
+  // ?debug=1 docks the in-context audio HUD (what THIS screen is saying, with
+  // the clip behind each beat); ?voices=1 opens the full bench. See js/voices.js.
+  const dbgQ = new URLSearchParams(location.search);
+  if (dbgQ.has('debug')) openDebugHud();
+  if (dbgQ.has('voices')) openVoices();
+
+  // deep link: ?level=4.2[&seed=N] opens that exact challenge (testing aid).
+  // Both speech and WebAudio need a user gesture to start, and a page load is
+  // not one — auto-starting here ran the whole expose/contrast intro in silence
+  // on every refresh. One tap is asked for first, and that tap is what unlocks
+  // the audio. (?autostart=1 skips it, for automated runs.)
   const q0 = new URLSearchParams(location.search);
   const lvId = q0.get('level');
   if (lvId){
+    let found = null;
     for (const node of NODES){
       const lv = node.levels.find(l => l.id === lvId);
-      if (lv){ Engine.startLevel(node, lv, parseInt(q0.get('seed'), 36) || undefined); break; }
+      if (lv){ found = { node, level: lv }; break; }
+    }
+    if (found){
+      const seed = parseInt(q0.get('seed'), 36) || undefined;
+      const go = () => Engine.startLevel(found.node, found.level, seed);
+      if (q0.has('autostart')) go();
+      else {
+        const veil = document.createElement('button');
+        veil.className = 'deeplink-veil';
+        veil.innerHTML = `<span><b>Level ${lvId}</b>Tap to start<i>sound needs a tap first</i></span>`;
+        veil.addEventListener('click', () => { Audio2.unlock(); veil.remove(); go(); });
+        document.body.appendChild(veil);
+      }
     }
   }
 
   // scripting hook for the test harness (drive trials, run simulations headlessly)
   window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame, StackerGame, GearGame, GlowGame, TrainGame,
-    computeStats, computeInsights, renderDash, renderHome, showView };
+    computeStats, computeInsights, renderDash, renderHome, showView, Audio2, openVoices };
 }
 init();

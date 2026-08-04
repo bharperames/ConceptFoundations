@@ -18,22 +18,29 @@ Everything lives in a single self-contained file: **`index.html`**
   therefore TTFT telemetry — is preserved).
 - Captions (CC): toggle in the grown-ups dashboard, or append `?cc=1`, to show
   every spoken prompt as on-screen text — handy for testing with the volume off.
+- Audio debugging: `?debug=1` docks a HUD showing what the current screen is
+  saying, each beat tagged with the clip behind it (linked to the asset in
+  MR_AudioClips) and a running transcript; `?voices=1` opens the full bench —
+  every line in the curriculum, playable, plus the per-glyph pronunciation
+  table. ▶ plays through the app, ♪ plays the file itself, which separates a
+  playback bug from a bad recording.
 - Dark mode: follows the device setting by default; the dashboard switch
   overrides it (child surface becomes a night sky, dashboard uses dark chrome).
 
 ## Curriculum
 
-Six nodes, twenty-two micro-levels, each run as E→C→T(×3):
+Eight nodes, thirty-two micro-levels, each run as E→C→T(×3):
 
 | Node | Levels | Interaction | Prerequisite |
 |---|---|---|---|
+| 0 · Intro (First Taps) | 0.1–0.6 | tap, then one drag | — |
 | 1 · Identity (Same & Different) | 1.1–1.5 | tap | — |
 | 2 · Magnitude (Big & Small) | 2.1–2.3 | tap | Identity |
 | 3 · Quantity (More & Less) | 3.1–3.3 | tap (side clusters) | Identity |
 | 4 · Spatial (In & Out) | 4.1–4.4 | drag & drop, physics | Magnitude |
 | 5 · Composition (Build It) | 5.1–5.4 | drag / assembly / physics | Spatial |
 | 6 · Peekaboo | 6.1–6.4 | tap (object permanence) | Identity |
-| 7 · Causality (Make It Happen) | 7.1–7.3 | drag + cause→effect | Spatial |
+| 7 · Letters (ABC Magnets) | 7.1–7.3 | tap + drag on a magnet board | Spatial |
 
 Two levels use the block-physics engine. Spatial 4.2 ("On top") teaches the
 spatial *relation* — one block onto one other block. Composition 5.3 ("Tower")
@@ -52,16 +59,49 @@ Tests follow "repetitive with change": the same task three times, with the
 layout, sides, and colors varied and the challenge tightening slightly each
 round. Dragged objects are treated as real: a missed drop leaves the piece
 where it was set down (never snapping back), so goals can be reached
-incrementally. Spoken prompts repeat at most 3 times, with exponential backoff
+incrementally. A drag is strictly single-pointer: the finger that
+picked a piece up owns it until it lets go, so the spare fingers and palm a
+toddler rests on an iPad can't hijack the piece or drop it early, and a gesture
+the OS takes away sets the piece down without scoring a miss. Spoken prompts repeat at most 3 times, with exponential backoff
 between repeats. Press and hold a game card to open the
 level picker — large cards with generated previews of each micro-level; tap
 any level already reached (every level when "Unlock every game" is on). The
 small ladder dots on each card are tappable shortcuts too.
 
-Causality (Node 7) teaches cause→effect on the itsy-bitsy-spider spout: the
-child drags the bug onto the water spout (the cause), which triggers the effect —
-the bug climbs up, rain falls from the cloud, and it washes out ("Out!"). It's the
-first node about *the child's action producing a result*, the root of reasoning.
+Intro 0.6 ("Up the spout") teaches cause→effect on the itsy-bitsy-spider spout:
+the child drags the bug onto the water spout (the cause), which triggers the
+effect — the bug climbs up, rain falls from the cloud, and it washes out
+("Out!"). It's the first lesson about *the child's action producing a result*,
+and the first that needs the object MOVED rather than just touched.
+
+Letters (Node 7) is a magnet board. The pieces are the classic plastic
+uppercase set — chunky rounded glyphs with filleted corners, moulded side
+walls and a gloss, drawn as layered SVG (`js/letters.js`), in the four colors a
+real set comes in; digits 0–9 are modelled too. 7.1 is errorless exposure (tap
+the letter, it hops and says its name), 7.2 asks "which one is the A?" with the
+named letter shown on a card *and* spoken, and 7.3 has the child drag each
+letter onto its own empty spot on the board, where it snaps on with a thunk.
+Distractors are drawn from a pool that never puts a confusable pair on the
+board at once — by sight (E/F, M/W, B/D) *and* by sound, since the names are
+spoken and "see"/"zee" barely separate. The pool itself is filtered to letters
+whose sound a toddler can already make (/m/ /b/ /p/ /d/ /n/ /t/ /h/ /w/ /k/ /g/
+long before /s/ /z/ /r/ /l/), and the letter a trial *asks* for comes from the
+child's own name. Options are always different colors from the sample, so
+matching color can never stand in for matching letterform.
+
+Letter names are handed to the speech engine in **lowercase**. Given an
+uppercase `"A"` every engine announces "capital A" — the case is information it
+insists on reading out — and respelling is not an escape hatch either: `say`
+renders "ay", "aye" and "eye" to byte-identical audio, so no spelling of A can
+be told apart from I. Lowercase is right for most letters; the few it turns
+into words ("a" → the article) get an entry in `SAY_OVERRIDE` in
+`js/letters.js`, tuned by ear through the voice bench (below).
+
+Relatedly, a `|` in any spoken line is a **beat** — a hard stop the voice
+cannot smooth over, 120ms, or 300ms for `||` — so a letter name never runs into
+the next word, and each segment is looked up in `CLIP_MAP` on its own. Beats can
+also be tied to elements, which is how the letters of a name bounce in turn as
+it is spelled.
 
 Each level has its own failure fallback (pulse target, reduce field to 1v1,
 expand snap radius, auto-demo the drag, magnetic snap, flash the completed

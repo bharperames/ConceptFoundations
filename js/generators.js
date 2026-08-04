@@ -1,5 +1,6 @@
 import { BUBBLE_ART, C, CARD_IMG, CLOUD2, COLOR_KEYS, COLOR_PAIRS, COVER, COVER_COLORS, CUCKOO_CLOCK, DROP_RING, OPEN_SHUT_BOX, PUSH_BTN, SHAPES, SHAPE_KEYS, SIL, SPIDER, SPOUT, SUN2 } from './art.js';
-import { $, pick, pick2, shuffle } from './core.js';
+import { $, clamp, pick, pick2, shuffle } from './core.js';
+import { CHILD_NAME, LETTER_GHOST, MAGNET_LETTER, NAME_LETTERS, pickColors, pickNamed, sayGlyph } from './letters.js';
 import { dragTrial, elShape, rowXs, tapTrial, watchTrial, zoneEl } from './trials.js';
 
 function outlierLevel(rng, mode){
@@ -113,6 +114,12 @@ function spoutLevel(rng, {isGen}={}){
   const mkTest = i => {
     const right = i % 2 === 0;
     const sx = right ? 60 : 40;
+    // start the bug a short reach from the spout and back it off each round —
+    // the first drag should succeed on a toddler's first try, not be a
+    // cross-screen haul
+    const reach = [16, 26, 36][i];
+    const bx = clamp(right ? sx - reach : sx + reach, 8, 92);
+    const by = [76, 80, 84][i];
     return dragTrial({ state: isGen ? 'GENERALIZE' : 'TEST',
       prompt:'Put the ' + name + ' on the spout',
       say:'Put the ' + name + ' at the bottom of the water spout!',
@@ -124,7 +131,7 @@ function spoutLevel(rng, {isGen}={}){
         // the ring marks the drop spot — the base of the spout (matches the snap
         // target: spout centre + slotDy). The bug climbs up from here.
         elShape('drop', DROP_RING(), sx, 68, 24, {scenery:true, cls:'drop-target'}),
-        elShape('bug', BUG(), right ? 18 : 82, 84, 15, {piece:true}),
+        elShape('bug', BUG(), bx, by, 15, {piece:true}),
       ],
       pieces:[{ el:'bug', slot:'spout', snap: 16, slotDy: 12, causeEffect: true }] });
   };
@@ -142,29 +149,148 @@ function spoutLevel(rng, {isGen}={}){
     tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
-/* Causality — discriminate the effective cause: N buttons, only one makes the
-   fireworks go. n=2 then n=3 gives a difficulty ramp. (The plain single-button
-   "press → effect" lives in the Intro section now.) */
-function buttonLevel(rng, {n = 2, isGen}={}){
-  const CAPS = ['#E5484D', '#4C86D8', '#39B26B', '#E0A020'];
-  const xs = n === 2 ? [34, 66] : [24, 50, 76];
-  const sz = n === 2 ? 30 : 26;
-  const btns = (extra) => xs.map((x, k) => extra(x, k));
-  const mkTest = i => {
-    const ti = i % n;   // which button works this trial
-    return Object.assign(tapTrial({ state: isGen ? 'GENERALIZE' : 'TEST',
-      prompt:'Which one makes it go?', say:'Which button makes it go? Press it!',
-      elements: btns((x, k) => elShape('b'+k, PUSH_BTN(CAPS[(i+k) % CAPS.length]), x, 58, sz, {tappable:true, target: k===ti})) }),
-      { tapFx:'button' });
-  };
+/* ── Magnet board (Node 7 · Letters) ──────────────────────────────────────
+   One surface for the whole node: a steel board the letters live on. The
+   board is the first element of every trial so it renders behind everything,
+   and it's sized in % of the stage (not vmin) so it fills any screen. */
+const magnetBoard = () => elShape('board', '', 50, 50, 40,
+  { scenery:true, decor:false, board:true, wPct:97, hPct:97 });
+
+/* A spoken line built beat by beat, keeping the element each beat refers to so
+   the engine can make it hop as it is named (Engine.bounceEl). `long` asks for
+   the wider gap — letters read as a list want room between them. */
+function beatLine(beats){
   return {
-    expose: Object.assign(watchTrial({ state:'EXPOSE', prompt:'Press it!', say:'Press the button and it goes pop!',
-      elements:[ elShape('btn', PUSH_BTN('#E5484D'), 50, 56, 34, {scenery:true}) ]}), { demo:'buttonPress' }),
-    contrast: watchTrial({ state:'CONTRAST', prompt: n + ' buttons', say:'Only one makes it go. Which one?',
-      elements: btns((x, k) => elShape('b'+k, PUSH_BTN(CAPS[k % CAPS.length]), x, 58, sz, {scenery:true})) }),
+    say: beats.map((b, i) => (i ? (b.long ? ' || ' : ' | ') : '') + b.say).join(''),
+    beatEls: beats.map(b => b.el || null),
+  };
+}
+
+/* 7.1 — errorless exposure: one letter on the board. Tap it, it wiggles off
+   the board and says its own name. No wrong answer exists. */
+function letterTapLevel(rng){
+  const chs = pickNamed(rng, 3, 2);
+  const cols = pickColors(rng, 3);
+  const spots = [[50, 48], [39, 44], [61, 53]];
+  const mkTest = i => Object.assign(tapTrial({
+    state:'TEST', prompt:'Tap the ' + chs[i], say:'Tap the letter | ' + sayGlyph(chs[i]) + '!',
+    elements:[ magnetBoard(),
+      elShape('L', MAGNET_LETTER(chs[i], cols[i]), spots[i][0], spots[i][1], 34,
+        {tappable:true, target:true, letter:chs[i]}) ]}),
+    { tapFx:'letter' });
+  return {
+    expose: watchTrial({ state:'EXPOSE', prompt:'Letters!', say:'Look — letters on the board!',
+      elements:[ magnetBoard(),
+        elShape('a', MAGNET_LETTER(chs[0], cols[0]), 30, 48, 26, {scenery:true}),
+        elShape('b', MAGNET_LETTER(chs[1], cols[1]), 50, 48, 26, {scenery:true}),
+        elShape('c', MAGNET_LETTER(chs[2], cols[2]), 70, 48, 26, {scenery:true}) ]}),
     tests:[mkTest(0), mkTest(1), mkTest(2)],
   };
 }
+
+/* 7.2 — "which one is the A?": the named letter is shown on a card AND said
+   out loud, so the child can solve it by shape, by name, or by both. Colors
+   are all different from the card's, so matching color can never stand in for
+   matching letterform. */
+function letterFindLevel(rng, {n = 3, isGen} = {}){
+  const chs = pickNamed(rng, 4);
+  const target = chs[0], others = chs.slice(1);
+  const sampleColor = pickColors(rng, 1)[0];
+  const order = shuffle(rng, [0, 1, 2]);
+  const sample = () => elShape('sample', MAGNET_LETTER(target, sampleColor), 50, 22, 18,
+    { scenery:true, sampleCard:true, letter:target });
+  const mkTest = t => {
+    const nOpt = t === 0 ? 2 : n;                 // gentle first round
+    const xs = rowXs(nOpt), ti = order[t] % nOpt;
+    const cols = pickColors(rng, nOpt, [sampleColor]);
+    const els = [ magnetBoard(), sample() ];
+    for (let k = 0; k < nOpt; k++){
+      const ch = k === ti ? target : others[(k + t) % others.length];
+      els.push(elShape(k === ti ? 'target' : 'd' + k, MAGNET_LETTER(ch, cols[k]),
+        xs[k], 66, nOpt === 2 ? 27 : 23,
+        { tappable:true, target: k === ti, letter: ch }));
+    }
+    return Object.assign(tapTrial({ state: isGen ? 'GENERALIZE' : 'TEST',
+      prompt:'Which one is the ' + target + '?',
+      say:'Find and tap the letter | ' + sayGlyph(target) + '!',
+      elements: els }), { tapFx:'letter' });
+  };
+  return {
+    expose: watchTrial({ state:'EXPOSE', prompt:'This is ' + target,
+      say:'This is the letter | ' + sayGlyph(target), beatEls:[null, 'a'],
+      elements:[ magnetBoard(), elShape('a', MAGNET_LETTER(target, sampleColor), 50, 48, 34, {scenery:true}) ]}),
+    contrast: watchTrial({ state:'CONTRAST', prompt:'A different letter',
+      say:'And this one is | ' + sayGlyph(others[0]) + ' | A different letter!', beatEls:[null, 'b'],
+      elements:[ magnetBoard(),
+        elShape('a', MAGNET_LETTER(target, sampleColor), 34, 48, 27, {scenery:true}),
+        elShape('b', MAGNET_LETTER(others[0], pickColors(rng, 1, [sampleColor])[0]), 66, 48, 27, {scenery:true}) ]}),
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
+  };
+}
+
+/* 7.3 — the magnet board proper, and the payoff of the whole node: the child
+   spells his own name. The four spots stand in a row reading S-E-A-N, and each
+   round hands back more of the word — the last letter, then two, then all of
+   it. Picking WHICH spot a letter belongs in is the same discrimination as
+   7.2, now made by doing instead of pointing, and the answer is a word he has
+   a reason to care about instead of an arbitrary letter on an arbitrary spot.
+
+   Laid out at 18% spacing with 16vmin letters: wide enough that pieces never
+   overlap on a portrait iPad, tight enough to read as one word rather than
+   four unrelated spots. */
+function letterBoardLevel(rng, {isGen} = {}){
+  const word = NAME_LETTERS;
+  const cols = pickColors(rng, word.length);
+  const wx = word.map((_, i) => 50 + (i - (word.length - 1) / 2) * 18);
+  const wy = 34, ws = 16, trayY = 74;
+  const ghosts = () => word.map((ch, i) =>
+    elShape('g' + i, LETTER_GHOST(ch), wx[i], wy, ws, {scenery:true, letter:ch}));
+  const placed = i =>
+    elShape('w' + i, MAGNET_LETTER(word[i], cols[i]), wx[i], wy, ws, {scenery:true});
+
+  // how much of the name each round asks for: the tail first (the opening
+  // letters keep the word readable), then the whole thing. Every round shows
+  // ALL the spots — there is never a spare spot with nothing to fill it.
+  const end = word.length - 1;
+  const MISSING = [[end], [end - 1, end], word.map((_, i) => i)];
+  const mkTest = t => {
+    const miss = MISSING[t];
+    // loose letters wait below in scrambled order — never under their own spot
+    const tx = shuffle(rng, miss.map(i => wx[i]));
+    const els = [ magnetBoard(), ...ghosts() ];
+    for (let i = 0; i < word.length; i++) if (!miss.includes(i)) els.push(placed(i));
+    miss.forEach((i, k) =>
+      els.push(elShape('p' + i, MAGNET_LETTER(word[i], cols[i]), tx[k], trayY, ws,
+        {piece:true, letter:word[i]})));
+    // each letter hops in the tray as its name is spoken
+    const line = miss.length === word.length
+      ? beatLine([{ say:'Now spell the whole name!' },
+          ...miss.map(i => ({ say: sayGlyph(word[i]), el:'p' + i, long:true }))])
+      : miss.length === 1
+        ? beatLine([{ say:`${CHILD_NAME} needs one more letter.` }, { say:'Put the' },
+            { say: sayGlyph(word[miss[0]]), el:'p' + miss[0] }, { say:'where it goes!' }])
+        : beatLine([{ say:`${CHILD_NAME} needs more letters.` },
+            { say:'Put each one where it goes!' }]);
+    return dragTrial({ state: isGen ? 'GENERALIZE' : 'TEST',
+      prompt: miss.length === word.length ? 'Spell ' + CHILD_NAME : 'Finish ' + CHILD_NAME,
+      say: line.say, beatEls: line.beatEls,
+      elements: els,
+      pieces: miss.map(i => ({ el:'p' + i, slot:'g' + i, snap: 11, magnet:true })) });
+  };
+  return {
+    expose: watchTrial(Object.assign({ state:'EXPOSE', prompt: CHILD_NAME + '!',
+      elements:[ magnetBoard(), ...ghosts(), ...word.map((_, i) => placed(i)) ]},
+      beatLine([{ say:`This says ${CHILD_NAME}!` },
+        ...word.map((ch, i) => ({ say: sayGlyph(ch), el:'w' + i, long:true }))]))),
+    contrast: watchTrial({ state:'CONTRAST', prompt:'A letter came off',
+      say:'Uh oh! || A letter came off. | It goes right there.',
+      elements:[ magnetBoard(), ...ghosts(),
+        ...word.slice(0, -1).map((_, i) => placed(i)),
+        elShape('loose', MAGNET_LETTER(word[word.length-1], cols[word.length-1]), wx[word.length-1], trayY, ws, {scenery:true}) ]}),
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
+  };
+}
+
 function quantityLevel(rng, {pairs, ask, item}){
   const ic = item === 'apple' ? C.coral : C[pick(rng, ['sea','grape','tang'])];
   const svg = SIL[item](ic);
@@ -191,4 +317,5 @@ function quantityLevel(rng, {pairs, ask, item}){
 
 /* ═══════════════════════ 5 · Storage ══════════════════════════════════════ */
 
-export { outlierLevel, sizeLevel, hideSeekLevel, introTapLevel, spoutLevel, buttonLevel, quantityLevel };
+export { outlierLevel, sizeLevel, hideSeekLevel, introTapLevel, spoutLevel, quantityLevel,
+         letterTapLevel, letterFindLevel, letterBoardLevel };

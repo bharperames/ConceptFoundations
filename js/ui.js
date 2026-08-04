@@ -35,6 +35,8 @@ function miniPreview(node, level){
   const spans = trial.elements.map(e => {
     if (e.groundBar)
       return `<span class="lp-el" style="left:50%;top:82%;width:104%;aspect-ratio:auto;height:9%;background:#C9DAE9;border-radius:6px"></span>`;
+    if (e.board)
+      return `<span class="lp-el lp-board" style="left:${e.x}%;top:${e.y}%;width:${e.wPct}%;height:${e.hPct}%;aspect-ratio:auto"></span>`;
     const w = e.s * 1.5;   // element size as % of preview width
     return `<span class="lp-el${e.zone ? ' lp-zone' : ''}" style="left:${e.x}%;top:${e.y}%;width:${w}%">${e.html}</span>`;
   }).join('');
@@ -78,7 +80,7 @@ const LP_LOCK = `<span class="lp-lock"><svg viewBox="0 0 24 24" width="14" heigh
 // per-node colors for the dense "all levels" tiles — 8 clearly-distinct hues so a
 // run of same-colored tiles reads as one section (the id numbers aren't enough)
 const NODE_ACCENT = { intro:'#22B8C6', identity:'#3D7BE0', magnitude:'#9B6DF2',
-  quantity:'#33A852', spatial:'#F2704B', composition:'#E8A81C', peekaboo:'#EC5D96', causality:'#B0663C' };
+  quantity:'#33A852', spatial:'#F2704B', composition:'#E8A81C', peekaboo:'#EC5D96', letters:'#7A5AC7' };
 
 // "All levels" as a home-screen MODE: one dense grid of every level + the mini
 // games, packed continuously (no per-section rows, so no big partial-row gaps).

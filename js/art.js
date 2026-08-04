@@ -1,4 +1,5 @@
 import { $ } from './core.js';
+import { LETTERS_ICON } from './letters.js';
 
 const C = { sea:'#3D8BFF', coral:'#FF5D55', sun:'#FFC02E', grass:'#33C06A', grape:'#9B6DF2', tang:'#FF8A3C' };
 const COLOR_KEYS = Object.keys(C);
@@ -81,21 +82,31 @@ const HOUSE = {
 
 const CHEVRON = () => wrap(`<path d="M28 30 L50 62 L72 30" fill="none" stroke="#A9C6E0" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>`);
 /* Cause & effect — itsy-bitsy spider / water spout */
-// a storybook downspout: a decorative blue pipe with a flared funnel mouth at
-// the top (where the rain pours in) and folk-art banding — the itsy-bitsy-spider
-// water spout, not a test tube
+// a storybook downspout: a gutter head at the top where the rain pours in, a
+// cylinder-shaded pipe held by two wall straps, and an open mouth at the base
+// where the water — and the spider — comes out. It reads as a thing bolted to
+// a house, not a laboratory funnel. (It once carried little colored dots as
+// \"folk-art banding\"; they meant nothing and only invited the question.)
 const SPOUT = () => wrap(`<g>
-  <path d="M41 27 C37 17 32 12 27 9 L73 9 C68 12 63 17 59 27 Z" fill="#6FB2E6"/>
-  <rect x="41" y="23" width="18" height="69" rx="7" fill="#6FB2E6"/>
-  <rect x="44" y="26" width="5" height="61" rx="2.5" fill="#AED6F6"/>
-  <rect x="40" y="46" width="20" height="5" rx="2.5" fill="#3E8CCB"/>
-  <rect x="40" y="70" width="20" height="5" rx="2.5" fill="#3E8CCB"/>
-  <circle cx="50" cy="37" r="1.9" fill="#FFD84D"/>
-  <circle cx="50" cy="60" r="1.9" fill="#F2706B"/>
-  <circle cx="50" cy="84" r="1.9" fill="#FFD84D"/>
-  <ellipse cx="50" cy="9" rx="23" ry="6" fill="#3E8CCB"/>
-  <ellipse cx="50" cy="9" rx="17.5" ry="4" fill="#285E8E"/>
-  <ellipse cx="50" cy="10" rx="12" ry="2.4" fill="#7CC0F5" opacity=".65"/></g>`);
+  <ellipse cx="50" cy="94" rx="17" ry="3.5" fill="#16283F" opacity=".18"/>
+  <!-- gutter head: the open trough the rain pours into -->
+  <path d="M34 14 C33 11 31 10 27 9 L73 9 C69 10 67 11 66 14 Z" fill="#6FB2E6"/>
+  <ellipse cx="50" cy="9" rx="23" ry="5.6" fill="#8FC6EE"/>
+  <ellipse cx="50" cy="9" rx="17" ry="3.9" fill="#2F6C9F"/>
+  <ellipse cx="50" cy="10.2" rx="17" ry="3.9" fill="#1F4E77"/>
+  <!-- the taper down into the pipe -->
+  <path d="M34 14 L66 14 L62 26 L38 26 Z" fill="#6FB2E6"/>
+  <!-- the pipe itself: a cylinder, lit from the left -->
+  <rect x="37" y="24" width="26" height="64" rx="6" fill="#6FB2E6"/>
+  <rect x="40" y="27" width="6" height="58" rx="3" fill="#BCE0F9" opacity=".85"/>
+  <rect x="57.5" y="27" width="3.6" height="58" rx="1.8" fill="#3B82BC" opacity=".5"/>
+  <!-- straps holding it to the wall -->
+  <rect x="32" y="40" width="36" height="6.5" rx="3.2" fill="#3E8CCB"/>
+  <rect x="32" y="66" width="36" height="6.5" rx="3.2" fill="#3E8CCB"/>
+  <!-- the mouth at the bottom, where the water (and the spider) comes out -->
+  <rect x="33" y="84" width="34" height="7.5" rx="3.7" fill="#3E8CCB"/>
+  <ellipse cx="50" cy="91" rx="17" ry="3.2" fill="#1F4E77"/>
+</g>`);
 // pulsing ring that shows where to drop the bug — the base of the spout
 const DROP_RING = () => wrap(`<g fill="none" stroke="#3D8BFF" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 9"><circle cx="50" cy="50" r="38"/></g>`);
 const SPIDER = () => wrap(`<g class="hit">
@@ -105,7 +116,18 @@ const SPIDER = () => wrap(`<g class="hit">
   <circle ${H} cx="50" cy="38" r="13" fill="#6B5544"/>
   <circle cx="45" cy="35" r="3.4" fill="#fff"/><circle cx="55" cy="35" r="3.4" fill="#fff"/>
   <circle cx="45.5" cy="36" r="1.7" fill="#1a1a1a"/><circle cx="54.5" cy="36" r="1.7" fill="#1a1a1a"/></g>`);
-const CLOUD2 = () => wrap(`<g><ellipse cx="34" cy="56" rx="26" ry="18" fill="#EAF1F7"/><ellipse cx="62" cy="52" rx="28" ry="22" fill="#EAF1F7"/><ellipse cx="50" cy="64" rx="36" ry="16" fill="#DCE7F0"/></g>`);
+const CLOUD2 = () => wrap(`<g>
+  <g fill="#E9F0F8">
+    <circle cx="30" cy="55" r="19"/><circle cx="52" cy="43" r="24"/>
+    <circle cx="73" cy="54" r="17"/>
+    <rect x="11" y="53" width="78" height="23" rx="11.5"/>
+  </g>
+  <ellipse cx="50" cy="67" rx="36" ry="8.5" fill="#D6E2EE"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" opacity=".8">
+    <path d="M16 52 A18 18 0 0 1 32 37"/>
+    <path d="M37 34 A24 24 0 0 1 58 20"/>
+  </g>
+</g>`);
 const SUN2 = () => wrap(`<g fill="#FFC02E"><circle cx="50" cy="50" r="26"/>${Array.from({length:8},(_,i)=>{const a=i/8*Math.PI*2;return `<rect x="48" y="6" width="4" height="12" rx="2" transform="rotate(${i*45} 50 50)"/>`;}).join('')}</g>`);
 // a soap bubble (Intro: tap → pop)
 const BUBBLE_ART = () => wrap(`<g class="hit">
@@ -171,7 +193,7 @@ const NICON = {
   quantity: `<svg class="cicon" viewBox="0 0 100 100"><circle cx="24" cy="56" r="10" fill="${C.grass}"/><circle cx="62" cy="34" r="10" fill="${C.grass}"/><circle cx="82" cy="52" r="10" fill="${C.grass}"/><circle cx="64" cy="70" r="10" fill="${C.grass}"/><circle cx="82" cy="30" r="10" fill="${C.grass}" opacity=".8"/></svg>`,
   spatial:  `<svg class="cicon" viewBox="0 0 100 100"><rect x="18" y="34" width="64" height="52" rx="9" fill="#E5EFF8" stroke="#A9C6E0" stroke-width="5"/><circle cx="50" cy="60" r="16" fill="${C.coral}"/></svg>`,
   peekaboo:`<svg class="cicon" viewBox="0 0 100 100"><rect x="12" y="24" width="34" height="46" rx="7" fill="#6FA8E8"/><rect x="54" y="24" width="34" height="46" rx="7" fill="#6FA8E8"/><circle cx="71" cy="47" r="9" fill="#B7D6F7"/><path d="M20 78 Q34 62 46 78" fill="none" stroke="${C.coral}" stroke-width="6" stroke-linecap="round"/></svg>`,
-  causality:`<svg class="cicon" viewBox="0 0 100 100"><rect x="42" y="18" width="16" height="64" rx="6" fill="#B7C4CE"/><ellipse cx="30" cy="24" rx="18" ry="10" fill="#DCE7F0"/><line x1="26" y1="34" x2="24" y2="48" stroke="#5FA8E8" stroke-width="4" stroke-linecap="round"/><line x1="34" y1="36" x2="32" y2="50" stroke="#5FA8E8" stroke-width="4" stroke-linecap="round"/><circle cx="62" cy="60" r="13" fill="#5B4636"/><circle cx="62" cy="48" r="8" fill="#6B5544"/></svg>`,
+  letters: LETTERS_ICON,
   composition:`<svg class="cicon" viewBox="0 0 100 100"><path d="M24 46 L50 22 L76 46 Z" fill="${C.coral}"/><rect x="30" y="46" width="40" height="34" rx="4" fill="${C.sun}"/><rect x="44" y="60" width="12" height="20" rx="3" fill="${C.sea}"/></svg>`,
 };
 

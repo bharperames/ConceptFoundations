@@ -319,7 +319,7 @@ test('long-press opens the level picker; a card starts that level', async ({ pag
   await page.waitForTimeout(750);
   await page.mouse.up();
   await expect(page.locator('#level-picker')).toBeVisible();
-  await expect(page.locator('.lp-card')).toHaveCount(5);   // Intro (first card) has 5 taps
+  await expect(page.locator('.lp-card')).toHaveCount(6);   // Intro (first card): 5 taps + the spout
   await page.locator('.lp-card').nth(2).click();
   expect(await page.evaluate(() => CF.Engine.level.id)).toBe('0.3');
 });
@@ -366,7 +366,7 @@ test('all-levels toggles as a home mode with one dense grid of every level', asy
   await expect(page.locator('#view-home')).toHaveClass(/levels-mode/);
   await expect(page.locator('#concept-grid')).toBeHidden();
   await expect(page.locator('#all-levels .al-grid')).toBeVisible();
-  await expect(page.locator('#all-levels .al-tile')).toHaveCount(35);   // 31 levels + 4 mini, one grid
+  await expect(page.locator('#all-levels .al-tile')).toHaveCount(36);   // 32 levels + 4 mini, one grid
   await expect(page.locator('#btn-map .bm-label')).toHaveText('Games');
   // toggle OFF — back to the concept-card view (still the home screen)
   await page.locator('#btn-map').click();
@@ -441,9 +441,9 @@ test('intro: tapping the thing plays its effect and advances', async ({ page }) 
   expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
 });
 
-test('causality 7.1: placing the bug on the spout triggers the wash-out effect', async ({ page }) => {
+test('intro 0.6: placing the bug on the spout triggers the wash-out effect', async ({ page }) => {
   await boot(page);
-  await startLevel(page, 'causality', 0);
+  await startLevel(page, 'intro', 5);
   await waitForInteractive(page, 'drag');
   const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
   const spout = await page.locator('[data-el="spout"]').boundingBox();
@@ -460,28 +460,120 @@ test('causality 7.1: placing the bug on the spout triggers the wash-out effect',
   expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
 });
 
-async function whichButtonTest(page, levelIdx, nButtons){
+test('letters 7.1: tapping the magnet letter says its name and advances', async ({ page }) => {
   await boot(page);
-  await startLevel(page, 'causality', levelIdx);
+  await startLevel(page, 'letters', 0);
   await waitForInteractive(page, 'tap');
-  await expect(page.locator('#stage [data-el^="b"].tappable')).toHaveCount(nButtons);
   const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  // the letter carries its own character, which is what the reward speaks
+  expect(await page.locator('[data-el="L"]').getAttribute('data-letter')).toMatch(/^[A-Z0-9]$/);
+  const L = await page.locator('[data-el="L"]').boundingBox();
+  await page.mouse.click(L.x + L.width/2, L.y + L.height/2);
+  expect(await page.evaluate(() => CF.Engine.curRecord.firstAttemptCorrect)).toBe(true);
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 8000 });
+});
+
+test('letters 7.2: only the named letter counts; distractors never match its color', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 1);
+  await waitForInteractive(page, 'tap');
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  // the named letter is on the sample card AND on the board — one of the
+  // options is literally the same character
+  const { sample, target, distractors } = await page.evaluate(() => ({
+    sample: CF.Engine.cur.elements.find(e => e.sampleCard).letter,
+    target: CF.Engine.cur.elements.find(e => e.target).letter,
+    distractors: CF.Engine.cur.elements.filter(e => e.tappable && !e.target).map(e => e.letter),
+  }));
+  expect(target).toBe(sample);
+  expect(distractors).not.toContain(target);   // no second copy of the answer
   const wrongId = await page.evaluate(() => CF.Engine.cur.elements.find(e => e.tappable && !e.target).id);
-  const rightId = await page.evaluate(() => CF.Engine.cur.elements.find(e => e.target).id);
   const wrong = await page.locator(`[data-el="${wrongId}"]`).boundingBox();
   await page.mouse.click(wrong.x + wrong.width/2, wrong.y + wrong.height/2);
   await page.waitForTimeout(400);
   expect(await page.evaluate(() => CF.Engine.trialIdx)).toBe(idxBefore);   // wrong ⇒ no advance
-  const right = await page.locator(`[data-el="${rightId}"]`).boundingBox();
+  const right = await page.locator('[data-target]').boundingBox();
   await page.mouse.click(right.x + right.width/2, right.y + right.height/2);
   await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i, idxBefore, { timeout: 8000 });
-  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBeGreaterThan(idxBefore);
-}
-
-test('causality 7.2: two buttons — only the effective one makes it go', async ({ page }) => {
-  await whichButtonTest(page, 1, 2);
 });
 
-test('causality 7.3: three buttons — discriminate the cause', async ({ page }) => {
-  await whichButtonTest(page, 2, 3);
+test('letters 7.3: a letter dragged onto its own spot sticks; the wrong spot does not', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 2);
+  await waitForInteractive(page, 'drag');
+  const { pieceId, slotId, otherId } = await page.evaluate(() => {
+    const p = CF.Engine.cur.pieces[0];
+    const other = CF.Engine.cur.elements.find(e => /^g\d$/.test(e.id) && e.id !== p.slot);
+    return { pieceId: p.el, slotId: p.slot, otherId: other ? other.id : null };
+  });
+  // the wrong spot rejects it — and the piece stays where it was set down
+  const other = await page.locator(`[data-el="${otherId}"]`).boundingBox();
+  await dragTo(page, `[data-el="${pieceId}"]`, other.x + other.width/2, other.y + other.height/2);
+  await waitDragEnds(page, 1);
+  expect((await dragEnds(page))[0].ok).toBe(false);
+  expect(await page.locator(`[data-el="${pieceId}"]`).evaluate(el => el.classList.contains('placed'))).toBe(false);
+  // its own spot takes it
+  const slot = await page.locator(`[data-el="${slotId}"]`).boundingBox();
+  await dragTo(page, `[data-el="${pieceId}"]`, slot.x + slot.width/2, slot.y + slot.height/2);
+  await waitDragEnds(page, 2);
+  expect((await dragEnds(page))[1].ok).toBe(true);
+  expect(await page.locator(`[data-el="${pieceId}"]`).evaluate(el => el.classList.contains('placed'))).toBe(true);
+});
+
+/* Every SVG id in the app must be unique DOCUMENT-wide, not just within its
+   own svg. The home screen is only display:none while playing — its node icons
+   still own their ids, so a letter on the stage whose ids matched one in an
+   icon resolved its gradients and clip into the hidden subtree and rendered as
+   a bare shadow with an unclipped highlight. */
+test('svg ids are unique across the whole document, hidden views included', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 2);          // the board: ghosts + letters + icons
+  await waitForInteractive(page, 'drag');
+  const dupes = await page.evaluate(() => {
+    const seen = new Map();
+    for (const el of document.querySelectorAll('[id]'))
+      seen.set(el.id, (seen.get(el.id) || 0) + 1);
+    return [...seen].filter(([, n]) => n > 1).map(([id, n]) => `${id} x${n}`);
+  });
+  expect(dupes).toEqual([]);
+  // and every paint/clip reference actually resolves
+  const broken = await page.evaluate(() => {
+    const out = [];
+    for (const n of document.querySelectorAll('#stage [fill^="url("], #stage [clip-path^="url("]')){
+      for (const a of ['fill', 'clip-path']){
+        const v = n.getAttribute(a);
+        const m = v && v.match(/^url\(#(.+?)\)/);
+        if (m && !document.getElementById(m[1])) out.push(a + ':' + m[1]);
+      }
+    }
+    return out;
+  });
+  expect(broken).toEqual([]);
+});
+
+/* iPad reality check: toddlers rest spare fingers on the glass mid-drag. A
+   second pointer must not steal the piece, move it, or end the gesture. */
+test('a second finger during a drag cannot hijack or end it', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 2);
+  await waitForInteractive(page, 'drag');
+  const pieceId = await page.evaluate(() => CF.Engine.cur.pieces[0].el);
+  const box = await page.locator(`[data-el="${pieceId}"]`).boundingBox();
+  const sx = box.x + box.width/2, sy = box.y + box.height/2;
+  await page.mouse.move(sx, sy);
+  await page.mouse.down();
+  await page.mouse.move(sx + 40, sy - 40);
+  expect(await page.evaluate(() => !!CF.Engine.drag)).toBe(true);
+  // a second, non-primary pointer taps and lifts elsewhere on the stage
+  await page.evaluate(() => {
+    const opts = { pointerId: 99, pointerType: 'touch', isPrimary: false, clientX: 60, clientY: 300, bubbles: true };
+    document.querySelector('#stage').dispatchEvent(new PointerEvent('pointerdown', opts));
+    window.dispatchEvent(new PointerEvent('pointermove', { ...opts, clientX: 400 }));
+    window.dispatchEvent(new PointerEvent('pointerup', opts));
+  });
+  const stillDragging = await page.evaluate(() => !!CF.Engine.drag && CF.Engine.drag.el.dataset.el);
+  expect(stillDragging).toBe(pieceId);   // same piece, still in hand
+  await page.mouse.up();
+  expect(await page.evaluate(() => !!CF.Engine.drag)).toBe(false);
 });

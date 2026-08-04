@@ -1,6 +1,6 @@
 import { BALL, BOX, C, CHEVRON, CIRC_HOLE, COLOR_KEYS, COLOR_PAIRS, HALF_L, HALF_R, HOUSE, PUZ_L, PUZ_R2, SHAPES, SHAPE_KEYS, SIL, STAR_HOLE, WOOD_BLOCK } from './art.js';
 import { pick, pick2, shuffle } from './core.js';
-import { buttonLevel, hideSeekLevel, introTapLevel, outlierLevel, quantityLevel, sizeLevel, spoutLevel } from './generators.js';
+import { hideSeekLevel, introTapLevel, letterBoardLevel, letterFindLevel, letterTapLevel, outlierLevel, quantityLevel, sizeLevel, spoutLevel } from './generators.js';
 import { dragTrial, elShape, rowXs, tapTrial, watchTrial } from './trials.js';
 
 const NODES = [
@@ -18,6 +18,10 @@ const NODES = [
       make(rng){ return introTapLevel(rng, { kind:'cuckoo' }); }},
     { id:'0.5', name:'Open, shut it', focus:'Touch → effect: tap the box, the lid opens and shuts',
       make(rng){ return introTapLevel(rng, { kind:'box' }); }},
+    // the one Intro lesson where the effect needs the object MOVED, not just
+    // touched: the child's own placement starts the whole spider song
+    { id:'0.6', name:'Up the spout', focus:'Contingency: my action makes it happen (spider → spout)', fallback:'demoDrag',
+      make(rng){ return spoutLevel(rng, { bug:'spider' }); }},
   ],
 },
 {
@@ -376,15 +380,15 @@ const NODES = [
   ],
 },
 {
-  key:'causality', num:8, title:'Make It Happen', parentName:'Causality',
-  tag:'Your action makes something happen', prereqs:['spatial'],
+  key:'letters', num:8, title:'ABC Magnets', parentName:'Letters',
+  tag:'Plastic letters on a magnet board', prereqs:['spatial'],
   levels:[
-    { id:'7.1', name:'Up the spout', focus:'Contingency: my action makes it happen (spider → spout)', fallback:'demoDrag',
-      make(rng){ return spoutLevel(rng, { bug:'spider' }); }},
-    { id:'7.2', name:'Which one?', focus:'Discriminate the effective cause (two buttons, one works)', fallback:'pulseTarget',
-      make(rng){ return buttonLevel(rng, { n:2 }); }},
-    { id:'7.3', name:'Which one now?', focus:'Discriminate among three (generalize the cause)', isGen:true, fallback:'pulseTarget',
-      make(rng){ return buttonLevel(rng, { n:3, isGen:true }); }},
+    { id:'7.1', name:'Letter play', focus:'A letter is a thing with a name — tap it, hear it', fallback:'pulseTarget',
+      make(rng){ return letterTapLevel(rng); }},
+    { id:'7.2', name:'Which one is the A?', focus:'Discriminate one letterform from others', fallback:'pulseTarget',
+      make(rng){ return letterFindLevel(rng, { n:3 }); }},
+    { id:'7.3', name:'Spell your name', focus:'Same discrimination, expressed by placing — and the word is his own name', isGen:true, fallback:'magnetSnap',
+      make(rng){ return letterBoardLevel(rng, { isGen:true }); }},
   ],
 },
 ];
