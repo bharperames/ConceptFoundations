@@ -59,10 +59,15 @@ Tests follow "repetitive with change": the same task three times, with the
 layout, sides, and colors varied and the challenge tightening slightly each
 round. Dragged objects are treated as real: a missed drop leaves the piece
 where it was set down (never snapping back), so goals can be reached
-incrementally. A drag is strictly single-pointer: the finger that
-picked a piece up owns it until it lets go, so the spare fingers and palm a
-toddler rests on an iPad can't hijack the piece or drop it early, and a gesture
-the OS takes away sets the piece down without scoring a miss. Spoken prompts repeat at most 3 times, with exponential backoff
+incrementally. Touch is built for a child who leans on the
+screen. A **drag** is strictly single-pointer: the finger that picked a piece up
+owns it until it lets go, so spare fingers can't hijack it or drop it early, and
+a gesture the OS takes away sets the piece down without scoring a miss. A **tap**
+takes the opposite rule — any finger may tap, because "primary" only means the
+first finger down, and a resting hand would otherwise make every real tap
+non-primary and the app go dead. What's filtered instead is what multi-touch
+actually causes: contacts landing together (a palm, a grab) count as one tap,
+not several, and a hand on empty board is not scored as a miss at all. Spoken prompts repeat at most 3 times, with exponential backoff
 between repeats. Press and hold a game card to open the
 level picker — large cards with generated previews of each micro-level; tap
 any level already reached (every level when "Unlock every game" is on). The

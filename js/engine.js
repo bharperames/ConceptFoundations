@@ -9,10 +9,13 @@ import { Store, nodeProgress, saveNodeProgress } from './store.js';
 import { Telemetry } from './telemetry.js';
 import { nodeUnlocked, renderHome } from './ui.js';
 
+/* Contacts closer together than this came from one hand, not two decisions. */
+const TAP_GAP = 160;
+
 const Engine = {
   node:null, level:null, trials:[], trialIdx:0, cur:null, curRecord:null,
   promptEndAt:0, timeoutTimer:0, autoTimer:0, locked:false,
-  wrongCount:0, usedFallback:false, results:[], frustration:null,
+  wrongCount:0, usedFallback:false, results:[], frustration:null, lastTapAt:0,
   drag:null, // active drag state
 
   stage(){ return $('#stage'); },
@@ -66,6 +69,7 @@ const Engine = {
     this.cur = this.trials[idx];
     this.locked = false; this.wrongCount = 0; this.usedFallback = false;
     this.hintCount = 0;
+    this.lastTapAt = 0;
     this.promptSpeaks = 0;
     this.promptEndAt = 0;
     this.drag = null;
@@ -473,31 +477,40 @@ const Engine = {
   },
 
   /* ---------- pointer input ----------
-     Single-pointer by design. On a tablet a toddler's spare fingers and the
-     heel of their hand land on the glass constantly; before this, a second
-     pointerdown could hijack the drag onto another piece and ANY pointerup —
-     including that second finger lifting — ended the drag wherever the first
-     finger happened to be. Everything below the primary pointer is ignored. */
+     On a tablet a toddler's spare fingers and the heel of their hand rest on
+     the glass constantly, and the two gestures need OPPOSITE rules about it.
+
+     A DRAG is owned by one pointer from pickup to release. Any pointerup used
+     to end it, so a second finger lifting dropped the piece the first was
+     still holding, and a second pointerdown could hijack it onto another piece.
+
+     A TAP must NOT be restricted that way. "Primary" means the first finger
+     down, so a hand already resting on the screen makes every real tap
+     non-primary — rejecting those made the app go dead exactly when a child is
+     leaning on it. Any finger may tap. What gets filtered instead is the thing
+     multi-touch actually causes: several contacts landing at once (a palm, a
+     grab) counting as several taps. The first one inside TAP_GAP wins and the
+     rest are dropped, because contacts from one clumsy hand arrive together
+     while deliberate taps do not. */
   onPointerDown(e){
     if ($('#view-play').classList.contains('hidden')) return;
     if (this.drag) return;   // a drag owns the gesture until it ends
-    // extra fingers / palm contacts. Scoped to touch on purpose: a mouse has no
-    // secondary pointers, and a synthesized PointerEvent defaults isPrimary to
-    // false — a blanket check would silently make the app untappable wherever
-    // input is injected rather than physical.
-    if (e.pointerType === 'touch' && e.isPrimary === false) return;
     Audio2.unlock();
     const stage = this.stage();
     const now = Date.now();
     const sr = stage.getBoundingClientRect();
     const x = e.clientX - sr.left, y = e.clientY - sr.top;
 
-    // drag pickup?
+    // drag pickup? (a non-primary finger may start one — see above)
     if (this.cur && (this.cur.kind === 'drag' || this.cur.kind === 'stack') && !this.locked){
       const pieceEl = this.hitPiece(e.clientX, e.clientY);
       if (pieceEl){ this.beginDrag(pieceEl, e, x, y, now); return; }
     }
     if (!this.cur || this.locked) { return; }
+    // contacts from one hand land within a few ms of each other; a child
+    // tapping twice on purpose never does
+    if (now - (this.lastTapAt || 0) < TAP_GAP) return;
+    this.lastTapAt = now;
 
     const hit = e.target.closest ? e.target.closest('[data-el]') : null;
     const hitId = hit ? hit.dataset.el : null;
@@ -519,6 +532,12 @@ const Engine = {
       this.frustration(now, true);
       return;
     }
+
+    // the heel of a hand on empty board is not a choice, so it is not an answer
+    // and not a miss: counting it drove the fallback and the frustration
+    // detector while the child had not answered at all. Recorded above,
+    // otherwise ignored.
+    if (!hit) return;
 
     if (this.curRecord.firstAttemptCorrect === null)
       this.curRecord.firstAttemptCorrect = isTarget;

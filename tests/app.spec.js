@@ -597,6 +597,76 @@ test('svg ids are unique across the whole document, hidden views included', asyn
   expect(broken).toEqual([]);
 });
 
+/* A hand resting on the glass must not make the app go dead. "Primary" is just
+   the first finger down, so if a palm is already touching, every real tap is
+   non-primary — the child taps the right letter and nothing happens. */
+test('a tap still counts while another finger is already resting on the screen', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 1);            // 7.2: tap the named letter
+  await waitForInteractive(page, 'tap');
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  // a hand comes down on empty board first and STAYS down
+  await page.evaluate(() => {
+    const s = document.querySelector('#stage'), r = s.getBoundingClientRect();
+    s.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 21, pointerType: 'touch',
+      isPrimary: true, clientX: r.left + 12, clientY: r.bottom - 12, bubbles: true }));
+  });
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBe(idxBefore);   // resting hand: no answer
+  // now the real tap, which the OS reports as non-primary
+  const t = await page.locator('[data-target]').boundingBox();
+  await page.evaluate(([x, y]) => {
+    const el = document.elementFromPoint(x, y);
+    el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 22, pointerType: 'touch',
+      isPrimary: false, clientX: x, clientY: y, bubbles: true }));
+  }, [t.x + t.width/2, t.y + t.height/2]);
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 8000 });
+});
+
+/* …and a palm landing on the board is not a wrong answer. It used to count as
+   a miss, driving the fallback and the frustration detector while the child
+   had not chosen anything. */
+test('a hand on empty board is not scored as a miss', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 1);
+  await waitForInteractive(page, 'tap');
+  const stage = await page.locator('#stage').boundingBox();
+  for (let i = 0; i < 3; i++){
+    await page.mouse.click(stage.x + 10, stage.y + stage.height - 10);
+    await page.waitForTimeout(220);
+  }
+  const st = await page.evaluate(() => ({
+    wrong: CF.Engine.wrongCount, fallback: CF.Engine.usedFallback,
+    first: CF.Engine.curRecord.firstAttemptCorrect }));
+  expect(st.wrong).toBe(0);
+  expect(st.fallback).toBe(false);
+  expect(st.first).toBe(null);        // still no answer given
+});
+
+/* Several contacts at once — a grab, a palm — are one clumsy gesture, not
+   several taps. */
+test('simultaneous contacts count as one tap, not several', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 2);            // 7.3: four tappable letters
+  await waitForInteractive(page, 'tapplace');
+  const ids = await page.evaluate(() => CF.Engine.cur.places.map(p => p.el));
+  const boxes = [];
+  for (const id of ids) boxes.push(await page.locator(`[data-el="${id}"]`).boundingBox());
+  // four fingers land across the letters within a few ms of each other
+  await page.evaluate(pts => {
+    pts.forEach(([x, y], i) => {
+      const el = document.elementFromPoint(x, y);
+      el.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 40 + i, pointerType: 'touch',
+        isPrimary: i === 0, clientX: x, clientY: y, bubbles: true }));
+    });
+  }, boxes.map(b => [b.x + b.width/2, b.y + b.height/2]));
+  await page.waitForTimeout(900);
+  const placed = await page.evaluate(ids =>
+    ids.filter(id => document.querySelector(`[data-el="${id}"]`).classList.contains('placed')).length, ids);
+  expect(placed).toBe(1);
+});
+
 /* iPad reality check: toddlers rest spare fingers on the glass mid-drag. A
    second pointer must not steal the piece, move it, or end the gesture. */
 test('a second finger during a drag cannot hijack or end it', async ({ page }) => {
