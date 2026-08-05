@@ -80,7 +80,7 @@ const LP_LOCK = `<span class="lp-lock"><svg viewBox="0 0 24 24" width="14" heigh
 // per-node colors for the dense "all levels" tiles — 8 clearly-distinct hues so a
 // run of same-colored tiles reads as one section (the id numbers aren't enough)
 const NODE_ACCENT = { intro:'#22B8C6', identity:'#3D7BE0', magnitude:'#9B6DF2',
-  quantity:'#33A852', spatial:'#F2704B', composition:'#E8A81C', peekaboo:'#EC5D96', letters:'#7A5AC7' };
+  quantity:'#33A852', spatial:'#F2704B', composition:'#E8A81C', peekaboo:'#EC5D96', letters:'#7A5AC7', dressing:'#2E9E8F' };
 
 // "All levels" as a home-screen MODE: one dense grid of every level + the mini
 // games, packed continuously (no per-section rows, so no big partial-row gaps).

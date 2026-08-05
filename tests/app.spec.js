@@ -63,7 +63,7 @@ test('loads clean with the concept cards', async ({ page }) => {
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await boot(page, { unlockAll: false });
-  await expect(page.locator('.ccard')).toHaveCount(8);   // Intro + 7 concept nodes
+  await expect(page.locator('.ccard')).toHaveCount(9);   // Intro + 8 concept nodes
   expect(errors).toEqual([]);
 });
 
@@ -366,7 +366,7 @@ test('all-levels toggles as a home mode with one dense grid of every level', asy
   await expect(page.locator('#view-home')).toHaveClass(/levels-mode/);
   await expect(page.locator('#concept-grid')).toBeHidden();
   await expect(page.locator('#all-levels .al-grid')).toBeVisible();
-  await expect(page.locator('#all-levels .al-tile')).toHaveCount(37);   // 33 levels + 4 mini, one grid
+  await expect(page.locator('#all-levels .al-tile')).toHaveCount(40);   // 36 levels + 4 mini, one grid
   await expect(page.locator('#btn-map .bm-label')).toHaveText('Games');
   // toggle OFF — back to the concept-card view (still the home screen)
   await page.locator('#btn-map').click();
@@ -665,6 +665,52 @@ test('simultaneous contacts count as one tap, not several', async ({ page }) => 
   const placed = await page.evaluate(ids =>
     ids.filter(id => document.querySelector(`[data-el="${id}"]`).classList.contains('placed')).length, ids);
   expect(placed).toBe(1);
+});
+
+/* Node 8 carries the tap-to-place idea onto a body. A garment must land on the
+   part it belongs to — and since the child, the empty spots and the worn
+   garments are one shared drawing, "landed" means the element sits exactly on
+   its spot at any screen shape. */
+test('dressing 8.2: each garment goes to its own part of the body', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'dressing', 1);
+  await waitForInteractive(page, 'tapplace');
+  const places = await page.evaluate(() => CF.Engine.cur.places.map(p => [p.el, p.slot]));
+  expect(places.map(p => p[0]).sort()).toEqual(['hat', 'pants', 'shirt']);
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  for (const [garment, spot] of places){
+    const b = await page.locator(`[data-el="${garment}"]`).boundingBox();
+    await page.mouse.click(b.x + b.width/2, b.y + b.height/2);
+    await page.waitForTimeout(700);
+    const gap = await page.evaluate(([a, c]) => {
+      const r1 = document.querySelector(`[data-el="${a}"]`).getBoundingClientRect();
+      const r2 = document.querySelector(`[data-el="${c}"]`).getBoundingClientRect();
+      return Math.hypot(r1.x - r2.x, r1.y - r2.y);
+    }, [garment, spot]);
+    expect(gap).toBeLessThan(4);
+  }
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 10000 });
+});
+
+/* A garment in the tray is the worn artwork pushed off-centre, so its box is
+   much bigger than the cloth. Only the cloth may answer a tap, or a garment
+   would swallow taps aimed at its neighbour. */
+test('dressing: a tap between two garments hits neither', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'dressing', 2);           // 8.3: five garments, boxes overlap
+  await waitForInteractive(page, 'tapplace');
+  const ids = await page.evaluate(() => CF.Engine.cur.places.map(p => p.el));
+  for (const id of ids)
+    expect(await page.locator(`[data-el="${id}"]`).evaluate(el => el.classList.contains('painted-hit'))).toBe(true);
+  // the gap between the first two tray items, vertically clear of the cloth
+  const a = await page.locator(`[data-el="${ids[0]}"]`).boundingBox();
+  await page.mouse.click(a.x + a.width / 2, a.y + 6);   // top edge of the box, above the garment
+  await page.waitForTimeout(400);
+  const placed = await page.evaluate(list =>
+    list.filter(id => document.querySelector(`[data-el="${id}"]`).classList.contains('placed')).length, ids);
+  expect(placed).toBe(0);
+  expect(await page.evaluate(() => CF.Engine.wrongCount)).toBe(0);
 });
 
 /* iPad reality check: toddlers rest spare fingers on the glass mid-drag. A

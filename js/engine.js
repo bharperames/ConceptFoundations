@@ -431,6 +431,15 @@ const Engine = {
       if (spec.cls) el.classList.add(spec.cls);
       if (spec.raining){ el.classList.add('raining'); rainAt = spec.x; }
       if ((this.cur.kind === 'drag' || this.cur.kind === 'stack') && spec.piece) el.classList.add('painted-hit');
+      // tappable art inside an oversized box (a garment waiting in the tray):
+      // only the drawn cloth should answer a tap, or the invisible box would
+      // swallow taps meant for its neighbour
+      if (spec.paintedHit) el.classList.add('painted-hit');
+      if (spec.looseArt){
+        el.classList.add('dress-loose');
+        el.style.setProperty('--ox', spec.looseArt.ox);
+        el.style.setProperty('--oy', spec.looseArt.oy);
+      }
       stage.appendChild(el);
     }
     if (this.cur.stackScene) this.layoutStack();
@@ -1079,6 +1088,9 @@ const Engine = {
     const slot = stage.querySelector(`[data-el="${spec.slot}"]`);
     if (!slot) return;
     el.classList.add('placed', 'flying');
+    // a tray copy is the worn artwork pushed off-centre; letting that go IS the
+    // animation — the garment slides onto the body in one move
+    el.classList.remove('dress-loose');
     el.style.left = slot.style.left;
     el.style.top = slot.style.top;
     if (el.dataset.letter) Audio2.speak(sayGlyph(el.dataset.letter));

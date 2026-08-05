@@ -29,7 +29,7 @@ Everything lives in a single self-contained file: **`index.html`**
 
 ## Curriculum
 
-Eight nodes, thirty-three micro-levels, each run as E→C→T(×3):
+Nine nodes, thirty-six micro-levels, each run as E→C→T(×3):
 
 | Node | Levels | Interaction | Prerequisite |
 |---|---|---|---|
@@ -41,6 +41,7 @@ Eight nodes, thirty-three micro-levels, each run as E→C→T(×3):
 | 5 · Composition (Build It) | 5.1–5.4 | drag / assembly / physics | Spatial |
 | 6 · Peekaboo | 6.1–6.4 | tap (object permanence) | Identity |
 | 7 · Letters (ABC Magnets) | 7.1–7.4 | tap + drag on a magnet board | Spatial |
+| 8 · Dressing (Get Dressed) | 8.1–8.3 | tap to place, on a body | Identity |
 
 Two levels use the block-physics engine. Spatial 4.2 ("On top") teaches the
 spatial *relation* — one block onto one other block. Composition 5.3 ("Tower")
@@ -112,6 +113,23 @@ cannot smooth over, 120ms, or 300ms for `||` — so a letter name never runs int
 the next word, and each segment is looked up in `CLIP_MAP` on its own. Beats can
 also be tied to elements, which is how the letters of a name bounce in turn as
 it is spelled.
+
+Dressing (Node 8) carries the tap-to-place idea onto a body: pants→legs,
+shirt→tummy, hat→head, socks and shoes→feet. Every garment has exactly one
+place and none is a wrong answer, so it stays errorless while still training
+object→place matching and body-part vocabulary — on a routine the child already
+lives through twice a day. It grew out of one line, *"Baby, put your pants on,
+pants on, pants on"*, which is 8.1's prompt.
+
+The child, the empty spots and the worn garments are all one shared drawing
+(`js/dress.js`), rendered as the same size element at the same position, so
+"on the legs" is baked into the artwork rather than into a stage-% coordinate
+that would drift away from the body as the screen changes shape. A garment
+waiting in the tray is that same artwork with its `<svg>` pushed back to the
+centre of its box; letting go of that offset *is* the animation, which is why a
+garment can slide from the tray onto the body in one move. Its box is therefore
+as tall as the child, so taps are painted-only — the cloth answers, the empty
+box does not.
 
 Each level has its own failure fallback (pulse target, reduce field to 1v1,
 expand snap radius, auto-demo the drag, magnetic snap, flash the completed

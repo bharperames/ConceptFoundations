@@ -23,13 +23,16 @@ js/
   audio.js            Audio2 (speech + curated-clip playback + tones) & Captions; CLIP_MAP
   art.js              Color palette + every flat-SVG factory (shapes, spider, spout, blocks,
                       bubble, clock, box, button, cards…) + NICON node icons
+  dress.js            Getting dressed: the child, each garment and each empty
+                      spot in one shared drawing space, so a garment lands on
+                      the body it was authored against
   letters.js          The magnet alphabet: glossy moulded A–Z / 0–9 + empty board
                       spots, the four plastic colors, the confusable-pair table
                       (sight AND sound), and the early-phoneme / name pools
   fx.js               FX (confetti/spark/cheer) + Celebrate (canvas fireworks) + TROPHY/RIBBON
   trials.js           elShape, tapTrial, watchTrial, dragTrial, zoneEl, CLUSTER, rowXs
-  generators.js       The 9 level generators (outlier, size, hideSeek, introTap, spout,
-                      quantity, letterTap, letterFind, letterBoard)
+  generators.js       The 11 level generators (outlier, size, hideSeek, introTap, spout,
+                      quantity, letterTap, letterFind, letterTapPlace, letterBoard, dress)
   nodes.js            NODES — the curriculum tree (8 nodes × ~30 levels), each level.make() → trial set
   voices.js           Debug only: the voice bench (?voices=1) and the in-context
                       audio HUD (?debug=1) — every spoken line, playable, with

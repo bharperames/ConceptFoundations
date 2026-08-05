@@ -1,4 +1,5 @@
 import { $ } from './core.js';
+import { DRESS_ICON } from './dress.js';
 import { LETTERS_ICON } from './letters.js';
 
 const C = { sea:'#3D8BFF', coral:'#FF5D55', sun:'#FFC02E', grass:'#33C06A', grape:'#9B6DF2', tang:'#FF8A3C' };
@@ -194,6 +195,7 @@ const NICON = {
   spatial:  `<svg class="cicon" viewBox="0 0 100 100"><rect x="18" y="34" width="64" height="52" rx="9" fill="#E5EFF8" stroke="#A9C6E0" stroke-width="5"/><circle cx="50" cy="60" r="16" fill="${C.coral}"/></svg>`,
   peekaboo:`<svg class="cicon" viewBox="0 0 100 100"><rect x="12" y="24" width="34" height="46" rx="7" fill="#6FA8E8"/><rect x="54" y="24" width="34" height="46" rx="7" fill="#6FA8E8"/><circle cx="71" cy="47" r="9" fill="#B7D6F7"/><path d="M20 78 Q34 62 46 78" fill="none" stroke="${C.coral}" stroke-width="6" stroke-linecap="round"/></svg>`,
   letters: LETTERS_ICON,
+  dressing: DRESS_ICON,
   composition:`<svg class="cicon" viewBox="0 0 100 100"><path d="M24 46 L50 22 L76 46 Z" fill="${C.coral}"/><rect x="30" y="46" width="40" height="34" rx="4" fill="${C.sun}"/><rect x="44" y="60" width="12" height="20" rx="3" fill="${C.sea}"/></svg>`,
 };
 

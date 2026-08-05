@@ -1,7 +1,7 @@
 {
   "source_project": "~/Code/MR_AudioClips",
   "layer": "gold",
-  "note": "Acquired by scripts/sync_clips.py from the producer's GOLD layer (assets.db) by durable asset_id. SQL lives only in the acquire tool; the app ships the embedded, loudness-normalized mp3s in this folder and never reads a database. Entries with asset_id are gold-backed; entries with pending_gold are not yet promoted to gold \u2014 the committed file is kept and a promotion is requested (see docs/message-to-mr-audioclips.md).",
+  "note": "Acquired by scripts/sync_clips.py from the producer's GOLD layer (assets.db) by durable asset_id. SQL lives only in the acquire tool; the app ships the embedded, loudness-normalized mp3s in this folder and never reads a database. Entries with asset_id are gold-backed; entries with pending_gold are not yet promoted to gold — the committed file is kept and a promotion is requested (see docs/message-to-mr-audioclips.md).",
   "clips": [
     {
       "dest": "great_job.mp3",
@@ -287,6 +287,13 @@
       "src_sha256": "34b9041ea7da89e83797927bfa4ff1608bf2710d69c9267e6f5fe30688e28b46",
       "dest_sha256": "313ecce42b7b3abeef8b1cacd6f54624ffc2f8deda69187b6affb8d53ba25107",
       "normalized": "-14.0 LUFS + limiter"
+    },
+    {
+      "dest": "pants_on.mp3",
+      "phrase": "baby put your pants on pants on pants on",
+      "pending_gold": "clip_5a6e89fe5bd9",
+      "note": "Silver clip, not yet promoted to gold — the committed file is the producer's silver cut of raw_audio/baby_put_your_pants_on.mp3 (20.818-24.860). Node 8 (Get Dressed) is built around this line. Promote it and this entry gains an asset_id like any other.",
+      "normalized": "raw"
     }
   ]
 }

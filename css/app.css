@@ -831,6 +831,14 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   transition:transform .07s linear;
   filter:drop-shadow(0 0 calc(var(--warm,0) * 2vmin) rgba(110,225,155,calc(var(--warm,0) * .95)));
 }
+/* A garment waiting in the tray is the WORN artwork, shoved back to the centre
+   of its box by --ox/--oy. Dropping the class returns it to where it belongs on
+   the body, and the transition is the garment sliding on. The offset goes on
+   the <svg>, not the element: .el.appear animates the element's transform with
+   fill-mode:both and its last keyframe would win forever. */
+.el.dress-loose svg{ transform:translate(calc(-1 * var(--ox,0%)), calc(-1 * var(--oy,0%))); }
+.el.flying svg{ transition:transform .42s cubic-bezier(.3,1.25,.4,1); }
+
 /* tapped in 7.3: the letter flies from the tray onto its own spot */
 .el.flying{
   transition:left .42s cubic-bezier(.3,1.25,.4,1), top .42s cubic-bezier(.3,1.25,.4,1);

@@ -1,5 +1,6 @@
 import { BUBBLE_ART, C, CARD_IMG, CLOUD2, COLOR_KEYS, COLOR_PAIRS, COVER, COVER_COLORS, CUCKOO_CLOCK, DROP_RING, OPEN_SHUT_BOX, PUSH_BTN, SHAPES, SHAPE_KEYS, SIL, SPIDER, SPOUT, SUN2 } from './art.js';
 import { $, clamp, pick, pick2, shuffle } from './core.js';
+import { CENTRE, DRESS_COLORS, DRESS_ITEM, DRESS_SPOT, FIGURE, GARMENT, dressColor } from './dress.js';
 import { CHILD_NAME, LETTER_GHOST, MAGNET_LETTER, NAME_LETTERS, pickColors, pickNamed, sayGlyph } from './letters.js';
 import { dragTrial, elShape, rowXs, tapTrial, watchTrial, zoneEl } from './trials.js';
 
@@ -332,6 +333,58 @@ function letterBoardLevel(rng, {isGen} = {}){
   };
 }
 
+/* ── Getting dressed (Node 8) ──────────────────────────────────────────────
+   Every garment has exactly one place on the body, and none of them is a wrong
+   answer — tap one and it slides on, named as it lands ("pants, on your
+   legs!"). It is the tap-to-place idea from Letters 7.3 carried into a
+   different domain, which is what generalization means here: the same "each
+   thing has its own place", now on a body instead of a board, and on a routine
+   he already lives through twice a day.
+
+   The child, the empty spots and the worn garments are all the SAME size at the
+   SAME position — one shared drawing space (see js/dress.js) — so a garment
+   cannot land off the body no matter the screen shape. Only the tray copies sit
+   elsewhere, and they carry the offset that puts them back. */
+// the child sits high enough that the tray never crowds their feet — a tray
+// garment is drawn at WORN size, so its box is as tall as the figure
+const FIG_X = 50, FIG_Y = 36, FIG_S = 52, TRAY_Y = 87;
+
+function dressLevel(rng, {items, isGen} = {}){
+  const cols = shuffle(rng, DRESS_COLORS.slice());
+  const colorOf = k => dressColor(cols[items.indexOf(k) % cols.length]);
+  const figure = () => elShape('kid', FIGURE(), FIG_X, FIG_Y, FIG_S, {scenery:true});
+  const spot = k => elShape('spot-' + k, DRESS_SPOT(k), FIG_X, FIG_Y, FIG_S, {scenery:true});
+  const worn = k => elShape('worn-' + k, DRESS_ITEM(k, colorOf(k)), FIG_X, FIG_Y, FIG_S, {scenery:true});
+
+  const mkTest = t => {
+    // the tray order changes every round; the body never does
+    const order = shuffle(rng, items.slice());
+    const xs = rowXs(items.length);
+    const els = [ figure(), ...items.map(spot) ];
+    order.forEach((k, i) => els.push(
+      elShape(k, DRESS_ITEM(k, colorOf(k)), xs[i], TRAY_Y, FIG_S,
+        { tappable:true, target:true, paintedHit:true, looseArt: CENTRE(k), meta:{ garment:k } })));
+    const first = items[0];
+    return { kind:'tapplace', state: isGen ? 'GENERALIZE' : 'TEST', timeoutMs: 18000,
+      prompt: items.length === 1 ? 'Put the ' + GARMENT[first].name + ' on' : 'Get dressed!',
+      say: items.length === 1
+        ? (t === 0 ? 'Baby, put your pants on, pants on, pants on.'
+                   : `Put the ${GARMENT[first].name} on your ${GARMENT[first].where}!`)
+        : 'Time to get dressed! | Tap each one and put it on.',
+      elements: els,
+      places: items.map(k => ({ el: k, slot: 'spot-' + k })) };
+  };
+  return {
+    expose: watchTrial({ state:'EXPOSE', prompt:'All dressed!',
+      say:'Look — all dressed! | Ready to go.',
+      elements:[ figure(), ...items.map(worn) ]}),
+    contrast: watchTrial({ state:'CONTRAST', prompt:'Nothing on!',
+      say:'Uh oh! || Nothing on yet. | Everything has its own place.',
+      elements:[ figure(), ...items.map(spot) ]}),
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
+  };
+}
+
 function quantityLevel(rng, {pairs, ask, item}){
   const ic = item === 'apple' ? C.coral : C[pick(rng, ['sea','grape','tang'])];
   const svg = SIL[item](ic);
@@ -359,4 +412,4 @@ function quantityLevel(rng, {pairs, ask, item}){
 /* ═══════════════════════ 5 · Storage ══════════════════════════════════════ */
 
 export { outlierLevel, sizeLevel, hideSeekLevel, introTapLevel, spoutLevel, quantityLevel,
-         letterTapLevel, letterFindLevel, letterTapPlaceLevel, letterBoardLevel };
+         letterTapLevel, letterFindLevel, letterTapPlaceLevel, letterBoardLevel, dressLevel };

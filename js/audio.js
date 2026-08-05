@@ -71,6 +71,7 @@ const Audio2 = (() => {
     'pop': 'pop.mp3',
     'cuckoo': 'cuckoo.mp3',
     'you did it': 'you_did_it.mp3',
+    'baby put your pants on pants on pants on': 'pants_on.mp3',
     'open them shut them': 'open_shut.mp3',
     'bubble bubble bubble bubble bubble pop': 'bubble_pop.mp3',
     // itsy-bitsy-spider song (spout cause→effect) — one continuous take, 3 lines

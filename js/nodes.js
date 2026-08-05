@@ -1,6 +1,6 @@
 import { BALL, BOX, C, CHEVRON, CIRC_HOLE, COLOR_KEYS, COLOR_PAIRS, HALF_L, HALF_R, HOUSE, PUZ_L, PUZ_R2, SHAPES, SHAPE_KEYS, SIL, STAR_HOLE, WOOD_BLOCK } from './art.js';
 import { pick, pick2, shuffle } from './core.js';
-import { hideSeekLevel, introTapLevel, letterBoardLevel, letterFindLevel, letterTapLevel, letterTapPlaceLevel, outlierLevel, quantityLevel, sizeLevel, spoutLevel } from './generators.js';
+import { dressLevel, hideSeekLevel, introTapLevel, letterBoardLevel, letterFindLevel, letterTapLevel, letterTapPlaceLevel, outlierLevel, quantityLevel, sizeLevel, spoutLevel } from './generators.js';
 import { dragTrial, elShape, rowXs, tapTrial, watchTrial } from './trials.js';
 
 const NODES = [
@@ -391,6 +391,18 @@ const NODES = [
       make(rng){ return letterTapPlaceLevel(rng); }},
     { id:'7.4', name:'Spell your name', focus:'The same placing, now by dragging — and the word is his own name', isGen:true, fallback:'magnetSnap',
       make(rng){ return letterBoardLevel(rng, { isGen:true }); }},
+  ],
+},
+{
+  key:'dressing', num:9, title:'Get Dressed', parentName:'Dressing',
+  tag:'Every piece of clothing has its own place', prereqs:['identity'],
+  levels:[
+    { id:'8.1', name:'Pants on!', focus:'One garment, one place — the song made playable', fallback:'pulseTarget',
+      make(rng){ return dressLevel(rng, { items:['pants'] }); }},
+    { id:'8.2', name:'Get dressed', focus:'Three garments, each to its own part of the body', fallback:'pulseTarget',
+      make(rng){ return dressLevel(rng, { items:['pants','shirt','hat'] }); }},
+    { id:'8.3', name:'Generalization', focus:'The whole outfit, including two that share the feet', isGen:true, fallback:'glowTarget',
+      make(rng){ return dressLevel(rng, { items:['pants','shirt','hat','socks','shoes'], isGen:true }); }},
   ],
 },
 ];
