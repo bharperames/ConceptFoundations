@@ -1,7 +1,7 @@
 {
   "source_project": "~/Code/MR_AudioClips",
   "layer": "gold",
-  "note": "Acquired by scripts/sync_clips.py from the producer's GOLD layer (assets.db) by durable asset_id. SQL lives only in the acquire tool; the app ships the embedded, loudness-normalized mp3s in this folder and never reads a database. Entries with asset_id are gold-backed; entries with pending_gold are not yet promoted to gold — the committed file is kept and a promotion is requested (see docs/message-to-mr-audioclips.md).",
+  "note": "Acquired by scripts/sync_clips.py from the producer's GOLD layer (assets.db) by durable asset_id. SQL lives only in the acquire tool; the app ships the embedded, loudness-normalized mp3s in this folder and never reads a database. Entries with asset_id are gold-backed; entries with pending_gold are not yet promoted to gold \u2014 the committed file is kept and a promotion is requested (see docs/message-to-mr-audioclips.md).",
   "clips": [
     {
       "dest": "great_job.mp3",
@@ -291,9 +291,21 @@
     {
       "dest": "pants_on.mp3",
       "phrase": "baby put your pants on pants on pants on",
-      "pending_gold": "clip_5a6e89fe5bd9",
-      "note": "Silver clip, not yet promoted to gold — the committed file is the producer's silver cut of raw_audio/baby_put_your_pants_on.mp3 (20.818-24.860). Node 8 (Get Dressed) is built around this line. Promote it and this entry gains an asset_id like any other.",
-      "normalized": "raw"
+      "asset_id": "asset_4b2fceab82ff",
+      "asset": {
+        "name": "Baby, put your pants on, pants on, pants on",
+        "text": "Baby, put your pants on, pants on, pants on.",
+        "source_file": "raw_audio/baby_put_your_pants_on.mp3",
+        "start": 20.818,
+        "end": 24.759,
+        "duration": 3.941,
+        "has_music": 0,
+        "voice_id": null,
+        "updated_at": "2026-08-05T18:40:09Z"
+      },
+      "src_sha256": "57bf13c7b1aaa2e7bb3b3a734041bafa623a1501e361b9936ad1e090b5c1970a",
+      "dest_sha256": "d05f14a2bcdf0140d044417dfa48612f3c13cbcf8f6eb6ab95358f78e54ba993",
+      "normalized": "-14.0 LUFS + limiter"
     }
   ]
 }

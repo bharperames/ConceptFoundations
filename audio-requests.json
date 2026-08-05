@@ -9,16 +9,5 @@
     "In-use dependencies are NOT authored here. clips/clips.manifest.json is the authoritative list of asset_ids we ship; register_demand.py mirrors it into the `usage` table for the 'don't de-curate these' signal.",
     "Run `make register-demand` to push this ledger into assets.db and read back fulfilled_by (OPEN / READY / STALE)."
   ],
-  "requests": [
-    {
-      "phrase": "Baby, put your pants on, pants on, pants on.",
-      "norm": "baby put your pants on pants on pants on",
-      "used_in": [
-        "Dressing 8.1 — the prompt the whole level is built on"
-      ],
-      "priority": "high",
-      "currently": "clips/pants_on.mp3 — the producer's SILVER cut clip_5a6e89fe5bd9, committed as pending_gold",
-      "note": "Already exists as a silver clip (raw_audio/baby_put_your_pants_on.mp3, 20.818-24.860). This is a promotion request, not a new recording: promote it to gold so it gains a durable asset_id and syncs like every other clip. Node 8 is built around this line."
-    }
-  ]
+  "requests": []
 }
