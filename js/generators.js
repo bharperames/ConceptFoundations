@@ -238,15 +238,56 @@ function letterFindLevel(rng, {n = 3, isGen} = {}){
    Laid out at 18% spacing with 16vmin letters: wide enough that pieces never
    overlap on a portrait iPad, tight enough to read as one word rather than
    four unrelated spots. */
-function letterBoardLevel(rng, {isGen} = {}){
+/* The name laid out on the board, shared by the two levels that spell it: the
+   word across the top, loose letters below. 18% spacing with 16vmin letters is
+   wide enough that pieces never overlap on a portrait iPad and tight enough to
+   read as one word rather than four unrelated spots. */
+function nameBoard(rng){
   const word = NAME_LETTERS;
   const cols = pickColors(rng, word.length);
   const wx = word.map((_, i) => 50 + (i - (word.length - 1) / 2) * 18);
-  const wy = 34, ws = 16, trayY = 74;
-  const ghosts = () => word.map((ch, i) =>
-    elShape('g' + i, LETTER_GHOST(ch), wx[i], wy, ws, {scenery:true, letter:ch}));
-  const placed = i =>
-    elShape('w' + i, MAGNET_LETTER(word[i], cols[i]), wx[i], wy, ws, {scenery:true});
+  return { word, cols, wx, wy: 34, ws: 16, trayY: 74,
+    ghosts: () => word.map((ch, i) =>
+      elShape('g' + i, LETTER_GHOST(ch), wx[i], 34, 16, {scenery:true, letter:ch})),
+    placed: i => elShape('w' + i, MAGNET_LETTER(word[i], cols[i]), wx[i], 34, 16, {scenery:true}),
+    loose: (i, x, extra) => elShape('p' + i, MAGNET_LETTER(word[i], cols[i]), x, 74, 16,
+      Object.assign({ letter: word[i] }, extra)),
+  };
+}
+
+/* 7.3 — the whole name, by TAPPING. Every letter belongs somewhere and none is
+   wrong: tap one and it flies up and clicks onto its own spot. Same idea as 7.4
+   — each letter has a place — but on the gesture a toddler is already reliable
+   at, so the word gets built before dragging is ever asked for. Tapping a
+   letter that is already home just says its name again. */
+function letterTapPlaceLevel(rng){
+  const N = nameBoard(rng);
+  const mkTest = t => {
+    const tx = shuffle(rng, N.wx.slice());
+    return { kind:'tapplace', state:'TEST', timeoutMs: 16000,
+      prompt:'Tap the letters',
+      say: t === 0 ? `Tap every letter! || They spell ${CHILD_NAME}.` : 'Tap them all!',
+      elements: [ magnetBoard(), ...N.ghosts(),
+        ...N.word.map((_, i) => N.loose(i, tx[i], { tappable:true, target:true })) ],
+      places: N.word.map((_, i) => ({ el:'p' + i, slot:'g' + i })) };
+  };
+  return {
+    expose: watchTrial(Object.assign({ state:'EXPOSE', prompt: CHILD_NAME + '!',
+      elements:[ magnetBoard(), ...N.ghosts(), ...N.word.map((_, i) => N.placed(i)) ]},
+      beatLine([{ say:`This says ${CHILD_NAME}!` },
+        ...N.word.map((ch, i) => ({ say: sayGlyph(ch), el:'w' + i, long:true }))]))),
+    contrast: watchTrial({ state:'CONTRAST', prompt:'All mixed up',
+      say:'Now the letters are all mixed up! | Every one has its own spot.',
+      elements:[ magnetBoard(), ...N.ghosts(),
+        ...N.word.map((_, i) => N.loose(i, N.wx[N.word.length - 1 - i], {scenery:true})) ]}),
+    tests:[mkTest(0), mkTest(1), mkTest(2)],
+  };
+}
+
+function letterBoardLevel(rng, {isGen} = {}){
+  const N = nameBoard(rng);
+  const { word, cols, wx, wy, ws, trayY } = N;
+  const ghosts = N.ghosts, placed = N.placed;
 
   // how much of the name each round asks for: the tail first (the opening
   // letters keep the word readable), then the whole thing. Every round shows
@@ -318,4 +359,4 @@ function quantityLevel(rng, {pairs, ask, item}){
 /* ═══════════════════════ 5 · Storage ══════════════════════════════════════ */
 
 export { outlierLevel, sizeLevel, hideSeekLevel, introTapLevel, spoutLevel, quantityLevel,
-         letterTapLevel, letterFindLevel, letterBoardLevel };
+         letterTapLevel, letterFindLevel, letterTapPlaceLevel, letterBoardLevel };

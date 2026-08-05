@@ -831,6 +831,11 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   transition:transform .07s linear;
   filter:drop-shadow(0 0 calc(var(--warm,0) * 2vmin) rgba(110,225,155,calc(var(--warm,0) * .95)));
 }
+/* tapped in 7.3: the letter flies from the tray onto its own spot */
+.el.flying{
+  transition:left .42s cubic-bezier(.3,1.25,.4,1), top .42s cubic-bezier(.3,1.25,.4,1);
+  z-index:6;
+}
 /* named: the letter hops as the voice says it, so hearing and seeing line up */
 .el.say-bounce{animation:saybounce .5s cubic-bezier(.2,1.5,.4,1)}
 @keyframes saybounce{

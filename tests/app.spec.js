@@ -366,7 +366,7 @@ test('all-levels toggles as a home mode with one dense grid of every level', asy
   await expect(page.locator('#view-home')).toHaveClass(/levels-mode/);
   await expect(page.locator('#concept-grid')).toBeHidden();
   await expect(page.locator('#all-levels .al-grid')).toBeVisible();
-  await expect(page.locator('#all-levels .al-tile')).toHaveCount(36);   // 32 levels + 4 mini, one grid
+  await expect(page.locator('#all-levels .al-tile')).toHaveCount(37);   // 33 levels + 4 mini, one grid
   await expect(page.locator('#btn-map .bm-label')).toHaveText('Games');
   // toggle OFF — back to the concept-card view (still the home screen)
   await page.locator('#btn-map').click();
@@ -498,9 +498,54 @@ test('letters 7.2: only the named letter counts; distractors never match its col
   await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i, idxBefore, { timeout: 8000 });
 });
 
-test('letters 7.3: a letter dragged onto its own spot sticks; the wrong spot does not', async ({ page }) => {
+/* 7.3 assembles the name by TAPPING — no letter is wrong, and the trial ends
+   only when every one has flown to its spot. */
+test('letters 7.3: tapping each letter flies it to its own spot and spells the name', async ({ page }) => {
   await boot(page);
   await startLevel(page, 'letters', 2);
+  await waitForInteractive(page, 'tapplace');
+  const places = await page.evaluate(() => CF.Engine.cur.places.map(p => [p.el, p.slot]));
+  expect(places.length).toBe(4);
+  const idxBefore = await page.evaluate(() => CF.Engine.trialIdx);
+  for (const [pieceId, slotId] of places){
+    const before = await page.evaluate(() => CF.Engine.trialIdx);
+    expect(before).toBe(idxBefore);              // no early finish
+    const p = await page.locator(`[data-el="${pieceId}"]`).boundingBox();
+    await page.mouse.click(p.x + p.width/2, p.y + p.height/2);
+    await page.waitForTimeout(700);
+    // it landed on ITS spot, not somewhere near
+    const gap = await page.evaluate(([a, b]) => {
+      const r1 = document.querySelector(`[data-el="${a}"]`).getBoundingClientRect();
+      const r2 = document.querySelector(`[data-el="${b}"]`).getBoundingClientRect();
+      return Math.hypot(r1.x - r2.x, r1.y - r2.y);
+    }, [pieceId, slotId]);
+    expect(gap).toBeLessThan(4);
+  }
+  await page.waitForFunction(i => !CF.Engine.active || CF.Engine.trialIdx > i,
+    idxBefore, { timeout: 10000 });
+});
+
+/* Tapping a letter that is already home repeats its name rather than doing
+   nothing — the word stays available on demand. */
+test('letters 7.3: re-tapping a placed letter says it again and does not advance', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 2);
+  await waitForInteractive(page, 'tapplace');
+  const pieceId = await page.evaluate(() => CF.Engine.cur.places[0].el);
+  const box = await page.locator(`[data-el="${pieceId}"]`).boundingBox();
+  await page.mouse.click(box.x + box.width/2, box.y + box.height/2);
+  await page.waitForTimeout(700);
+  const idx = await page.evaluate(() => CF.Engine.trialIdx);
+  const spot = await page.locator(`[data-el="${pieceId}"]`).boundingBox();
+  await page.mouse.click(spot.x + spot.width/2, spot.y + spot.height/2);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => CF.Engine.trialIdx)).toBe(idx);
+  expect(await page.locator(`[data-el="${pieceId}"]`).evaluate(el => el.classList.contains('placed'))).toBe(true);
+});
+
+test('letters 7.4: a letter dragged onto its own spot sticks; the wrong spot does not', async ({ page }) => {
+  await boot(page);
+  await startLevel(page, 'letters', 3);
   await waitForInteractive(page, 'drag');
   const { pieceId, slotId, otherId } = await page.evaluate(() => {
     const p = CF.Engine.cur.pieces[0];
@@ -528,7 +573,7 @@ test('letters 7.3: a letter dragged onto its own spot sticks; the wrong spot doe
    a bare shadow with an unclipped highlight. */
 test('svg ids are unique across the whole document, hidden views included', async ({ page }) => {
   await boot(page);
-  await startLevel(page, 'letters', 2);          // the board: ghosts + letters + icons
+  await startLevel(page, 'letters', 3);          // the board: ghosts + letters + icons
   await waitForInteractive(page, 'drag');
   const dupes = await page.evaluate(() => {
     const seen = new Map();
@@ -556,7 +601,7 @@ test('svg ids are unique across the whole document, hidden views included', asyn
    second pointer must not steal the piece, move it, or end the gesture. */
 test('a second finger during a drag cannot hijack or end it', async ({ page }) => {
   await boot(page);
-  await startLevel(page, 'letters', 2);
+  await startLevel(page, 'letters', 3);
   await waitForInteractive(page, 'drag');
   const pieceId = await page.evaluate(() => CF.Engine.cur.pieces[0].el);
   const box = await page.locator(`[data-el="${pieceId}"]`).boundingBox();

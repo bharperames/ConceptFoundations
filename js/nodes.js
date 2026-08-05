@@ -1,6 +1,6 @@
 import { BALL, BOX, C, CHEVRON, CIRC_HOLE, COLOR_KEYS, COLOR_PAIRS, HALF_L, HALF_R, HOUSE, PUZ_L, PUZ_R2, SHAPES, SHAPE_KEYS, SIL, STAR_HOLE, WOOD_BLOCK } from './art.js';
 import { pick, pick2, shuffle } from './core.js';
-import { hideSeekLevel, introTapLevel, letterBoardLevel, letterFindLevel, letterTapLevel, outlierLevel, quantityLevel, sizeLevel, spoutLevel } from './generators.js';
+import { hideSeekLevel, introTapLevel, letterBoardLevel, letterFindLevel, letterTapLevel, letterTapPlaceLevel, outlierLevel, quantityLevel, sizeLevel, spoutLevel } from './generators.js';
 import { dragTrial, elShape, rowXs, tapTrial, watchTrial } from './trials.js';
 
 const NODES = [
@@ -387,7 +387,9 @@ const NODES = [
       make(rng){ return letterTapLevel(rng); }},
     { id:'7.2', name:'Which one is the A?', focus:'Discriminate one letterform from others', fallback:'pulseTarget',
       make(rng){ return letterFindLevel(rng, { n:3 }); }},
-    { id:'7.3', name:'Spell your name', focus:'Same discrimination, expressed by placing — and the word is his own name', isGen:true, fallback:'magnetSnap',
+    { id:'7.3', name:'Tap them all', focus:'Every letter has its own spot — built by tapping, the gesture that always works', fallback:'pulseTarget',
+      make(rng){ return letterTapPlaceLevel(rng); }},
+    { id:'7.4', name:'Spell your name', focus:'The same placing, now by dragging — and the word is his own name', isGen:true, fallback:'magnetSnap',
       make(rng){ return letterBoardLevel(rng, { isGen:true }); }},
   ],
 },

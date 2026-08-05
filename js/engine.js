@@ -502,7 +502,8 @@ const Engine = {
     const hit = e.target.closest ? e.target.closest('[data-el]') : null;
     const hitId = hit ? hit.dataset.el : null;
     const isTarget = !!(hit && hit.dataset.target);
-    const interactiveTrial = this.cur.kind === 'tap' || this.cur.kind === 'hideseek';
+    const interactiveTrial = this.cur.kind === 'tap' || this.cur.kind === 'hideseek'
+      || this.cur.kind === 'tapplace';
     const md = this.missDistance(e.clientX, e.clientY);
 
     Telemetry.event({
@@ -524,6 +525,7 @@ const Engine = {
 
     if (isTarget){
       this.frustration(now, false);
+      if (this.cur.kind === 'tapplace'){ this.flyToSpot(hit); return; }
       if (this.cur.kind === 'hideseek') this.revealUnder(hit);
       else if (this.cur.tapFx){ this.tapReward(hit, this.cur.tapFx, e.clientX, e.clientY); return; }
       this.completeTrial(true, {at:[e.clientX, e.clientY]});
@@ -1041,6 +1043,38 @@ const Engine = {
 
   onFrustration(){
     if (!this.usedFallback) this.applyFallback();
+  },
+
+  /* Tapped: the letter flies to its own spot and clicks on. Every letter has a
+     spot, so nothing here is a wrong answer — the trial finishes when the last
+     one lands. Tapping a letter already home just says its name again, which
+     is the whole word available on demand rather than a dead tap. */
+  flyToSpot(el){
+    const spec = (this.cur.places || []).find(p => p.el === el.dataset.el);
+    if (!spec) return;
+    const stage = this.stage();
+    if (el.classList.contains('placed')){
+      if (el.dataset.letter) Audio2.speak(sayGlyph(el.dataset.letter));
+      return;
+    }
+    const slot = stage.querySelector(`[data-el="${spec.slot}"]`);
+    if (!slot) return;
+    el.classList.add('placed', 'flying');
+    el.style.left = slot.style.left;
+    el.style.top = slot.style.top;
+    if (el.dataset.letter) Audio2.speak(sayGlyph(el.dataset.letter));
+    setTimeout(() => {
+      if (!this.active) return;
+      el.classList.remove('flying');
+      el.classList.remove('mag-snap'); void el.offsetWidth; el.classList.add('mag-snap');
+      Audio2.clack(0.3);
+      const r = slot.getBoundingClientRect();
+      FX.burst(r.left + r.width/2, r.top + r.height/2);
+      const all = this.cur.places.every(p =>
+        (stage.querySelector(`[data-el="${p.el}"]`) || {}).classList.contains('placed'));
+      if (all) setTimeout(() => this.completeTrial(true,
+        { at:[r.left + r.width/2, r.top + r.height/2] }), 500);
+    }, 420);
   },
 
   /* A quick hop, retriggerable: the class is removed and reflowed first, so a

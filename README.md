@@ -29,7 +29,7 @@ Everything lives in a single self-contained file: **`index.html`**
 
 ## Curriculum
 
-Eight nodes, thirty-two micro-levels, each run as E→C→T(×3):
+Eight nodes, thirty-three micro-levels, each run as E→C→T(×3):
 
 | Node | Levels | Interaction | Prerequisite |
 |---|---|---|---|
@@ -40,7 +40,7 @@ Eight nodes, thirty-two micro-levels, each run as E→C→T(×3):
 | 4 · Spatial (In & Out) | 4.1–4.4 | drag & drop, physics | Magnitude |
 | 5 · Composition (Build It) | 5.1–5.4 | drag / assembly / physics | Spatial |
 | 6 · Peekaboo | 6.1–6.4 | tap (object permanence) | Identity |
-| 7 · Letters (ABC Magnets) | 7.1–7.3 | tap + drag on a magnet board | Spatial |
+| 7 · Letters (ABC Magnets) | 7.1–7.4 | tap + drag on a magnet board | Spatial |
 
 Two levels use the block-physics engine. Spatial 4.2 ("On top") teaches the
 spatial *relation* — one block onto one other block. Composition 5.3 ("Tower")
@@ -78,9 +78,14 @@ Letters (Node 7) is a magnet board. The pieces are the classic plastic
 uppercase set — chunky rounded glyphs with filleted corners, moulded side
 walls and a gloss, drawn as layered SVG (`js/letters.js`), in the four colors a
 real set comes in; digits 0–9 are modelled too. 7.1 is errorless exposure (tap
-the letter, it hops and says its name), 7.2 asks "which one is the A?" with the
-named letter shown on a card *and* spoken, and 7.3 has the child drag each
-letter onto its own empty spot on the board, where it snaps on with a thunk.
+the letter, it hops and says its name) and 7.2 asks "which one is the A?" with
+the named letter shown on a card *and* spoken. 7.3 and 7.4 both spell the
+child's own name: 7.3 by **tapping** — every letter has a spot and none is
+wrong, so tapping one flies it home and the word assembles on the gesture a
+toddler is already reliable at — and 7.4 by **dragging**, handing back more of
+the word each round (the last letter, then two, then all of it). Tapping a
+letter already in place repeats its name, so the word stays available on
+demand.
 Distractors are drawn from a pool that never puts a confusable pair on the
 board at once — by sight (E/F, M/W, B/D) *and* by sound, since the names are
 spoken and "see"/"zee" barely separate. The pool itself is filtered to letters
