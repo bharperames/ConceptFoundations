@@ -40,6 +40,8 @@ js/
   dda.js              applyRunOutcome (dynamic difficulty), frustration detector
   engine.js           Engine — the trial state machine (see below)
   games/bubble.js     BubbleGame (Bubble Pop mini-game, canvas)
+  games/memory.js     MemoryGame (4×6 concentration; face-up preview, spoken
+                      turns, and help that escalates with misses)
   games/puzzle.js     PuzzleGame (rotating-prism Picture Puzzle)
   games/stacker.js    StackerGame (Block Stacker; Matter.js physics, AABB fallback)
   dashboard.js        PROFILES, Simulator (headless play), computeStats/Insights, charts, renderDash

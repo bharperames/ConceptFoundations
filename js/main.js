@@ -8,6 +8,7 @@ import { PuzzleGame } from './games/puzzle.js';
 import { StackerGame } from './games/stacker.js';
 import { GearGame } from './games/gears.js';
 import { GlowGame } from './games/glow.js';
+import { MemoryGame } from './games/memory.js';
 import { TrainGame } from './games/train.js';
 import { NODES } from './nodes.js';
 import { showView } from './router.js';
@@ -100,6 +101,7 @@ function init(){
       else if (card.dataset.mini === 'gears') GearGame.start();
       else if (card.dataset.mini === 'glow') GlowGame.start();
       else if (card.dataset.mini === 'train') TrainGame.start();
+      else if (card.dataset.mini === 'memory') MemoryGame.start();
     });
   });
   const bubStage = $('#bub-canvas');
@@ -117,6 +119,12 @@ function init(){
   $('#btn-gr-home').addEventListener('click', () => { GearGame.stop(); showView('home'); renderHome(); });
   $('#btn-gs-home').addEventListener('click', () => { GlowGame.stop(); showView('home'); renderHome(); });
   $('#btn-trn-home').addEventListener('click', () => { TrainGame.stop(); showView('home'); renderHome(); });
+  $('#btn-mem-home').addEventListener('click', () => { MemoryGame.stop(); showView('home'); renderHome(); });
+  $('#mem-again').addEventListener('click', () => MemoryGame.start());
+  $('#mem-board').addEventListener('click', e => {
+    const c = e.target.closest('.mem-card');
+    if (c) MemoryGame.tap(c);
+  });
   $('#stk-dbg-btn').addEventListener('click', e => {
     StackerGame.debug = !StackerGame.debug;
     e.currentTarget.classList.toggle('on', StackerGame.debug);
@@ -174,7 +182,7 @@ function init(){
   }
 
   // scripting hook for the test harness (drive trials, run simulations headlessly)
-  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame, StackerGame, GearGame, GlowGame, TrainGame,
+  window.CF = { Engine, Store, Simulator, Telemetry, NODES, PROFILES, Celebrate, BubbleGame, PuzzleGame, StackerGame, GearGame, GlowGame, TrainGame, MemoryGame,
     computeStats, computeInsights, renderDash, renderHome, showView, Audio2, openVoices };
 }
 init();

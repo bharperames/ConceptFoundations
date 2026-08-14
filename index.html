@@ -107,6 +107,20 @@
       <span class="cname">Train Set</span>
       <span class="clevel">Build a track, drive the train!</span>
     </button>
+    <button class="minicard" data-mini="memory">
+      <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
+        <rect x="8" y="16" width="36" height="30" rx="6" fill="#4C86D8"/>
+        <circle cx="26" cy="31" r="7" fill="#78ABEA"/>
+        <rect x="52" y="16" width="36" height="30" rx="6" fill="#4C86D8"/>
+        <circle cx="70" cy="31" r="7" fill="#78ABEA"/>
+        <rect x="8" y="54" width="36" height="30" rx="6" fill="#FFC02E"/>
+        <circle cx="26" cy="69" r="8" fill="#FF5D55"/>
+        <rect x="52" y="54" width="36" height="30" rx="6" fill="#FFC02E"/>
+        <circle cx="70" cy="69" r="8" fill="#FF5D55"/>
+      </svg>
+      <span class="cname">Memory</span>
+      <span class="clevel">Find the matching pairs!</span>
+    </button>
     <button class="minicard" data-mini="glow">
       <svg class="cicon" viewBox="0 0 100 100" aria-hidden="true">
         <rect x="14" y="14" width="34" height="34" rx="8" fill="#EA4E43"/>
@@ -329,6 +343,18 @@
       <circle cx="60" cy="52" r="2" fill="#3a3f45"/>
     </svg>
     <span class="trn-toylabel">toybox</span>
+  </div>
+</main>
+
+<main id="view-memory" class="view hidden">
+  <button id="btn-mem-home" class="btn-round btn-exit" aria-label="Back to games">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.8 11h2.4v9h5.2v-6h3.2v6h5.2v-9h2.4z"/></svg>
+  </button>
+  <button id="mem-again" class="fb-btn fb-reset" aria-label="Deal a new board">↺</button>
+  <div class="mem-wrap">
+    <p id="mem-hint" class="mem-hint">Look at the cards!</p>
+    <div id="mem-board" class="mem-board" aria-label="Memory cards"></div>
+    <div id="mem-pile" class="mem-pile" aria-label="Pairs you found"></div>
   </div>
 </main>
 

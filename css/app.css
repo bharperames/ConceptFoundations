@@ -441,7 +441,7 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 /* reset lives alone in the top-right corner — out of the picker row so a
    streak of drop-taps can't accidentally clear the field */
 .fb-reset{background:#8AA0B4;font-size:30px;color:#fff}
-#stk-reset,#gr-reset,#gs-reset,#trn-reset{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:30}
+#stk-reset,#gr-reset,#gs-reset,#trn-reset,#mem-again{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:30}
 
 /* ── Train Set mini-game: wooden railway on the playroom floor ── */
 #view-train{overflow:hidden;touch-action:none;background:
@@ -885,6 +885,82 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
 .btn-speaker.talking{animation:talk .8s ease infinite}
 @keyframes talk{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 #prompt-text{font-size:clamp(20px,3.2vw,28px);font-weight:800;letter-spacing:-.2px}
+
+/* ═══════════════ Memory ═══════════════
+   A 4×6 board — six across in landscape, four in portrait, twenty-four either
+   way. The board sizes itself off the shorter axis so a card is always a square
+   a small finger can hit, and the pile of found pairs keeps its own strip at the
+   bottom whether it is empty or full. */
+#view-memory{background:linear-gradient(180deg,var(--sky-1),var(--sky-2));overflow:hidden;touch-action:manipulation}
+.mem-wrap{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  gap:1.2vmin;padding:max(56px,env(safe-area-inset-top)) 2.5vmin 1.5vmin;
+}
+.mem-hint{
+  margin:0;font-family:var(--round);font-weight:800;color:var(--ink-soft);
+  font-size:clamp(15px,2.2vmin,22px);flex:none;
+}
+.mem-board{
+  flex:1;min-height:0;display:grid;gap:1.1vmin;
+  grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(4,1fr);
+  aspect-ratio:6/4;max-width:96vw;max-height:100%;
+}
+@media (orientation:portrait){
+  .mem-board{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(6,1fr);aspect-ratio:4/6}
+}
+.mem-card{
+  border:none;background:none;padding:0;perspective:900px;cursor:pointer;
+  animation:memdeal .34s cubic-bezier(.2,1.4,.4,1) both;
+}
+@keyframes memdeal{from{transform:translateY(-14%) scale(.6);opacity:0}to{transform:none;opacity:1}}
+.mem-inner{
+  position:relative;display:block;width:100%;height:100%;
+  transform-style:preserve-3d;transition:transform .42s cubic-bezier(.4,.05,.25,1);
+}
+/* face DOWN is the resting state: the board spends most of its life that way */
+.mem-card .mem-inner{transform:rotateY(180deg)}
+.mem-card.mem-up .mem-inner{transform:rotateY(0)}
+.mem-face{
+  position:absolute;inset:0;backface-visibility:hidden;border-radius:1.6vmin;
+  overflow:hidden;box-shadow:0 .5vmin 1.4vmin rgba(40,70,105,.22);
+  display:flex;align-items:center;justify-content:center;background:var(--card);
+}
+.mem-front img{width:100%;height:100%;object-fit:contain;padding:6%;pointer-events:none}
+.mem-back{transform:rotateY(180deg);background:#4C86D8}
+.mem-back svg{width:100%;height:100%;display:block}
+.mem-card:active .mem-inner{transform:scale(.94) rotateY(180deg)}
+.mem-card.mem-up:active .mem-inner{transform:scale(.94)}
+
+/* a found pair: a beat of celebration, then it leaves the board */
+.mem-card.mem-won .mem-face{box-shadow:0 0 0 .5vmin var(--grass), 0 .6vmin 1.8vmin rgba(51,192,106,.5)}
+.mem-card.mem-won{animation:memwon .5s ease}
+@keyframes memwon{0%,100%{transform:scale(1)}45%{transform:scale(1.11)}}
+.mem-card.mem-gone{
+  opacity:0;transform:translateY(28vmin) scale(.35) rotate(6deg);
+  transition:transform .5s cubic-bezier(.5,0,.75,.2), opacity .5s ease;
+  pointer-events:none;
+}
+/* help: the partner glows, gently at first. --hint carries how urgent it is */
+.mem-card.mem-hintcard .mem-back{
+  box-shadow:0 0 0 calc(var(--hint,.5) * .5vmin) #FFD34D,
+             0 0 calc(var(--hint,.5) * 3vmin) rgba(255,200,60,calc(var(--hint,.5) * .9));
+}
+.mem-card.mem-hintcard{animation:memhint 1.5s ease-in-out infinite}
+@keyframes memhint{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+.mem-pile{
+  flex:none;height:9vmin;min-height:44px;width:100%;max-width:96vw;
+  display:flex;flex-wrap:wrap;align-content:flex-start;justify-content:center;gap:.5vmin;
+}
+.mem-chip{
+  width:7vmin;height:7vmin;min-width:32px;min-height:32px;
+  border-radius:1vmin;background:var(--card);transform:rotate(var(--tilt,0deg));
+  box-shadow:0 .2vmin .6vmin rgba(40,70,105,.2);
+  animation:memchip .42s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes memchip{from{transform:translateY(-40%) scale(.4);opacity:0}
+  to{transform:rotate(var(--tilt,0deg));opacity:1}}
+.mem-chip img{width:100%;height:100%;object-fit:contain;padding:8%;display:block}
 
 /* ═══════════════ Closed captions ═══════════════ */
 .cc-bar{

@@ -324,6 +324,77 @@ test('long-press opens the level picker; a card starts that level', async ({ pag
   expect(await page.evaluate(() => CF.Engine.level.id)).toBe('0.3');
 });
 
+/* Memory deals face UP: the board starts as something the child watched, not
+   as twenty-four identical backs. */
+test('memory: 24 cards deal face up, then turn down together', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => CF.MemoryGame.start());
+  await expect(page.locator('#view-memory')).toBeVisible();
+  await expect(page.locator('.mem-card')).toHaveCount(24);
+  await expect(page.locator('.mem-card.mem-up')).toHaveCount(24);   // preview
+  const names = await page.evaluate(() => [...document.querySelectorAll('.mem-card')].map(c => c.dataset.name));
+  const counts = {};
+  for (const n of names) counts[n] = (counts[n] || 0) + 1;
+  expect(Object.keys(counts).length).toBe(12);
+  expect(Object.values(counts).every(v => v === 2)).toBe(true);
+  await page.waitForFunction(() => CF.MemoryGame.running && !CF.MemoryGame.lock, null, { timeout: 15000 });
+  await expect(page.locator('.mem-card.mem-up')).toHaveCount(0);
+});
+
+test('memory: a pair leaves the board for the pile; a mismatch turns back over', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => CF.MemoryGame.start());
+  await page.waitForFunction(() => CF.MemoryGame.running && !CF.MemoryGame.lock, null, { timeout: 15000 });
+  const names = await page.evaluate(() => [...document.querySelectorAll('.mem-card')].map(c => c.dataset.name));
+  const pair = [];
+  const other = [];
+  names.forEach((n, i) => { if (n === names[0]) pair.push(i); else if (!other.length) other.push(i); });
+  // a mismatch: both turn back, nothing joins the pile
+  await page.locator(`.mem-card[data-i="${pair[0]}"]`).click();
+  await page.locator(`.mem-card[data-i="${other[0]}"]`).click();
+  await page.waitForFunction(() => !CF.MemoryGame.lock, null, { timeout: 6000 });
+  await expect(page.locator('.mem-card.mem-up')).toHaveCount(0);
+  await expect(page.locator('.mem-chip')).toHaveCount(0);
+  expect(await page.evaluate(() => CF.MemoryGame.misses)).toBe(1);
+  // a match: both leave, one chip lands on the pile
+  await page.locator(`.mem-card[data-i="${pair[0]}"]`).click();
+  await page.locator(`.mem-card[data-i="${pair[1]}"]`).click();
+  await page.waitForFunction(() => CF.MemoryGame.found === 1, null, { timeout: 6000 });
+  await expect(page.locator('.mem-chip')).toHaveCount(1);
+  await expect(page.locator('.mem-card.mem-gone')).toHaveCount(2);
+  expect(await page.evaluate(() => CF.MemoryGame.misses)).toBe(0);   // a match resets help
+});
+
+/* Help arrives on its own, but only once he is actually stuck — and it points
+   at the real partner. */
+test('memory: the partner glows after repeated misses, not before', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => CF.MemoryGame.start());
+  await page.waitForFunction(() => CF.MemoryGame.running && !CF.MemoryGame.lock, null, { timeout: 15000 });
+  const names = await page.evaluate(() => [...document.querySelectorAll('.mem-card')].map(c => c.dataset.name));
+  // first turn, no misses yet: nothing should glow
+  await page.locator('.mem-card[data-i="0"]').click();
+  await page.waitForTimeout(3000);
+  await expect(page.locator('.mem-card.mem-hintcard')).toHaveCount(0);
+  await page.locator('.mem-card[data-i="0"]').click();     // put it back
+  // now miss twice
+  const wrongs = [];
+  for (let i = 0; i < names.length && wrongs.length < 2; i++)
+    for (let j = i + 1; j < names.length; j++) if (names[i] !== names[j]){ wrongs.push([i, j]); break; }
+  for (const [i, j] of wrongs){
+    await page.locator(`.mem-card[data-i="${i}"]`).click();
+    await page.locator(`.mem-card[data-i="${j}"]`).click();
+    await page.waitForFunction(() => !CF.MemoryGame.lock, null, { timeout: 6000 });
+  }
+  await page.locator('.mem-card[data-i="0"]').click();
+  await page.waitForFunction(() => document.querySelectorAll('.mem-card.mem-hintcard').length === 1,
+    null, { timeout: 6000 });
+  expect(await page.evaluate(() => {
+    const h = document.querySelector('.mem-card.mem-hintcard');
+    return h.dataset.name === CF.MemoryGame.first.dataset.name && h !== CF.MemoryGame.first;
+  })).toBe(true);
+});
+
 test('simulator generates sessions and the dashboard renders', async ({ page }) => {
   await boot(page);
   const res = await page.evaluate(() => {
