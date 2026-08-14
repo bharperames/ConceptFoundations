@@ -167,9 +167,11 @@ refraction) drift down and speed up over time; tap to pop them (droplet burst
 **Picture Puzzle** is a 3x3 frame of rotating tiles — each tile is a
 triangular prism (three square faces via CSS 3D) showing the same cell from
 three complete scenes; tap to tumble a tile 120° to the next scene, and match
-all nine to one scene to build the picture. **Memory** is a 4×6 board of the
-same picture cards used for hide-and-seek — twelve pairs, six across in
-landscape and four in portrait. Three things keep concentration winnable for a
+all nine to one scene to build the picture. **Memory** is a board of the same
+picture cards used for hide-and-seek, in two sizes a grown-up picks between:
+**3×4** (six pairs, the one to start a two-year-old on) and **4×6** (twelve).
+The long edge takes the larger count, so the same board reads 4×3 in landscape
+and 3×4 in portrait; the choice sticks between sessions. Three things keep concentration winnable for a
 two-year-old, who would otherwise simply lose it: every card is dealt **face
 up** and stays that way for a few seconds before the board turns over together,
 so the game starts from something he watched rather than from twenty-four

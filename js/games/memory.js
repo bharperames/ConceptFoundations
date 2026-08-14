@@ -22,13 +22,22 @@ import { Audio2 } from '../audio.js';
 import { $, shuffle } from '../core.js';
 import { Celebrate, FX } from '../fx.js';
 import { showView } from '../router.js';
+import { Store } from '../store.js';
 
 const CARDS = ['airplane','apple','ball','banana','bear','butterfly','cake','cap','cat',
   'crayons','dog','doll','dragon','duck','elephant','fish','flower','frog','horse','hotdog',
   'jackbox','keys','ladybug','parrot','pizza','present','rabbit','rocket','shoe','skateboard',
   'snail','squirrel','sun','train','tricycle','watch'];
 
-const PAIRS = 12;              // 24 cards — the 4×6 board
+/* Two boards. The small one is the one to start a two-year-old on; twelve
+   pairs is a lot of remembering. `wide` is the count along the LONG edge, so
+   the same board reads 4×3 in landscape and 3×4 in portrait. The choice is a
+   grown-up's, and it sticks. */
+const BOARDS = {
+  small: { pairs: 6,  wide: 4, short: 3, label: '3 × 4' },
+  big:   { pairs: 12, wide: 6, short: 4, label: '4 × 6' },
+};
+const DEFAULT_BOARD = 'small';
 const PREVIEW_MS = 4200;       // long enough to look, short enough to stay a game
 const FLIP_BACK_MS = 1250;     // a miss stays visible long enough to be studied
 /* Misses since the last match before help starts, and how long the partner
@@ -49,7 +58,26 @@ const BACK = `<svg viewBox="0 0 100 100" aria-hidden="true">
 
 const MemoryGame = {
   running: false, cards: [], first: null, lock: false,
-  misses: 0, found: 0, hintTimer: 0,
+  misses: 0, found: 0, hintTimer: 0, cols: 6, pairs: 12,
+
+  board(){
+    const want = Store.settings().memBoard;
+    return BOARDS[want] ? want : DEFAULT_BOARD;
+  },
+  setBoard(key){
+    if (!BOARDS[key]) return;
+    const s = Store.settings(); s.memBoard = key; Store.saveSettings(s);
+    this.syncButtons();
+    this.start();
+  },
+  syncButtons(){
+    const now = this.board();
+    for (const b of document.querySelectorAll('.mem-sizebtn')){
+      const on = b.dataset.size === now;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  },
 
   start(){
     Audio2.unlock();
@@ -58,11 +86,16 @@ const MemoryGame = {
     this.running = true;
     this.first = null; this.lock = true; this.misses = 0; this.found = 0;
 
-    const picks = shuffle(rnd, CARDS.slice()).slice(0, PAIRS);
+    const cfg = BOARDS[this.board()];
+    this.pairs = cfg.pairs; this.cols = cfg.wide;
+    this.syncButtons();
+
+    const picks = shuffle(rnd, CARDS.slice()).slice(0, cfg.pairs);
     const deck = shuffle(rnd, picks.concat(picks));
     const board = $('#mem-board');
     board.innerHTML = '';
-    board.classList.remove('mem-hidden');
+    board.style.setProperty('--wide', cfg.wide);
+    board.style.setProperty('--short', cfg.short);
     this.cards = deck.map((name, i) => {
       const el = document.createElement('button');
       el.className = 'mem-card mem-up';
@@ -89,7 +122,7 @@ const MemoryGame = {
   turnDown(){
     if (!this.running) return;
     this.cards.forEach((el, i) => {
-      el.style.transitionDelay = (i % 6) * 22 + Math.floor(i / 6) * 34 + 'ms';
+      el.style.transitionDelay = (i % this.cols) * 22 + Math.floor(i / this.cols) * 34 + 'ms';
       el.classList.remove('mem-up');
     });
     // Open for taps well before the wave finishes. The board looks ready the
@@ -157,7 +190,7 @@ const MemoryGame = {
       pile.appendChild(chip);
       this.found++;
       this.lock = false;
-      if (this.found >= PAIRS) this.win();
+      if (this.found >= this.pairs) this.win();
       else if (this.found === 1 || this.found % 4 === 0) Audio2.speak('You found a pair!');
     }, 640);
   },

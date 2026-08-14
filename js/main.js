@@ -121,6 +121,8 @@ function init(){
   $('#btn-trn-home').addEventListener('click', () => { TrainGame.stop(); showView('home'); renderHome(); });
   $('#btn-mem-home').addEventListener('click', () => { MemoryGame.stop(); showView('home'); renderHome(); });
   $('#mem-again').addEventListener('click', () => MemoryGame.start());
+  document.querySelectorAll('.mem-sizebtn').forEach(b =>
+    b.addEventListener('click', () => { Audio2.unlock(); MemoryGame.setBoard(b.dataset.size); }));
   $('#mem-board').addEventListener('click', e => {
     const c = e.target.closest('.mem-card');
     if (c) MemoryGame.tap(c);

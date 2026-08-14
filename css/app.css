@@ -900,14 +900,32 @@ button:focus-visible{outline:3px solid var(--sea);outline-offset:3px;border-radi
   margin:0;font-family:var(--round);font-weight:800;color:var(--ink-soft);
   font-size:clamp(15px,2.2vmin,22px);flex:none;
 }
+/* --wide is the count along the LONG edge, so one board definition reads 4×3
+   in landscape and 3×4 in portrait without a second set of numbers. */
 .mem-board{
   flex:1;min-height:0;display:grid;gap:1.1vmin;
-  grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(4,1fr);
-  aspect-ratio:6/4;max-width:96vw;max-height:100%;
+  grid-template-columns:repeat(var(--wide,6),1fr);
+  grid-template-rows:repeat(var(--short,4),1fr);
+  aspect-ratio:var(--wide,6)/var(--short,4);
+  max-width:96vw;max-height:100%;
 }
 @media (orientation:portrait){
-  .mem-board{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(6,1fr);aspect-ratio:4/6}
+  .mem-board{
+    grid-template-columns:repeat(var(--short,4),1fr);
+    grid-template-rows:repeat(var(--wide,6),1fr);
+    aspect-ratio:var(--short,4)/var(--wide,6);
+  }
 }
+.mem-top{display:flex;align-items:center;gap:2.5vmin;flex:none;flex-wrap:wrap;justify-content:center}
+.mem-size{display:flex;gap:6px}
+.mem-sizebtn{
+  display:flex;align-items:center;gap:6px;border:none;border-radius:11px;
+  padding:6px 11px;font-family:var(--round);font-weight:800;font-size:13px;
+  background:var(--btn-bg);color:var(--ink-soft);opacity:.6;cursor:pointer;
+  box-shadow:inset 0 0 0 1.5px var(--line);
+}
+.mem-sizebtn.on{opacity:1;background:var(--sea);color:#fff;box-shadow:0 2px 8px rgba(61,139,255,.35)}
+.mem-sizebtn:active{transform:scale(.94)}
 .mem-card{
   border:none;background:none;padding:0;perspective:900px;cursor:pointer;
   animation:memdeal .34s cubic-bezier(.2,1.4,.4,1) both;

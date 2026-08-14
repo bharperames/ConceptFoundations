@@ -326,9 +326,32 @@ test('long-press opens the level picker; a card starts that level', async ({ pag
 
 /* Memory deals face UP: the board starts as something the child watched, not
    as twenty-four identical backs. */
-test('memory: 24 cards deal face up, then turn down together', async ({ page }) => {
+/* Two boards, and the choice is a grown-up's — so it has to stick. */
+test('memory: the size switch changes the board and is remembered', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => CF.MemoryGame.start());
+  const shape = () => page.evaluate(() => {
+    const b = document.querySelector('#mem-board'), cs = getComputedStyle(b);
+    return { cards: document.querySelectorAll('.mem-card').length,
+             cols: cs.gridTemplateColumns.split(' ').length,
+             rows: cs.gridTemplateRows.split(' ').length };
+  });
+  expect(await shape()).toEqual({ cards: 12, cols: 4, rows: 3 });   // gentle by default
+  await page.locator('.mem-sizebtn[data-size="big"]').click();
+  await page.waitForFunction(() => document.querySelectorAll('.mem-card').length === 24, null, { timeout: 6000 });
+  expect(await shape()).toEqual({ cards: 24, cols: 6, rows: 4 });
+  await expect(page.locator('.mem-sizebtn[data-size="big"]')).toHaveAttribute('aria-pressed', 'true');
+  // survives a reload
+  await page.reload();
+  await page.waitForFunction(() => window.CF && CF.Engine);
+  await page.evaluate(() => CF.MemoryGame.start());
+  expect(await page.evaluate(() => CF.MemoryGame.board())).toBe('big');
+  expect((await shape()).cards).toBe(24);
+});
+
+test('memory: 24 cards deal face up, then turn down together', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => CF.MemoryGame.setBoard('big'));
   await expect(page.locator('#view-memory')).toBeVisible();
   await expect(page.locator('.mem-card')).toHaveCount(24);
   await expect(page.locator('.mem-card.mem-up')).toHaveCount(24);   // preview
@@ -343,7 +366,7 @@ test('memory: 24 cards deal face up, then turn down together', async ({ page }) 
 
 test('memory: a pair leaves the board for the pile; a mismatch turns back over', async ({ page }) => {
   await boot(page);
-  await page.evaluate(() => CF.MemoryGame.start());
+  await page.evaluate(() => CF.MemoryGame.setBoard('big'));
   await page.waitForFunction(() => CF.MemoryGame.running && !CF.MemoryGame.lock, null, { timeout: 15000 });
   const names = await page.evaluate(() => [...document.querySelectorAll('.mem-card')].map(c => c.dataset.name));
   const pair = [];
@@ -369,7 +392,7 @@ test('memory: a pair leaves the board for the pile; a mismatch turns back over',
    at the real partner. */
 test('memory: the partner glows after repeated misses, not before', async ({ page }) => {
   await boot(page);
-  await page.evaluate(() => CF.MemoryGame.start());
+  await page.evaluate(() => CF.MemoryGame.setBoard('big'));
   await page.waitForFunction(() => CF.MemoryGame.running && !CF.MemoryGame.lock, null, { timeout: 15000 });
   const names = await page.evaluate(() => [...document.querySelectorAll('.mem-card')].map(c => c.dataset.name));
   // first turn, no misses yet: nothing should glow

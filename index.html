@@ -352,7 +352,26 @@
   </button>
   <button id="mem-again" class="fb-btn fb-reset" aria-label="Deal a new board">↺</button>
   <div class="mem-wrap">
-    <p id="mem-hint" class="mem-hint">Look at the cards!</p>
+    <div class="mem-top">
+      <p id="mem-hint" class="mem-hint">Look at the cards!</p>
+      <div class="mem-size" role="group" aria-label="How many cards">
+        <button class="mem-sizebtn" data-size="small" aria-pressed="true">
+          <svg viewBox="0 0 24 18" width="24" height="18" aria-hidden="true">
+            <g fill="currentColor"><rect x="1" y="1" width="4.6" height="4.6" rx="1.2"/><rect x="7.4" y="1" width="4.6" height="4.6" rx="1.2"/><rect x="13.8" y="1" width="4.6" height="4.6" rx="1.2"/>
+            <rect x="1" y="7" width="4.6" height="4.6" rx="1.2"/><rect x="7.4" y="7" width="4.6" height="4.6" rx="1.2"/><rect x="13.8" y="7" width="4.6" height="4.6" rx="1.2"/>
+            <rect x="1" y="13" width="4.6" height="4.6" rx="1.2"/><rect x="7.4" y="13" width="4.6" height="4.6" rx="1.2"/><rect x="13.8" y="13" width="4.6" height="4.6" rx="1.2"/></g>
+          </svg><span>3 × 4</span>
+        </button>
+        <button class="mem-sizebtn" data-size="big" aria-pressed="false">
+          <svg viewBox="0 0 24 18" width="24" height="18" aria-hidden="true">
+            <g fill="currentColor"><rect x="1" y="1" width="3.2" height="3.2" rx=".9"/><rect x="5.6" y="1" width="3.2" height="3.2" rx=".9"/><rect x="10.2" y="1" width="3.2" height="3.2" rx=".9"/><rect x="14.8" y="1" width="3.2" height="3.2" rx=".9"/>
+            <rect x="1" y="5.4" width="3.2" height="3.2" rx=".9"/><rect x="5.6" y="5.4" width="3.2" height="3.2" rx=".9"/><rect x="10.2" y="5.4" width="3.2" height="3.2" rx=".9"/><rect x="14.8" y="5.4" width="3.2" height="3.2" rx=".9"/>
+            <rect x="1" y="9.8" width="3.2" height="3.2" rx=".9"/><rect x="5.6" y="9.8" width="3.2" height="3.2" rx=".9"/><rect x="10.2" y="9.8" width="3.2" height="3.2" rx=".9"/><rect x="14.8" y="9.8" width="3.2" height="3.2" rx=".9"/>
+            <rect x="1" y="14.2" width="3.2" height="3.2" rx=".9"/><rect x="5.6" y="14.2" width="3.2" height="3.2" rx=".9"/><rect x="10.2" y="14.2" width="3.2" height="3.2" rx=".9"/><rect x="14.8" y="14.2" width="3.2" height="3.2" rx=".9"/></g>
+          </svg><span>4 × 6</span>
+        </button>
+      </div>
+    </div>
     <div id="mem-board" class="mem-board" aria-label="Memory cards"></div>
     <div id="mem-pile" class="mem-pile" aria-label="Pairs you found"></div>
   </div>
